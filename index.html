@@ -138,6 +138,47 @@ td.trunc{max-width:260px}
 .inativas{border-color:var(--bad)}
 .inativas tbody tr,tr.inativa{color:var(--bad)}
 .inativas tbody tr td{background:var(--bad-soft)}
+/* chips coloridos por situação */
+.chip.st-ALG{border-color:var(--info);color:var(--info)} .chip.st-ALG.on{background:var(--info);color:var(--surface)}
+.chip.st-LVR{border-color:var(--ok);color:var(--ok)} .chip.st-LVR.on{background:var(--ok);color:var(--surface)}
+.chip.st-OCP{border-color:var(--warn);color:var(--warn)} .chip.st-OCP.on{background:var(--warn);color:var(--surface)}
+.chip.st-INTV{border-color:var(--bad);color:var(--bad)} .chip.st-INTV.on{background:var(--bad);color:var(--surface)}
+.prev{color:var(--ok);font-style:italic}
+/* grade estilo Excel */
+table.grade th{user-select:none;cursor:grab;padding-right:4px}
+table.grade td{white-space:nowrap}
+table.grade td.trunc{max-width:300px}
+table.grade th .gh{cursor:pointer}
+table.grade th.drop{box-shadow:inset 3px 0 0 var(--brand-red)}
+.gf{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 4px;margin-left:2px;border-radius:4px;font-size:12px}
+.gf:hover{background:var(--line)} .gf.on{background:var(--accent);color:var(--accent-ink)}
+.gpop{position:absolute;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.gp-h{font-weight:700;color:var(--fg)}
+.gp-sort{display:flex;gap:6px;flex-wrap:wrap}
+.gpop input[type=search]{width:100%}
+.gp-lista{max-height:260px;overflow-y:auto;border:1px solid var(--line-2);border-radius:6px;padding:4px}
+.gp-lista label,.gp-tudo{display:flex;align-items:center;gap:6px;padding:3px 4px;cursor:pointer}
+.gp-lista label:hover{background:var(--surface-2)}
+.gp-lista label span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-lista small{color:var(--muted);font-family:var(--font-mono)}
+.gp-cols{display:flex;flex-direction:column;max-height:340px;overflow-y:auto}
+.gp-cols>div{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px solid var(--line-2)}
+.gp-cols label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.gp-cols .btn.sm{padding:1px 7px}
+.gp-f{display:flex;gap:6px;justify-content:flex-end}
+/* itens de dívida */
+[data-item-add]{align-self:flex-start}
+.itens{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.item{display:grid;grid-template-columns:1fr 130px auto;gap:6px}
+.item input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 9px;min-width:0}
+/* barras horizontais */
+.hbars{display:flex;flex-direction:column;gap:6px}
+.hb{display:grid;grid-template-columns:minmax(120px,260px) 1fr auto;gap:10px;align-items:center;font-size:13px}
+.hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{height:14px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.hb-t i{display:block;height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.hb-v{font-family:var(--font-mono);font-size:12.5px;white-space:nowrap;color:var(--ink)}
+@media (max-width:600px){.hb{grid-template-columns:1fr auto}.hb-t{grid-column:1/-1;order:3}}
 .mais{display:flex;justify-content:center;padding:10px}
 
 /* formulário / modal */
@@ -257,8 +298,10 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Painel</a>
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg>Aluguéis do mês</a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inadimplência</a>
+      <a href="#devedores" data-p="devedores" data-nao="recepcao"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2M16 14l5 5M21 14l-5 5"/></svg>Devedores</a>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Caixa e lançamentos</a>
       <a href="#dre" data-p="dre" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Resultado (DRE)</a>
+      <a href="#indicadores" data-p="indicadores" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Indicadores</a>
       <div class="nav-h">Cadastros</div>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>Imóveis (mapa)</a>
       <a href="#contratos" data-p="contratos" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Contratos</a>

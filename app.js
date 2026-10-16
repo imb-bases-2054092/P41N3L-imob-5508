@@ -92,7 +92,7 @@ const GRUPOS = {
   receita: "Receita", imposto: "Imposto", custo: "Custo", despesa: "Despesa", retirada: "Retirada dos sócios",
   terceiros_entrada: "Proprietários (entrada)", terceiros_saida: "Proprietários (saída)", transferencia: "Transferência"
 };
-const STATUS_IMV = { ALG: ["Alugado", "ok"], LVR: ["Livre", "warn"], OCP: ["Ocupado", "info"], INTV: ["Inativo", "idle"] };
+const STATUS_IMV = { ALG: ["Alugado", "info"], LVR: ["Livre", "ok"], OCP: ["Ocupado", "warn"], INTV: ["Inativo", "bad"] };
 const catPor = id => S.categorias.find(c => c.id === id) || {};
 const contaPor = id => S.contas.find(c => c.id === id) || {};
 
@@ -206,8 +206,8 @@ aplicarTema();
 /* ---------------- app / rotas ---------------- */
 const PAGES = {};
 const TITULOS = { painel: "Painel", alugueis: "Aluguéis do mês", atrasados: "Inadimplência", caixa: "Caixa e lançamentos",
-  dre: "Resultado (DRE)", imoveis: "Imóveis (mapa do aluguel)", contratos: "Contratos", backup: "Backup", config: "Configurações" };
-const SEM_MES = ["atrasados", "contratos", "backup", "config"];
+  dre: "Resultado (DRE)", indicadores: "Indicadores", devedores: "Devedores (ex-locatários)", imoveis: "Imóveis (mapa do aluguel)", contratos: "Contratos", backup: "Backup", config: "Configurações" };
+const SEM_MES = ["atrasados", "contratos", "backup", "config", "devedores", "indicadores"];
 
 function montarApp() {
   $("#brand-name").textContent = CFG.NOME_EMPRESA || "Financeiro";
@@ -346,6 +346,7 @@ function baixarArquivo(nome, conteudo, tipo) {
    ===================================================================== */
 function devido(c) { return r2(+c.valor + +(c.acrescimos || 0) - +(c.descontos || 0)); }
 function stCob(c) {
+  if (c.devedor_id && !c.data_pagamento) return "devedor";
   if (c.data_pagamento) {
     if (+c.valor_pago < devido(c) - 0.005) return "parcial";
     if (precisaRepasse(c)) return "pago";
@@ -354,7 +355,7 @@ function stCob(c) {
   return c.vencimento < hoje() ? "atrasado" : "aberto";
 }
 function precisaRepasse(c) { return c.data_pagamento && !c.repasse_data && r2(+c.valor_pago - +(c.taxa_valor || 0)) > 0; }
-const ST_COB = { aberto: ["A vencer", "idle"], atrasado: ["Atrasado", "bad"], parcial: ["Pago parcial", "warn"], pago: ["A repassar", "info"], quitado: ["Concluído", "ok"] };
+const ST_COB = { aberto: ["A vencer", "idle"], atrasado: ["Atrasado", "bad"], parcial: ["Pago parcial", "warn"], pago: ["A repassar", "info"], quitado: ["Concluído", "ok"], devedor: ["Em devedores", "idle"] };
 function tagCob(c) { const s = stCob(c); const [t, k] = ST_COB[s]; return `<span class="tag ${k}">${t}</span>`; }
 
 /* =====================================================================
@@ -365,14 +366,15 @@ PAGES.painel = async pg => {
   const tarefas = [
     rpc("resumo_lancamentos", { p_ini: ini, p_fim: fim }),
     fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("id"), "id,valor,acrescimos,descontos,valor_pago,data_pagamento,vencimento,taxa_valor,repasse_data"),
-    fetchAll("cobrancas", b => b.is("data_pagamento", null).lt("vencimento", hoje()).order("id"), "id,imovel_id,valor,acrescimos,descontos"),
+    fetchAll("cobrancas", b => b.is("data_pagamento", null).is("devedor_id", null).lt("vencimento", hoje()).order("id"), "id,imovel_id,valor,acrescimos,descontos"),
     rpc("saldos_contas", { p_ate: fim < hoje() ? fim : hoje() }),
     q(sb.from("reajustes").select("id,competencia,valor_novo,imovel_id").is("aplicado_em", null).lte("competencia", S.mes)),
     q(sb.from("config").select("chave,valor")),
     S.papel === "recepcao" ? Promise.resolve([]) :
       q(sb.from("contratos").select("codigo,endereco,locatario,termino").eq("situacao", "ATIVO").gte("termino", hoje()).lte("termino", iso(new Date(Date.now() + 60 * 86400000))).order("termino"))
   ];
-  const [res, cobMes, atras, saldosTodos, reaj, cfg, vencendo] = await Promise.all(tarefas);
+  tarefas.push(S.papel === "recepcao" ? Promise.resolve([]) : q(sb.from("devedores").select("valor_total,valor_pago").in("situacao", ["EM ABERTO", "ACORDO"])));
+  const [res, cobMes, atras, saldosTodos, reaj, cfg, vencendo, devs] = await Promise.all(tarefas);
   const saldos = soMinhasContas(saldosTodos);
 
   // DRE por mês (realizado)
@@ -394,7 +396,7 @@ PAGES.painel = async pg => {
   const repPendV = repPend.reduce((a, c) => a + +c.valor_pago - +(c.taxa_valor || 0), 0);
   const atrasV = atras.reduce((a, c) => a + devido(c), 0);
   const atrasImv = new Set(atras.map(c => c.imovel_id)).size;
-  const terceiros = saldos.reduce((a, s) => a + +s.terceiros, 0);
+  const terceiros = saldos.reduce((a, s) => a + +s.terceiros, 0), socio = saldos.reduce((a, s) => a + +(s.socio || 0), 0);
   const cfgMap = Object.fromEntries(cfg.map(c => [c.chave, c.valor]));
 
   const cont = { ALG: 0, LVR: 0, OCP: 0, INTV: 0 }; let potencial = 0;
@@ -408,6 +410,7 @@ PAGES.painel = async pg => {
   if (reaj.length) alertas.push(["warn", `${reaj.length} reajuste(s) programado(s) até ${mesTxt(S.mes)} ainda não aplicado(s).`, "#imoveis", "Ver imóveis"]);
   if (atras.length) alertas.push(["bad", `${atras.length} aluguel(éis) em atraso (${atrasImv} imóveis) somando ${brl(atrasV)}.`, "#atrasados", "Ver lista"]);
   if (repPend.length) alertas.push(["", `${repPend.length} repasse(s) a proprietários pendente(s) neste mês: ${brl(repPendV)}.`, "#alugueis", "Ver"]);
+  if (devs.length) alertas.push(["", `${devs.length} ex-locatário(s) devedor(es) com saldo de ${brl(devs.reduce((a, d) => a + +d.valor_total - +d.valor_pago, 0))}.`, "#devedores", "Ver devedores"]);
   if (vencendo.length) alertas.push(["", `${vencendo.length} contrato(s) terminam nos próximos 60 dias.`, "#contratos", "Ver"]);
 
   const fin = S.papel !== "recepcao";
@@ -436,7 +439,8 @@ PAGES.painel = async pg => {
         <div class="lst">
           ${saldos.map(s => `<div><span>${esc(s.nome)}</span><b class="num ${+s.saldo < 0 ? "neg" : ""}">${brl(s.saldo)}</b></div>`).join("") || `<div class="muted">Nenhuma conta cadastrada.</div>`}
           <div><span><b>Total</b></span><b class="num">${brl(saldos.reduce((a, s) => a + +s.saldo, 0))}</b></div>
-          <div><span class="muted">Desse total, é dos proprietários</span><span class="num muted">${brl(terceiros)}</span></div>
+          <div><span class="muted">Desse total, é dos proprietários</span><span class="num muted">${brl(terceiros - socio)}</span></div>
+          ${socio ? `<div><span class="muted">… e particular do sócio</span><span class="num muted">${brl(socio)}</span></div>` : ""}
           <div><span class="muted">Disponível da imobiliária</span><span class="num muted">${brl(saldos.reduce((a, s) => a + +s.saldo, 0) - terceiros)}</span></div>
         </div>
       </div>
@@ -503,7 +507,7 @@ PAGES.alugueis = async pg => {
   COB = await fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("vencimento").order("id"));
   const reajPend = pode.editar() ? await q(sb.from("reajustes").select("id").is("aplicado_em", null).lte("competencia", S.mes)) : [];
   const f = S.f.cob || "todos", busca = S.f.cobBusca || "";
-  const conta = { todos: COB.length, aberto: 0, atrasado: 0, pago: 0, quitado: 0, parcial: 0 };
+  const conta = { todos: COB.length, aberto: 0, atrasado: 0, pago: 0, quitado: 0, parcial: 0, devedor: 0 };
   COB.forEach(c => conta[stCob(c)]++);
   let lista = COB.filter(c => f === "todos" || stCob(c) === f || (f === "aberto" && stCob(c) === "atrasado"));
   if (busca) { const b = norm(busca); lista = lista.filter(c => norm((S.imovelPor[c.imovel_id] || {}).endereco + " " + c.locatario + " " + c.locador).includes(b)); }
@@ -538,7 +542,7 @@ function linhaCob(c) {
   const im = S.imovelPor[c.imovel_id] || {}, s = stCob(c);
   const atraso = s === "atrasado" ? ` <span class="sub neg">${diasEntre(c.vencimento, hoje())} dias</span>` : "";
   let acts = "";
-  if (!c.data_pagamento && pode.receber()) acts += `<button class="btn sm pri" data-act="receber" data-id="${c.id}">Receber</button> `;
+  if (!c.data_pagamento && !c.devedor_id && pode.receber()) acts += `<button class="btn sm pri" data-act="receber" data-id="${c.id}">Receber</button> `;
   if (precisaRepasse(c) && pode.editar()) acts += `<button class="btn sm" data-act="repassar" data-id="${c.id}">Repassar</button> `;
   acts += `<button class="btn sm" data-act="cob-det" data-id="${c.id}" aria-label="Detalhes">⋯</button>`;
   return `<tr>
@@ -710,8 +714,9 @@ ACT["xls-cob"] = () => baixarXLSX(`alugueis-${S.mes.slice(0, 7)}.xlsx`, {
    ===================================================================== */
 let INAD = [];
 PAGES.atrasados = async pg => {
-  const [cobs, ctts] = await Promise.all([
-    fetchAll("cobrancas", b => b.is("data_pagamento", null).lt("vencimento", hoje()).order("vencimento").order("id")),
+  const [cobs, devs, ctts] = await Promise.all([
+    fetchAll("cobrancas", b => b.is("data_pagamento", null).is("devedor_id", null).lt("vencimento", hoje()).order("vencimento").order("id")),
+    S.papel === "recepcao" ? [] : q(sb.from("devedores").select("valor_total,valor_pago").in("situacao", ["EM ABERTO", "ACORDO"])),
     S.papel === "recepcao" ? [] : q(sb.from("contratos").select("codigo,endereco,locatario,situacao,saldo_devedor,pendencias").or("situacao.eq.DÉBITO EM ABERTO,saldo_devedor.gt.0").order("codigo"))
   ]);
   const grupos = {};
@@ -726,6 +731,7 @@ PAGES.atrasados = async pg => {
   pg.innerHTML = `<div class="grid">
     <div class="kpis">${kpi("Total em atraso", `<span class="neg">${brl(total)}</span>`, `${cobs.length} aluguéis · ${INAD.length} imóveis`, true)}
       ${Object.entries(faixa).map(([k, v]) => kpi(k, brl(v), "")).join("")}</div>
+    ${devs.length ? `<div class="alert bad"><span>Ex-locatários que saíram devendo: <b>${devs.length}</b>, saldo de <b>${brl(devs.reduce((a, d) => a + +d.valor_total - +d.valor_pago, 0))}</b>.</span><a class="btn sm" href="#devedores">Ver devedores</a></div>` : ""}
     <div class="filters"><span class="hint">Aluguéis vencidos sem recebimento, de todos os meses. Para dar baixa, abra o mês em "Aluguéis do mês".</span><span class="spacer"></span><button class="btn" data-act="xls-inad">Excel</button></div>
     <div class="tw"><table><thead><tr><th>Imóvel</th><th>Locatário</th><th>Locador</th><th>Meses em aberto</th><th>Desde</th><th class="num">Dias</th><th class="num">Total</th><th></th></tr></thead><tbody>
       ${INAD.map(x => `<tr><td class="trunc">${esc(x.imovel)}</td><td class="trunc">${esc(x.locatario)}</td><td class="trunc">${esc(x.locador)}</td><td>${x.meses.map(m => `<span class="tag bad">${m}</span>`).join(" ")}</td><td>${dt(x.desde)}</td><td class="num">${x.dias}</td><td class="num">${n2(x.total)}</td>
@@ -946,41 +952,252 @@ ACT["xls-dre"] = () => baixarXLSX(`dre-${S.mes.slice(0, 4)}.xlsx`, { DRE: DRE_LI
 ACT.imprimir = () => window.print();
 
 /* =====================================================================
+   GRADE ESTILO EXCEL (ordenar, filtrar por coluna, escolher e arrastar colunas)
+   ===================================================================== */
+const G = {};
+function grade(id, cols, linhas, opts) {
+  let g = G[id];
+  if (!g) {
+    let salvo = {};
+    try { salvo = JSON.parse(lsGet("grade." + id, "{}")) || {}; } catch (e) { salvo = {}; }
+    const todas = cols.map(c => c.k);
+    const ordem = (salvo.ordem || []).filter(k => todas.includes(k));
+    todas.forEach(k => { if (!ordem.includes(k)) ordem.push(k); });
+    g = G[id] = { ordem, ocultas: Array.isArray(salvo.ocultas) ? salvo.ocultas.filter(k => todas.includes(k)) : cols.filter(c => c.oculta).map(c => c.k),
+      sort: salvo.sort || (opts && opts.sort) || null, filtros: {}, lim: 300 };
+  }
+  g.cols = cols; g.linhas = linhas; g.opts = opts || {};
+  return g;
+}
+function gradeSalvar(id) { const g = G[id]; lsSet("grade." + id, JSON.stringify({ ordem: g.ordem, ocultas: g.ocultas, sort: g.sort })); }
+const gCol = (g, k) => g.cols.find(c => c.k === k);
+function gVal(c, r) { return c.v ? c.v(r) : r[c.k]; }
+function gTxt(c, r) {
+  if (c.f) return c.f(r);
+  const v = gVal(c, r);
+  if (v == null || v === "") return "";
+  if (c.tipo === "num") return c.int ? String(v) : n2(v);
+  if (c.tipo === "data") return dt(v);
+  return String(v).trim();
+}
+function gFiltrar(g, exceto) {
+  const ativos = Object.entries(g.filtros).filter(([k]) => k !== exceto);
+  if (!ativos.length) return g.linhas;
+  return g.linhas.filter(r => ativos.every(([k, set]) => set.has(gTxt(gCol(g, k), r))));
+}
+function gOrdenar(g, lista) {
+  if (!g.sort) return lista;
+  const c = gCol(g, g.sort.k); if (!c) return lista;
+  const dir = g.sort.dir === "desc" ? -1 : 1;
+  return lista.slice().sort((a, b) => {
+    const x = gVal(c, a), y = gVal(c, b);
+    const vx = x == null || x === "", vy = y == null || y === "";
+    if (vx || vy) return vx === vy ? 0 : vx ? 1 : -1;
+    if (c.tipo === "num") return (x - y) * dir;
+    return String(x).localeCompare(String(y), "pt-BR", { numeric: true, sensitivity: "base" }) * dir;
+  });
+}
+function gradeHTML(id) {
+  const g = G[id];
+  const vis = g.ordem.filter(k => !g.ocultas.includes(k)).map(k => gCol(g, k));
+  const filtradas = gOrdenar(g, gFiltrar(g));
+  g.filtradas = filtradas;
+  const th = c => {
+    const s = g.sort && g.sort.k === c.k ? (g.sort.dir === "asc" ? " ▲" : " ▼") : "";
+    return `<th draggable="true" data-gk="${c.k}" data-g="${id}" class="${c.tipo === "num" ? "num" : ""}" title="Clique para ordenar · arraste para mudar a ordem">
+      <span class="gh" data-act="g-sort" data-g="${id}" data-k="${c.k}">${esc(c.t)}${s}</span><button type="button" class="gf${g.filtros[c.k] ? " on" : ""}" data-act="g-filtro" data-g="${id}" data-k="${c.k}" aria-label="Filtrar ${esc(c.t)}">▾</button></th>`;
+  };
+  const td = (c, r) => `<td class="${c.tipo === "num" ? "num " : ""}${c.cls || ""}">${c.html ? c.html(r) : esc(gTxt(c, r))}</td>`;
+  const linhas = filtradas.slice(0, g.lim);
+  return `<div class="tw"><table class="grade"><thead><tr>${vis.map(th).join("")}</tr></thead><tbody>
+    ${linhas.map(r => `<tr ${g.opts.attr ? g.opts.attr(r) : ""}>${vis.map(c => td(c, r)).join("")}</tr>`).join("") || `<tr><td colspan="${vis.length}" class="empty">Nada encontrado.</td></tr>`}
+    </tbody>${g.opts.rodape ? `<tfoot><tr><td colspan="${vis.length}">${g.opts.rodape(filtradas)}</td></tr></tfoot>` : ""}</table>
+    ${filtradas.length > g.lim ? `<div class="mais"><button class="btn" data-act="g-mais" data-g="${id}">Mostrar mais (${filtradas.length - g.lim})</button></div>` : ""}</div>`;
+}
+function gradeBarra(id) {
+  const g = G[id], n = Object.keys(g.filtros).length;
+  return `<button class="btn" data-act="g-cols" data-g="${id}">☰ Colunas</button>${n ? `<button class="btn danger" data-act="g-limpar" data-g="${id}">Limpar filtros (${n})</button>` : ""}`;
+}
+function gRedesenhar(id) { const g = G[id]; if (g && g.redesenhar) g.redesenhar(); }
+ACT["g-sort"] = el => {
+  const g = G[el.dataset.g], k = el.dataset.k;
+  g.sort = !g.sort || g.sort.k !== k ? { k, dir: "asc" } : g.sort.dir === "asc" ? { k, dir: "desc" } : null;
+  gradeSalvar(el.dataset.g); gRedesenhar(el.dataset.g);
+};
+ACT["g-mais"] = el => { G[el.dataset.g].lim += 500; gRedesenhar(el.dataset.g); };
+ACT["g-limpar"] = el => { G[el.dataset.g].filtros = {}; gRedesenhar(el.dataset.g); };
+
+// janelinha flutuante (filtro / colunas)
+function pop(ancora, html) {
+  let p = $("#gpop");
+  if (!p) { p = document.createElement("div"); p.id = "gpop"; p.className = "gpop"; document.body.appendChild(p); }
+  p.innerHTML = html; p.hidden = false;
+  const r = ancora.getBoundingClientRect();
+  const w = Math.min(300, window.innerWidth - 16);
+  p.style.width = w + "px";
+  p.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - w - 8)) + "px";
+  p.style.top = (r.bottom + window.scrollY + 4) + "px";
+  return p;
+}
+function fecharPop() { const p = $("#gpop"); if (p) p.hidden = true; }
+document.addEventListener("mousedown", ev => { const p = $("#gpop"); if (p && !p.hidden && !p.contains(ev.target) && !ev.target.closest("[data-act=g-filtro],[data-act=g-cols]")) fecharPop(); });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") fecharPop(); });
+
+ACT["g-filtro"] = el => {
+  const id = el.dataset.g, k = el.dataset.k, g = G[id], c = gCol(g, k);
+  const base = gFiltrar(g, k), cont = new Map();
+  base.forEach(r => { const t = gTxt(c, r); cont.set(t, (cont.get(t) || 0) + 1); });
+  const vals = Array.from(cont.keys()).sort((a, b) => {
+    if (a === "" || b === "") return a === "" ? 1 : -1;
+    if (c.tipo === "num") return parseMoney(a) - parseMoney(b);
+    if (c.tipo === "data") return a.split("/").reverse().join("").localeCompare(b.split("/").reverse().join(""));
+    return a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" });
+  });
+  const atual = g.filtros[k];
+  const p = pop(el, `<div class="gp-h">${esc(c.t)}</div>
+    <div class="gp-sort"><button type="button" class="btn sm" data-o="asc">${c.tipo === "num" ? "Menor → maior" : c.tipo === "data" ? "Mais antigo primeiro" : "A → Z"}</button><button type="button" class="btn sm" data-o="desc">${c.tipo === "num" ? "Maior → menor" : c.tipo === "data" ? "Mais novo primeiro" : "Z → A"}</button></div>
+    <input type="search" placeholder="Pesquisar…" class="gp-busca">
+    <label class="gp-tudo"><input type="checkbox" data-tudo> (Selecionar tudo)</label>
+    <div class="gp-lista">${vals.map((v, i) => `<label data-txt="${esc(norm(v))}"><input type="checkbox" data-i="${i}" ${!atual || atual.has(v) ? "checked" : ""}> <span>${v === "" ? "<i>(Vazias)</i>" : esc(v)}</span><small>${cont.get(v)}</small></label>`).join("")}</div>
+    <div class="gp-f"><button type="button" class="btn sm" data-limpa>Limpar filtro</button><button type="button" class="btn sm pri" data-ok>OK</button></div>`);
+  const caixas = () => $$(".gp-lista input", p);
+  const syncTudo = () => { const vis = caixas().filter(x => !x.closest("label").hidden); $("[data-tudo]", p).checked = vis.length && vis.every(x => x.checked); };
+  syncTudo();
+  $(".gp-busca", p).addEventListener("input", e => {
+    const t = norm(e.target.value);
+    caixas().forEach(x => { const l = x.closest("label"); l.hidden = !!t && !l.dataset.txt.includes(t); });
+    if (t) caixas().forEach(x => (x.checked = !x.closest("label").hidden));
+    syncTudo();
+  });
+  $("[data-tudo]", p).addEventListener("change", e => { caixas().filter(x => !x.closest("label").hidden).forEach(x => (x.checked = e.target.checked)); });
+  p.querySelector(".gp-lista").addEventListener("change", syncTudo);
+  $$("[data-o]", p).forEach(b => b.addEventListener("click", () => { g.sort = { k, dir: b.dataset.o }; gradeSalvar(id); fecharPop(); gRedesenhar(id); }));
+  $("[data-limpa]", p).addEventListener("click", () => { delete g.filtros[k]; fecharPop(); gRedesenhar(id); });
+  $("[data-ok]", p).addEventListener("click", () => {
+    const sel = new Set(caixas().filter(x => x.checked).map(x => vals[+x.dataset.i]));
+    if (sel.size === vals.length) delete g.filtros[k];
+    else {
+      // valores que estavam escondidos por outros filtros continuam valendo
+      if (atual) atual.forEach(v => { if (!cont.has(v)) sel.add(v); });
+      g.filtros[k] = sel;
+    }
+    fecharPop(); gRedesenhar(id);
+  });
+  setTimeout(() => $(".gp-busca", p).focus(), 20);
+};
+ACT["g-cols"] = el => {
+  const id = el.dataset.g, g = G[id];
+  const desenhar = () => {
+    const p = pop(el, `<div class="gp-h">Colunas exibidas</div><p class="hint" style="margin:0 0 6px">Marque as que quer ver. Use as setas ou arraste o título da coluna na tabela para mudar a ordem.</p>
+      <div class="gp-cols">${g.ordem.map((k, i) => { const c = gCol(g, k); return `<div><label><input type="checkbox" data-k="${k}" ${g.ocultas.includes(k) ? "" : "checked"}> ${esc(c.t)}</label><span><button type="button" class="btn sm" data-up="${i}" ${i ? "" : "disabled"} aria-label="Subir">↑</button><button type="button" class="btn sm" data-dn="${i}" ${i < g.ordem.length - 1 ? "" : "disabled"} aria-label="Descer">↓</button></span></div>`; }).join("")}</div>
+      <div class="gp-f"><button type="button" class="btn sm" data-padrao>Restaurar padrão</button><button type="button" class="btn sm pri" data-fim>Fechar</button></div>`);
+    $$("[data-k]", p).forEach(x => x.addEventListener("change", () => {
+      g.ocultas = x.checked ? g.ocultas.filter(k => k !== x.dataset.k) : g.ocultas.concat(x.dataset.k);
+      gradeSalvar(id); gRedesenhar(id);
+    }));
+    const mover = (i, d) => { const o = g.ordem; [o[i], o[i + d]] = [o[i + d], o[i]]; gradeSalvar(id); gRedesenhar(id); desenhar(); };
+    $$("[data-up]", p).forEach(b => b.addEventListener("click", () => mover(+b.dataset.up, -1)));
+    $$("[data-dn]", p).forEach(b => b.addEventListener("click", () => mover(+b.dataset.dn, 1)));
+    $("[data-padrao]", p).addEventListener("click", () => { g.ordem = g.cols.map(c => c.k); g.ocultas = g.cols.filter(c => c.oculta).map(c => c.k); g.sort = g.opts.sort || null; gradeSalvar(id); gRedesenhar(id); desenhar(); });
+    $("[data-fim]", p).addEventListener("click", fecharPop);
+  };
+  desenhar();
+};
+// arrastar colunas
+let arrasto = null;
+document.addEventListener("dragstart", ev => { const th = ev.target.closest && ev.target.closest("th[data-gk]"); if (!th) return; arrasto = { g: th.dataset.g, k: th.dataset.gk }; ev.dataTransfer.effectAllowed = "move"; try { ev.dataTransfer.setData("text/plain", th.dataset.gk); } catch (e) { /* ok */ } });
+document.addEventListener("dragover", ev => { const th = ev.target.closest && ev.target.closest("th[data-gk]"); if (!th || !arrasto || th.dataset.g !== arrasto.g) return; ev.preventDefault(); $$("th.drop").forEach(x => x.classList.remove("drop")); th.classList.add("drop"); });
+document.addEventListener("dragend", () => { arrasto = null; $$("th.drop").forEach(x => x.classList.remove("drop")); });
+document.addEventListener("drop", ev => {
+  const th = ev.target.closest && ev.target.closest("th[data-gk]"); if (!th || !arrasto || th.dataset.g !== arrasto.g) return;
+  ev.preventDefault();
+  const g = G[arrasto.g], o = g.ordem.filter(k => k !== arrasto.k);
+  o.splice(o.indexOf(th.dataset.gk) + (g.ordem.indexOf(arrasto.k) < g.ordem.indexOf(th.dataset.gk) ? 1 : 0), 0, arrasto.k);
+  g.ordem = o; gradeSalvar(arrasto.g); const id = arrasto.g; arrasto = null; gRedesenhar(id);
+});
+
+/* =====================================================================
    PÁGINA: IMÓVEIS (mapa)
    ===================================================================== */
+const CARTEIRAS = { administrado: "Administrado (de terceiros)", proprio: "Próprio da imobiliária", socio: "Particular do sócio" };
+let IMV = { reajPor: {}, grupos: [], hist: null };
+const reajTxt = i => (IMV.reajPor[i.id] || []).map(r => `${mesCurto(r.competencia)} → ${n2(r.valor_novo)}`).join(" · ");
+function valorImvHTML(i) {
+  if (i.valor == null || i.valor === "") return "";
+  if (i.status === "ALG") return n2(i.valor);
+  return `<span class="prev" title="Valor previsto (imóvel não está alugado)">${n2(i.valor)}</span>`;
+}
+const COLS_IMV = [
+  { k: "status", t: "Situação", f: i => (STATUS_IMV[i.status] || [i.status])[0], html: i => `<span class="tag ${(STATUS_IMV[i.status] || ["", "idle"])[1]}">${(STATUS_IMV[i.status] || [i.status])[0]}</span>` },
+  { k: "codigo_site", t: "Site", cls: "mono" },
+  { k: "contrato_codigo", t: "Contrato", cls: "mono" },
+  { k: "endereco", t: "Endereço", cls: "trunc" },
+  { k: "tipo", t: "Tipo" },
+  { k: "valor", t: "Aluguel", tipo: "num", html: valorImvHTML },
+  { k: "locador", t: "Locador", cls: "trunc" },
+  { k: "locatario", t: "Locatário", cls: "trunc" },
+  { k: "data_entrada", t: "Entrada", tipo: "data" },
+  { k: "dia_venc", t: "Dia", tipo: "num", int: true },
+  { k: "reajuste", t: "Reajuste programado", v: i => (IMV.reajPor[i.id] || [{}])[0].competencia || null, f: reajTxt, html: i => reajTxt(i) ? `<span style="color:var(--warn)">${esc(reajTxt(i))}</span>` : "" },
+  { k: "declarar_ir", t: "IR" },
+  { k: "taxa_adm", t: "Taxa %", tipo: "num", oculta: true },
+  { k: "carteira", t: "Carteira", f: i => CARTEIRAS[i.carteira] || "", oculta: true },
+  { k: "grupo_locador", t: "Grupo do locador", oculta: true },
+  { k: "obs", t: "Observações", cls: "trunc", oculta: true }
+];
 PAGES.imoveis = async pg => {
-  const reaj = await q(sb.from("reajustes").select("imovel_id,competencia,valor_novo").is("aplicado_em", null));
-  const reajPor = {}; reaj.forEach(r => { (reajPor[r.imovel_id] = reajPor[r.imovel_id] || []).push(r); });
-  const f = S.f.imv || "ALG", busca = S.f.imvBusca || "";
-  const cont = { todos: S.imoveis.length, ALG: 0, LVR: 0, OCP: 0, INTV: 0, reaj: Object.keys(reajPor).length };
-  S.imoveis.forEach(i => cont[i.status]++);
-  let lista = S.imoveis.filter(i => f === "todos" || i.status === f || (f === "reaj" && reajPor[i.id]));
+  const mesAtual = inicioMes(hoje()), passado = S.mes < mesAtual;
+  const [reaj, grupos, hist] = await Promise.all([
+    q(sb.from("reajustes").select("imovel_id,competencia,valor_novo").is("aplicado_em", null).order("competencia")),
+    q(sb.from("grupos_locador").select("*").order("ordem")),
+    passado ? fetchAll("mapa_mensal", b => b.eq("competencia", S.mes).order("imovel_id")) : Promise.resolve(null)
+  ]);
+  IMV.reajPor = {}; reaj.forEach(r => { (IMV.reajPor[r.imovel_id] = IMV.reajPor[r.imovel_id] || []).push(r); });
+  IMV.grupos = grupos;
+  IMV.hist = hist ? hist.map(h => Object.assign({}, S.imovelPor[h.imovel_id] || { endereco: "?" }, {
+    status: h.status, valor: h.valor, locador: h.locador, locatario: h.locatario, taxa_adm: h.taxa_adm,
+    data_entrada: null, contrato_codigo: "", dia_venc: null, _hist: true })) : null;
+  desenharImoveis(pg);
+};
+function desenharImoveis(pg) {
+  pg = pg || $("#page");
+  const mesAtual = inicioMes(hoje()), passado = S.mes < mesAtual;
+  const base = passado ? (IMV.hist || []) : S.imoveis;
+  const f = S.f.imv || "todos", busca = S.f.imvBusca || "";
+  const cont = { todos: base.length, ALG: 0, LVR: 0, OCP: 0, INTV: 0 };
+  base.forEach(i => { cont[i.status] = (cont[i.status] || 0) + 1; });
+  let lista = base.filter(i => f === "todos" || i.status === f);
   if (busca) { const b = norm(busca); lista = lista.filter(i => norm(i.endereco + " " + i.locador + " " + i.locatario + " " + i.codigo_site + " " + i.contrato_codigo).includes(b)); }
-  const limite = +(S.f.imvLim || 200);
-  const chips = [["ALG", "Alugados"], ["LVR", "Livres"], ["OCP", "Ocupados"], ["INTV", "Inativos"], ["todos", "Todos"], ["reaj", "Com reajuste programado"]];
+  const g = grade("imoveis", COLS_IMV, lista, {
+    attr: i => passado ? "" : `data-act="imv-ed" data-id="${i.id}" style="cursor:pointer"`,
+    rodape: fl => { const alg = fl.filter(i => i.status === "ALG"); return `${fl.length} imóveis · ${alg.length} alugados · aluguel ${brl(alg.reduce((a, i) => a + (+i.valor || 0), 0))} · comissão/mês ${brl(alg.reduce((a, i) => a + (+i.valor || 0) * (+i.taxa_adm || 0) / 100, 0))}`; }
+  });
+  g.redesenhar = () => desenharImoveis();
+  const chips = [["todos", "Todos", ""], ["ALG", "Alugados", "st-ALG"], ["LVR", "Livres", "st-LVR"], ["OCP", "Ocupados", "st-OCP"], ["INTV", "Inativos", "st-INTV"]];
+  const aviso = passado
+    ? (IMV.hist && IMV.hist.length
+      ? `<div class="alert"><span>📷 Mapa de <b>${esc(mesTxt(S.mes))}</b>, como foi guardado no fechamento desse mês. Somente consulta.</span><button class="btn sm" data-act="mes-hoje">Voltar para o mês atual</button></div>`
+      : `<div class="alert warn"><span>Não há mapa guardado de <b>${esc(mesTxt(S.mes))}</b>. O mapa de cada mês fica guardado quando você clica em "Guardar mapa do mês".</span><button class="btn sm" data-act="mes-hoje">Voltar para o mês atual</button></div>`)
+    : S.mes > mesAtual ? `<div class="alert"><span>Mês futuro: mostrando a situação atual dos imóveis.</span></div>` : "";
   pg.innerHTML = `<div class="grid">
+    ${aviso}
     <div class="filters">
-      <div class="chips">${chips.map(([k, t]) => `<button class="chip${f === k ? " on" : ""}" data-act="chip" data-k="imv" data-v="${k}">${t}<span class="c">${cont[k]}</span></button>`).join("")}</div>
+      <div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="imv" data-v="${k}">${t}<span class="c">${cont[k] || 0}</span></button>`).join("")}</div>
       <input type="search" placeholder="Buscar endereço, locador, locatário…" value="${esc(busca)}" data-busca="imvBusca">
       <span class="spacer"></span>
-      ${pode.editar() ? `<button class="btn pri" data-act="imv-novo">+ Imóvel</button><button class="btn" data-act="fechar-mapa" title="Guarda a situação atual como histórico do mês">Fechar mapa de ${esc(mesCurto(S.mes))}</button>` : ""}
+      ${gradeBarra("imoveis")}
+      ${pode.editar() && !passado ? `<button class="btn pri" data-act="imv-novo">+ Imóvel</button>` : ""}
+      ${pode.editar() && S.mes === mesAtual ? `<button class="btn" data-act="fechar-mapa" title="Guarda uma cópia do mapa como está agora, para consultar este mês no futuro">📷 Guardar mapa de ${esc(mesCurto(S.mes))}</button>` : ""}
       <button class="btn" data-act="xls-imv">Excel</button>
     </div>
-    <div class="tw"><table><thead><tr><th>Situação</th><th>Endereço</th><th>Tipo</th><th>Locador</th><th>Locatário</th><th class="num">Aluguel</th><th class="num">Taxa</th><th class="num">Dia</th><th>Contrato</th></tr></thead><tbody>
-      ${lista.slice(0, limite).map(i => `<tr data-act="imv-ed" data-id="${i.id}" style="cursor:pointer">
-        <td><span class="tag ${STATUS_IMV[i.status][1]}">${STATUS_IMV[i.status][0]}</span></td>
-        <td class="trunc">${esc(i.endereco)}${i.codigo_site ? `<span class="sub">site ${esc(i.codigo_site)}</span>` : ""}</td>
-        <td>${esc(i.tipo)}</td><td class="trunc">${esc(i.locador)}</td><td class="trunc">${esc(i.locatario)}</td>
-        <td class="num">${i.valor != null ? n2(i.valor) : ""}${reajPor[i.id] ? reajPor[i.id].map(r => `<span class="sub" style="color:var(--warn)">${mesCurto(r.competencia)} → ${n2(r.valor_novo)}</span>`).join("") : ""}</td>
-        <td class="num">${n2(i.taxa_adm)}%</td><td class="num">${i.dia_venc || ""}</td><td class="mono">${esc(i.contrato_codigo)}</td></tr>`).join("") || `<tr><td colspan="9" class="empty">Nada encontrado.</td></tr>`}
-    </tbody><tfoot><tr><td colspan="5">${lista.length} imóveis</td><td class="num">${n2(lista.reduce((a, i) => a + (i.status === "ALG" ? +i.valor || 0 : 0), 0))}</td><td class="num">${n2(lista.reduce((a, i) => a + (i.status === "ALG" ? (+i.valor || 0) * i.taxa_adm / 100 : 0), 0))}</td><td colspan="2" class="muted">← comissão/mês</td></tr></tfoot></table>
-    ${lista.length > limite ? `<div class="mais"><button class="btn" data-act="imv-mais">Mostrar mais (${lista.length - limite})</button></div>` : ""}</div>
+    ${gradeHTML("imoveis")}
+    <p class="hint">Clique no título para ordenar · ▾ para filtrar como no Excel · arraste o título para mudar a coluna de lugar · "☰ Colunas" para mostrar ou esconder. Valores em <span class="prev">verde itálico</span> são aluguéis previstos de imóveis livres.</p>
   </div>`;
   ligarBusca(pg);
-};
-ACT["imv-mais"] = () => { S.f.imvLim = (+(S.f.imvLim || 200) + 400); render(); };
+}
+ACT["mes-hoje"] = () => { S.mes = inicioMes(hoje()); ssSet("mes", S.mes); ir(); };
 function formImovel(i) {
-  i = i || { status: "LVR", tipo: "Casa", taxa_adm: 10 };
+  i = i || { status: "LVR", tipo: "Casa", taxa_adm: 10, carteira: "administrado" };
   const dis = pode.editar() ? "" : "disabled";
   return `<div class="row">
       <label class="fl"><span>Situação</span><select name="status" ${dis}>${Object.entries(STATUS_IMV).map(([k, v]) => opt(k, v[0], i.status === k)).join("")}</select></label>
@@ -988,10 +1205,14 @@ function formImovel(i) {
       <label class="fl"><span>Código no site</span><input name="codigo_site" value="${esc(i.codigo_site || "")}" ${dis}></label>
     </div><datalist id="dl-tipos">${["Casa", "Apto", "Sala", "Salão", "Barracão", "C. Com.", "Terreno"].map(t => `<option value="${t}">`).join("")}</datalist>
     <label class="fl"><span>Endereço</span><input name="endereco" value="${esc(i.endereco || "")}" required ${dis}></label>
+    <div class="row">
+      <label class="fl"><span>Carteira</span><select name="carteira" ${dis}>${Object.entries(CARTEIRAS).map(([k, v]) => opt(k, v, (i.carteira || "administrado") === k)).join("")}</select></label>
+      <label class="fl"><span>Grupo do locador</span><input name="grupo_locador" list="dl-grupos" value="${esc(i.grupo_locador || "")}" placeholder="(outros)" ${dis}></label>
+    </div><datalist id="dl-grupos">${IMV.grupos.map(gr => `<option value="${esc(gr.nome)}">`).join("")}</datalist>
     <label class="fl"><span>Locador (proprietário)</span><input name="locador" value="${esc(i.locador || "")}" ${dis}></label>
     <label class="fl"><span>Locatário (inquilino atual)</span><input name="locatario" value="${esc(i.locatario || "")}" ${dis}></label>
     <div class="row">
-      <label class="fl"><span>Aluguel</span><input name="valor" inputmode="decimal" value="${i.valor != null ? n2(i.valor) : ""}" ${dis}></label>
+      <label class="fl"><span>${i.status === "ALG" ? "Aluguel" : "Aluguel previsto"}</span><input name="valor" inputmode="decimal" value="${i.valor != null ? n2(i.valor) : ""}" ${dis}></label>
       <label class="fl"><span>Taxa adm. %</span><input name="taxa_adm" inputmode="decimal" value="${n2(i.taxa_adm)}" ${dis}></label>
       <label class="fl"><span>Dia venc.</span><input type="number" name="dia_venc" min="1" max="31" value="${i.dia_venc || ""}" ${dis}></label>
     </div>
@@ -1001,31 +1222,36 @@ function formImovel(i) {
       <label class="fl"><span>Declarar IR?</span><select name="declarar_ir" ${dis}>${opt("", "—", !i.declarar_ir)}${opt("Sim", "Sim", i.declarar_ir === "Sim")}${opt("Não", "Não", i.declarar_ir === "Não")}</select></label>
     </div>
     <label class="fl"><span>Observações</span><textarea name="obs" ${dis}>${esc(i.obs || "")}</textarea></label>
-    <p class="hint">Taxa: 10% = administração normal · 100% = imóvel da própria imobiliária (aluguel inteiro é receita) · 0% = sem comissão.</p>`;
+    <p class="hint">Carteira: <b>Administrado</b> = de terceiros (taxa normal, ex. 10%) · <b>Próprio</b> = da imobiliária (100%, aluguel inteiro é receita) · <b>Particular do sócio</b> = 0%, o dinheiro é do sócio e fica separado no caixa. Imóvel livre pode ter o aluguel previsto preenchido.</p>`;
 }
 function lerImovel(f) {
   const valor = f.valor.value.trim() ? parseMoney(f.valor.value) : null;
   const taxa = parseMoney(f.taxa_adm.value);
   if (taxa == null || taxa < 0 || taxa > 100) throw new Error("Taxa deve estar entre 0 e 100.");
   const d = { status: f.status.value, tipo: f.tipo.value.trim() || "Casa", codigo_site: f.codigo_site.value.trim(), endereco: f.endereco.value.trim(),
+    carteira: f.carteira.value, grupo_locador: f.grupo_locador.value.trim(),
     locador: f.locador.value.trim(), locatario: f.locatario.value.trim(), valor, taxa_adm: taxa, dia_venc: +f.dia_venc.value || null,
     data_entrada: f.data_entrada.value || null, contrato_codigo: f.contrato_codigo.value.trim(), declarar_ir: f.declarar_ir.value, obs: f.obs.value.trim() };
   if (!d.endereco) throw new Error("Informe o endereço.");
   if (d.status === "ALG" && (!d.valor || !d.locatario)) throw new Error("Imóvel alugado precisa de locatário e valor.");
   return d;
 }
-ACT["imv-novo"] = () => modal({ titulo: "Novo imóvel", corpo: formImovel(), salvar: async f => { await q(sb.from("imoveis").insert(lerImovel(f))); await recarregarImoveis(); toast("Imóvel cadastrado."); render(); } });
+function ligarCarteira(f) {
+  f.carteira.addEventListener("change", () => { const t = { proprio: "100,00", socio: "0,00", administrado: "10,00" }[f.carteira.value]; if (t) f.taxa_adm.value = t; });
+}
+ACT["imv-novo"] = () => modal({ titulo: "Novo imóvel", corpo: formImovel(), aoAbrir: f => ligarCarteira(f),
+  salvar: async f => { await q(sb.from("imoveis").insert(lerImovel(f))); await recarregarImoveis(); toast("Imóvel cadastrado."); render(); } });
 ACT["imv-ed"] = async el => {
   const i = S.imovelPor[el.dataset.id];
   const [reaj, hist, cobs] = await Promise.all([
     q(sb.from("reajustes").select("*").eq("imovel_id", i.id).order("competencia", { ascending: false })),
     q(sb.from("mapa_mensal").select("competencia,status,valor,locatario").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(14)),
-    q(sb.from("cobrancas").select("competencia,vencimento,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,repasse_data,locatario").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(12))
+    q(sb.from("cobrancas").select("competencia,vencimento,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,repasse_data,locatario,devedor_id").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(12))
   ]);
-  const liberar = pode.editar() && i.status === "ALG" ? `<button type="button" class="btn left" data-liberar>Desocupou → Livre</button>` : "";
+  const saida = pode.editar() && i.status === "ALG" ? `<button type="button" class="btn left" data-saida>🚪 Registrar saída do locatário</button>` : "";
   const excluir = pode.admin() ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "";
   modal({
-    titulo: i.endereco, largo: true, semOk: !pode.editar(), extra: liberar + excluir,
+    titulo: i.endereco, largo: true, semOk: !pode.editar(), extra: saida + excluir,
     corpo: formImovel(i) + `
       <h3 style="margin-top:8px">Reajustes programados</h3>
       <div class="tw"><table><thead><tr><th>A partir de</th><th class="num">Novo valor</th><th>Situação</th><th></th></tr></thead><tbody>
@@ -1040,10 +1266,15 @@ ACT["imv-ed"] = async el => {
       <div class="tw"><table><thead><tr><th>Mês</th><th>Situação</th><th class="num">Valor</th><th>Locatário</th></tr></thead><tbody>
         ${hist.map(h => `<tr><td>${mesCurto(h.competencia)}</td><td><span class="tag ${(STATUS_IMV[h.status] || ["", "idle"])[1]}">${(STATUS_IMV[h.status] || [h.status])[0]}</span></td><td class="num">${h.valor != null ? n2(h.valor) : ""}</td><td class="trunc">${esc(h.locatario)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem histórico.</td></tr>`}
       </tbody></table></div>`,
-    salvar: async f => { await q(sb.from("imoveis").update(lerImovel(f)).eq("id", i.id)); await recarregarImoveis(); toast("Salvo."); render(); },
+    salvar: async f => {
+      const d = lerImovel(f);
+      if (i.status === "ALG" && d.status !== "ALG") throw new Error('Para desocupar, use o botão "Registrar saída do locatário": assim ficam guardados a data de saída e se ele ficou devendo.');
+      await q(sb.from("imoveis").update(d).eq("id", i.id)); await recarregarImoveis(); toast("Salvo."); render();
+    },
     aoAbrir: (f, d) => {
-      const lib = $("[data-liberar]", d);
-      if (lib) lib.addEventListener("click", () => { f.status.value = "LVR"; f.locatario.value = ""; f.data_entrada.value = ""; f.contrato_codigo.value = ""; toast("Marcado como livre. Clique em Salvar para confirmar."); });
+      ligarCarteira(f);
+      const sd = $("[data-saida]", d);
+      if (sd) sd.addEventListener("click", () => { d.close(); setTimeout(() => abrirSaida(i, cobs), 0); });
       const del = $("[data-del]", d);
       if (del) del.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir imóvel", `Excluir <b>${esc(i.endereco)}</b>? Só é possível se não houver aluguéis lançados. Prefira marcar como Inativo.`, "Excluir"))) return; try { await q(sb.from("imoveis").delete().eq("id", i.id)); await recarregarImoveis(); toast("Excluído."); render(); } catch (e) { falha(e); } });
       const add = $("[data-reaj-add]", d);
@@ -1057,10 +1288,306 @@ ACT["imv-ed"] = async el => {
   });
 };
 ACT["fechar-mapa"] = async () => {
-  if (!(await confirmar("Fechar mapa do mês", `Guardar a situação atual de todos os imóveis como o mapa de <b>${esc(mesTxt(S.mes))}</b>? Se já existir, será substituído.`))) return;
+  if (!(await confirmar("Guardar mapa do mês", `Guardar uma cópia da situação atual de todos os imóveis como o mapa de <b>${esc(mesTxt(S.mes))}</b>?<br><br>É como as abas mensais do Excel (Set25, Out25…): depois você consulta esse mês voltando o seletor de mês. Se já existir, será substituído pela situação de agora.`, "Guardar"))) return;
   const n = await rpc("fechar_mapa", { p_comp: S.mes }); toast(`Mapa de ${mesTxt(S.mes)} guardado (${n} imóveis).`);
 };
-ACT["xls-imv"] = () => baixarXLSX(`mapa-aluguel-${S.mes.slice(0, 7)}.xlsx`, { Mapa: S.imoveis.map(i => ({ Status: i.status, Site: i.codigo_site, Contrato: i.contrato_codigo, Endereco: i.endereco, Tipo: i.tipo, Valor: i.valor == null ? "" : +i.valor, Locador: i.locador, Locatario: i.locatario, Entrada: dt(i.data_entrada), "Dia venc.": i.dia_venc || "", "Taxa %": +i.taxa_adm, "Declarar IR": i.declarar_ir, Obs: i.obs })) });
+ACT["xls-imv"] = () => {
+  const g = G.imoveis, vis = g.ordem.filter(k => !g.ocultas.includes(k)).map(k => gCol(g, k));
+  baixarXLSX(`mapa-aluguel-${S.mes.slice(0, 7)}.xlsx`, { Mapa: (g.filtradas || []).map(i => Object.fromEntries(vis.map(c => [c.t, c.tipo === "num" ? (gVal(c, i) == null || gVal(c, i) === "" ? "" : +gVal(c, i)) : gTxt(c, i)]))) });
+};
+
+/* ---------- saída do locatário ---------- */
+const ITENS_DIVIDA = ["Aluguel", "Encargos (água/luz)", "Condomínio", "IPTU", "Pintura", "Reparos / danos", "Multa rescisória", "Limpeza", "Outros"];
+function itensEditorHTML() {
+  return `<datalist id="dl-itens">${ITENS_DIVIDA.map(t => `<option value="${t}">`).join("")}</datalist>
+    <div class="itens" data-itens></div>
+    <button type="button" class="btn sm" data-item-add>+ Adicionar item</button>`;
+}
+function ligarItens(d, itens, aoMudar) {
+  const box = $("[data-itens]", d);
+  const linha = it => {
+    const div = document.createElement("div"); div.className = "item";
+    div.innerHTML = `<input list="dl-itens" placeholder="Descrição (ex.: Pintura)" value="${esc(it.descricao || "")}" data-desc><input inputmode="decimal" placeholder="Valor" value="${it.valor ? n2(it.valor) : ""}" data-val><button type="button" class="btn sm" aria-label="Remover">✕</button>`;
+    div.querySelector("button").addEventListener("click", () => { div.remove(); aoMudar && aoMudar(); });
+    div.addEventListener("input", () => aoMudar && aoMudar());
+    box.appendChild(div);
+  };
+  (itens || []).forEach(linha);
+  $("[data-item-add]", d).addEventListener("click", () => { linha({}); aoMudar && aoMudar(); const ins = $$("[data-desc]", box); ins[ins.length - 1].focus(); });
+  return () => $$(".item", box).map(x => ({ descricao: x.querySelector("[data-desc]").value.trim(), valor: parseMoney(x.querySelector("[data-val]").value) }))
+    .filter(x => x.descricao || x.valor);
+}
+function abrirSaida(i, cobs) {
+  const abertas = (cobs || []).filter(c => !c.data_pagamento && !c.devedor_id);
+  // precisamos dos ids: buscamos de novo com id
+  q(sb.from("cobrancas").select("id,competencia,valor,acrescimos,descontos").eq("imovel_id", i.id).is("data_pagamento", null).is("devedor_id", null).order("competencia")).then(abs => {
+    let lerItens;
+    const total = d => {
+      const its = lerItens ? lerItens() : [];
+      const cb = $$("[data-cob]:checked", d).map(x => abs.find(c => c.id === x.dataset.cob));
+      const t = its.reduce((a, x) => a + (+x.valor || 0), 0) + cb.reduce((a, c) => a + devido(c), 0);
+      $("[data-total]", d).textContent = brl(t);
+    };
+    modal({
+      titulo: "Saída do locatário", largo: true, ok: "Registrar saída",
+      corpo: `<div class="box"><b>${esc(i.endereco)}</b><br>Locatário: <b>${esc(i.locatario)}</b> · Locador: ${esc(i.locador)}<br>
+          Contrato: ${esc(i.contrato_codigo || "—")} · Entrada: ${dt(i.data_entrada) || "—"} · Aluguel: ${brl(i.valor)}</div>
+        <div class="row"><label class="fl"><span>Data de saída</span><input type="date" name="data" value="${hoje()}" required></label></div>
+        <div class="chips"><label class="chk"><input type="radio" name="deve" value="nao" checked> Saiu sem dever</label><label class="chk"><input type="radio" name="deve" value="sim"> Ficou devendo</label></div>
+        <div data-divida hidden>
+          <label class="fl"><span>Nome do devedor</span><input name="devedor" value="${esc(i.locatario)}"></label>
+          ${abs.length ? `<h3 style="margin-top:10px">Aluguéis em aberto no sistema</h3><p class="hint">Marcados entram na dívida e saem da lista de inadimplência do mês.</p>
+            ${abs.map(c => `<label class="chk"><input type="checkbox" data-cob="${c.id}" checked> Aluguel ${mesTxt(c.competencia)} — ${brl(devido(c))}</label>`).join("")}` : ""}
+          <h3 style="margin-top:10px">Outros valores devidos</h3>
+          ${itensEditorHTML()}
+          <div class="box" style="margin-top:8px">Total da dívida: <b data-total>R$ 0,00</b></div>
+          <label class="fl"><span>Observações (acordo, contato, combinado…)</span><textarea name="obs"></textarea></label>
+        </div>
+        <p class="hint">Ao registrar: o imóvel passa para <b>Livre</b> (o valor do aluguel fica como previsto), o contrato fica <b>Encerrado</b> — ou <b>Débito em aberto</b> se ficou devendo — e o devedor entra na lista de <b>Devedores</b> com os dados do contrato.</p>`,
+      aoAbrir: (f, d) => {
+        lerItens = ligarItens(d, [], () => total(d));
+        $$("[name=deve]", d).forEach(r => r.addEventListener("change", () => { $("[data-divida]", d).hidden = f.deve.value !== "sim"; total(d); }));
+        $$("[data-cob]", d).forEach(x => x.addEventListener("change", () => total(d)));
+        total(d);
+      },
+      salvar: async f => {
+        const deve = f.deve.value === "sim";
+        let itens = [], cobsSel = [];
+        if (deve) {
+          const ruins = lerItens().filter(x => !x.descricao || !(x.valor > 0));
+          if (ruins.length) throw new Error("Cada item precisa de descrição e valor.");
+          cobsSel = $$("[data-cob]:checked").map(x => x.dataset.cob);
+          itens = abs.filter(c => cobsSel.includes(c.id)).map(c => ({ descricao: "Aluguel " + mesTxt(c.competencia), valor: devido(c) })).concat(lerItens());
+          if (!itens.length) throw new Error('Informe o que ele ficou devendo, ou marque "Saiu sem dever".');
+        }
+        await rpc("registrar_saida", { p_imovel: i.id, p_data: f.data.value, p_devedor: deve ? f.devedor.value : null, p_itens: itens, p_obs: deve ? f.obs.value : "", p_cobrancas: cobsSel });
+        await recarregarImoveis();
+        toast(deve ? "Saída registrada e devedor incluído na lista." : "Saída registrada. Imóvel livre.");
+        render();
+      }
+    });
+  }).catch(falha);
+}
+
+/* =====================================================================
+   PÁGINA: DEVEDORES (ex-locatários)
+   ===================================================================== */
+const SIT_DEV = { "EM ABERTO": "bad", "ACORDO": "warn", "QUITADO": "ok", "PERDIDO": "idle" };
+let DEV = [];
+const saldoDev = d => r2(+d.valor_total - +d.valor_pago);
+const COLS_DEV = [
+  { k: "devedor", t: "Devedor", cls: "trunc" },
+  { k: "endereco", t: "Imóvel", cls: "trunc" },
+  { k: "contrato_codigo", t: "Contrato", cls: "mono" },
+  { k: "locador", t: "Locador", cls: "trunc" },
+  { k: "data_entrada", t: "Entrada", tipo: "data" },
+  { k: "data_saida", t: "Saída", tipo: "data" },
+  { k: "valor_total", t: "Dívida", tipo: "num" },
+  { k: "valor_pago", t: "Pago", tipo: "num" },
+  { k: "saldo", t: "Saldo", tipo: "num", v: saldoDev, html: d => `<b class="${saldoDev(d) > 0 ? "neg" : ""}">${n2(saldoDev(d))}</b>` },
+  { k: "situacao", t: "Situação", html: d => `<span class="tag ${SIT_DEV[d.situacao]}">${esc(d.situacao)}</span>` },
+  { k: "dias", t: "Dias desde a saída", tipo: "num", int: true, v: d => d.data_saida ? diasEntre(d.data_saida, hoje()) : null },
+  { k: "itens", t: "Referente a", v: d => (d.itens || []).map(x => x.descricao).join(", "), cls: "trunc", oculta: true },
+  { k: "contato", t: "Contato", oculta: true },
+  { k: "obs", t: "Observações", cls: "trunc", oculta: true }
+];
+PAGES.devedores = async pg => {
+  DEV = await fetchAll("devedores", b => b.order("data_saida", { ascending: false }).order("id"));
+  desenharDevedores(pg);
+};
+function desenharDevedores(pg) {
+  pg = pg || $("#page");
+  const f = S.f.dev || "aberto", busca = S.f.devBusca || "";
+  const teste = { aberto: d => ["EM ABERTO", "ACORDO"].includes(d.situacao), QUITADO: d => d.situacao === "QUITADO", PERDIDO: d => d.situacao === "PERDIDO", todos: () => true };
+  let lista = DEV.filter(teste[f]);
+  if (busca) { const b = norm(busca); lista = lista.filter(d => norm(d.devedor + " " + d.endereco + " " + d.locador + " " + d.contrato_codigo).includes(b)); }
+  const abertos = DEV.filter(teste.aberto);
+  const g = grade("devedores", COLS_DEV, lista, {
+    attr: d => `data-act="dev-ed" data-id="${d.id}" style="cursor:pointer"`, sort: { k: "data_saida", dir: "desc" },
+    rodape: fl => `${fl.length} devedores · dívida ${brl(fl.reduce((a, d) => a + +d.valor_total, 0))} · pago ${brl(fl.reduce((a, d) => a + +d.valor_pago, 0))} · saldo ${brl(fl.reduce((a, d) => a + saldoDev(d), 0))}`
+  });
+  g.redesenhar = () => desenharDevedores();
+  const chips = [["aberto", "Em aberto / acordo"], ["QUITADO", "Quitados"], ["PERDIDO", "Perdidos"], ["todos", "Todos"]];
+  pg.innerHTML = `<div class="grid">
+    <div class="kpis">${kpi("Saldo a receber", `<span class="neg">${brl(abertos.reduce((a, d) => a + saldoDev(d), 0))}</span>`, `${abertos.length} devedores em aberto`, true)}
+      ${kpi("Já recebido", brl(DEV.reduce((a, d) => a + +d.valor_pago, 0)), "de todas as dívidas")}
+      ${kpi("Quitados", String(DEV.filter(teste.QUITADO).length), "")}</div>
+    <div class="filters">
+      <div class="chips">${chips.map(([k, t]) => `<button class="chip${f === k ? " on" : ""}" data-act="chip" data-k="dev" data-v="${k}">${t}<span class="c">${DEV.filter(teste[k]).length}</span></button>`).join("")}</div>
+      <input type="search" placeholder="Buscar nome, imóvel, contrato…" value="${esc(busca)}" data-busca="devBusca">
+      <span class="spacer"></span>${gradeBarra("devedores")}
+      ${pode.editar() ? `<button class="btn pri" data-act="dev-novo">+ Devedor antigo</button>` : ""}<button class="btn" data-act="xls-dev">Excel</button>
+    </div>
+    ${gradeHTML("devedores")}
+    <p class="hint">Quem sai devendo entra aqui pelo botão "Registrar saída do locatário" (tela Imóveis). Use "+ Devedor antigo" para cadastrar dívidas de antes do sistema.</p>
+  </div>`;
+  ligarBusca(pg);
+}
+function formDevedor(d) {
+  const novo = !d; d = d || { situacao: "EM ABERTO", itens: [] };
+  return `${novo ? `<label class="fl"><span>Imóvel (do mapa, opcional)</span><input name="imovel" list="dl-imv" placeholder="Digite e escolha o endereço"></label>${imovelDatalist()}` : ""}
+    <div class="row"><label class="fl"><span>Devedor</span><input name="devedor" value="${esc(d.devedor || "")}" required></label>
+      <label class="fl"><span>Contato (telefone, e-mail)</span><input name="contato" value="${esc(d.contato || "")}"></label></div>
+    <div class="row"><label class="fl"><span>Endereço</span><input name="endereco" value="${esc(d.endereco || "")}"></label>
+      <label class="fl"><span>Contrato</span><input name="contrato" value="${esc(d.contrato_codigo || "")}" placeholder="L.25.001"></label></div>
+    <div class="row"><label class="fl"><span>Locador</span><input name="locador" value="${esc(d.locador || "")}"></label>
+      <label class="fl"><span>Entrada</span><input type="date" name="entrada" value="${d.data_entrada || ""}"></label>
+      <label class="fl"><span>Saída</span><input type="date" name="saida" value="${d.data_saida || ""}"></label></div>
+    <label class="fl"><span>Situação</span><select name="situacao">${Object.keys(SIT_DEV).map(k => opt(k, k, d.situacao === k)).join("")}</select></label>
+    <h3 style="margin-top:6px">Referente a</h3>${itensEditorHTML()}
+    <div class="box" style="margin-top:8px">Total da dívida: <b data-total>${brl(d.valor_total || 0)}</b></div>
+    <label class="fl"><span>Observações / histórico de cobrança</span><textarea name="obs">${esc(d.obs || "")}</textarea></label>`;
+}
+function lerDevedor(f, lerItens) {
+  const itens = lerItens();
+  if (itens.some(x => !x.descricao || !(x.valor > 0))) throw new Error("Cada item precisa de descrição e valor.");
+  if (!itens.length) throw new Error("Informe ao menos um item da dívida.");
+  return { devedor: f.devedor.value.trim(), contato: f.contato.value.trim(), endereco: f.endereco.value.trim(), contrato_codigo: f.contrato.value.trim(),
+    locador: f.locador.value.trim(), data_entrada: f.entrada.value || null, data_saida: f.saida.value || null, situacao: f.situacao.value, itens, obs: f.obs.value.trim() };
+}
+ACT["dev-novo"] = () => {
+  let lerItens;
+  modal({ titulo: "Cadastrar devedor antigo", largo: true, corpo: formDevedor(null),
+    aoAbrir: (f, d) => {
+      lerItens = ligarItens(d, [{}], () => ($("[data-total]", d).textContent = brl(lerItens().reduce((a, x) => a + (+x.valor || 0), 0))));
+      f.imovel.addEventListener("change", () => { const im = imovelPorEndereco(f.imovel.value); if (im) { f.endereco.value = im.endereco; if (!f.locador.value) f.locador.value = im.locador; } });
+    },
+    salvar: async f => {
+      const d = lerDevedor(f, lerItens); const im = f.imovel.value.trim() ? imovelPorEndereco(f.imovel.value) : null;
+      d.imovel_id = im ? im.id : null;
+      await q(sb.from("devedores").insert(d)); toast("Devedor cadastrado."); render();
+    } });
+};
+ACT["dev-ed"] = el => {
+  const dv = DEV.find(x => x.id === el.dataset.id); let lerItens;
+  const pags = dv.pagamentos || [];
+  modal({ titulo: dv.devedor, largo: true, semOk: !pode.editar(),
+    extra: (pode.editar() ? `<button type="button" class="btn pri left" data-pagar>Registrar pagamento</button>` : "") + (pode.admin() ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : ""),
+    corpo: `<div class="kpis">${kpi("Dívida", brl(dv.valor_total))}${kpi("Pago", brl(dv.valor_pago))}${kpi("Saldo", `<span class="${saldoDev(dv) > 0 ? "neg" : ""}">${brl(saldoDev(dv))}</span>`, "", true)}</div>
+      ${formDevedor(dv)}
+      <h3 style="margin-top:6px">Pagamentos recebidos</h3>
+      <div class="tw"><table><thead><tr><th>Data</th><th class="num">Valor</th><th>Conta</th><th>Obs.</th><th></th></tr></thead><tbody>
+        ${pags.map(p => `<tr><td>${dt(p.data)}</td><td class="num">${n2(p.valor)}</td><td>${esc(contaPor(p.conta_id).nome || "")}</td><td>${esc(p.obs || "")}</td><td class="acts">${pode.editar() ? `<button type="button" class="btn sm" data-est="${esc(p.id)}">Estornar</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">Nenhum pagamento.</td></tr>`}
+      </tbody></table></div>`,
+    aoAbrir: (f, d) => {
+      lerItens = ligarItens(d, dv.itens || [], () => ($("[data-total]", d).textContent = brl(lerItens().reduce((a, x) => a + (+x.valor || 0), 0))));
+      if (!pode.editar()) $$("input,select,textarea,[data-item-add],.item button", d).forEach(x => (x.disabled = true));
+      const pg = $("[data-pagar]", d); if (pg) pg.addEventListener("click", () => { d.close(); setTimeout(() => pagarDevedor(dv), 0); });
+      $$("[data-est]", d).forEach(b => b.addEventListener("click", async () => { d.close(); if (!(await confirmar("Estornar pagamento", "Desfazer este pagamento? O lançamento no caixa será apagado.", "Estornar"))) return; try { await rpc("estornar_pagamento_devedor", { p_id: dv.id, p_pagamento: b.dataset.est }); toast("Estornado."); render(); } catch (e) { falha(e); } }));
+      const del = $("[data-del]", d); if (del) del.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir devedor", `Excluir o registro de <b>${esc(dv.devedor)}</b>? Prefira marcar como Quitado ou Perdido.`, "Excluir"))) return; try { await q(sb.from("devedores").delete().eq("id", dv.id)); toast("Excluído."); render(); } catch (e) { falha(e); } });
+    },
+    salvar: async f => { const d = lerDevedor(f, lerItens); await q(sb.from("devedores").update(d).eq("id", dv.id)); toast("Salvo."); render(); } });
+};
+function pagarDevedor(dv) {
+  const cats = S.categorias.filter(c => c.ativa && ["terceiros_entrada", "receita"].includes(c.grupo));
+  const padrao = cats.find(c => /ex-locat/i.test(c.nome));
+  modal({ titulo: "Pagamento de " + dv.devedor, ok: "Registrar",
+    corpo: `<div class="box">Saldo devedor: <b>${brl(saldoDev(dv))}</b></div>
+      <div class="row"><label class="fl"><span>Data</span><input type="date" name="data" value="${hoje()}" required></label>
+        <label class="fl"><span>Valor</span><input name="valor" inputmode="decimal" value="${n2(saldoDev(dv))}" required></label></div>
+      <label class="fl"><span>Entrou na conta</span><select name="conta">${contasOpts()}</select></label>
+      <label class="fl"><span>Categoria</span><select name="cat">${["terceiros_entrada", "receita"].map(g => `<optgroup label="${esc(GRUPOS[g])}">${cats.filter(c => c.grupo === g).map(c => opt(c.id, c.nome, padrao && c.id === padrao.id)).join("")}</optgroup>`).join("")}</select></label>
+      <label class="fl"><span>Observação</span><input name="obs" placeholder="ex.: parcela 1/3"></label>
+      <p class="hint">Dívida de aluguel/encargos é do proprietário: use "Dívidas de ex-locatários (p/ proprietários)" e depois faça o repasse no caixa. Multa ou valor que fica com a imobiliária: use uma categoria de Receita.</p>`,
+    salvar: async f => {
+      const v = parseMoney(f.valor.value); if (!v || v <= 0) throw new Error("Valor inválido.");
+      await rpc("registrar_pagamento_devedor", { p_id: dv.id, p_data: f.data.value, p_valor: v, p_conta: f.conta.value, p_categoria: f.cat.value, p_obs: f.obs.value });
+      toast("Pagamento registrado."); render();
+    } });
+}
+ACT["xls-dev"] = () => baixarXLSX(`devedores-${hoje()}.xlsx`, { Devedores: DEV.map(d => ({ Devedor: d.devedor, Contato: d.contato, Imovel: d.endereco, Contrato: d.contrato_codigo, Locador: d.locador, Entrada: dt(d.data_entrada), Saida: dt(d.data_saida), "Referente a": (d.itens || []).map(x => `${x.descricao} ${n2(x.valor)}`).join("; "), Divida: +d.valor_total, Pago: +d.valor_pago, Saldo: saldoDev(d), Situacao: d.situacao, Obs: d.obs })) });
+
+/* =====================================================================
+   PÁGINA: INDICADORES (gráficos como no Excel)
+   ===================================================================== */
+function barrasH(itens, opts) {
+  opts = opts || {};
+  const max = Math.max(1e-9, ...itens.map(x => Math.abs(x.v)));
+  return `<div class="hbars">${itens.map(x => `<div class="hb${x.sub ? " sub" : ""}"><span class="hb-l" title="${esc(x.l)}">${esc(x.l)}</span><span class="hb-t"><i style="width:${Math.max(0.5, Math.abs(x.v) / max * 100)}%"></i></span><span class="hb-v">${opts.fmt ? opts.fmt(x) : n2(x.v)}</span></div>`).join("")}</div>`;
+}
+function barrasV(itens, fmt, rotulo) {
+  const W = 760, H = 220, L = 50, B = 26, T = 18, R = 8;
+  const max = Math.max(1, ...itens.map(x => x.v));
+  const y = v => T + (1 - v / max) * (H - T - B);
+  const cw = (W - L - R) / Math.max(1, itens.length), bw = Math.min(34, cw - 6);
+  let g = `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/>`;
+  [0.5, 1].forEach(k => (g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(max * k)}" y2="${y(max * k)}"/><text class="ax" x="${L - 6}" y="${y(max * k) + 4}" text-anchor="end">${fmt(max * k, true)}</text>`));
+  itens.forEach((x, i) => {
+    const xx = L + i * cw + (cw - bw) / 2, h = Math.max(0, y(0) - y(x.v)), r = Math.min(4, h, bw / 2);
+    if (h > 0.5) g += `<path class="b1" d="M${xx},${y(0)} V${y(x.v) + r} Q${xx},${y(x.v)} ${xx + r},${y(x.v)} H${xx + bw - r} Q${xx + bw},${y(x.v)} ${xx + bw},${y(x.v) + r} V${y(0)}Z"/>`;
+    if (itens.length <= 16) g += `<text class="ax" x="${xx + bw / 2}" y="${y(x.v) - 5}" text-anchor="middle">${fmt(x.v, true)}</text>`;
+    g += `<text class="ax" x="${L + i * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${esc(x.l)}</text>`;
+    g += `<rect class="hit" x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}" data-tip="<b>${esc(x.l)}</b><br>${esc(rotulo)}: ${esc(fmt(x.v))}${x.extra ? "<br>" + esc(x.extra) : ""}"/>`;
+  });
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">${g}</svg><div class="tip" hidden></div></div>`;
+}
+const pct = (a, b) => b ? (a / b * 100).toFixed(1).replace(".", ",") + "%" : "–";
+const milBR = (v, curto) => curto && Math.abs(v) >= 1000 ? (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: v >= 100000 ? 0 : 1 }) + " mil" : brl(v);
+PAGES.indicadores = async pg => {
+  const [grupos, evol] = await Promise.all([q(sb.from("grupos_locador").select("*").order("ordem")), rpc("resumo_mapa")]);
+  const classe = Object.fromEntries(grupos.map(g => [g.nome, g.classe]));
+  const alg = S.imoveis.filter(i => i.status === "ALG");
+  const com = i => (+i.valor || 0) * (+i.taxa_adm || 0) / 100;
+  // categorias como no Excel
+  const cat = i => i.carteira === "proprio" ? "Imóveis próprios (imobiliária)" : i.carteira === "socio" ? "Particular do sócio" :
+    classe[i.grupo_locador] === "destaque" ? i.grupo_locador : classe[i.grupo_locador] === "grande" ? "Grandes locadores" : "Outros locadores";
+  const agg = {};
+  alg.forEach(i => { const k = cat(i); const a = agg[k] = agg[k] || { q: 0, bruto: 0, com: 0, donos: new Set() }; a.q++; a.bruto += +i.valor || 0; a.com += com(i); a.donos.add(i.locador); });
+  const totCom = alg.reduce((a, i) => a + com(i), 0), totBruto = alg.reduce((a, i) => a + (+i.valor || 0), 0);
+  const ordemCat = Object.keys(agg).sort((a, b) => agg[b].com - agg[a].com);
+  const porGrupo = {};
+  alg.filter(i => classe[i.grupo_locador] === "grande" && i.carteira === "administrado").forEach(i => { const a = porGrupo[i.grupo_locador] = porGrupo[i.grupo_locador] || { q: 0, bruto: 0, com: 0 }; a.q++; a.bruto += +i.valor || 0; a.com += com(i); });
+  const gruposOrd = Object.entries(porGrupo).sort((a, b) => b[1].com - a[1].com);
+  // por ano de entrada
+  const anos = {};
+  alg.forEach(i => { const a = i.data_entrada ? +i.data_entrada.slice(0, 4) : null; const k = a == null ? "s/ data" : a <= 2015 ? "até 2015" : String(a); anos[k] = (anos[k] || 0) + 1; });
+  const anosOrd = Object.keys(anos).sort((a, b) => (a === "s/ data") - (b === "s/ data") || (a === "até 2015" ? -1 : b === "até 2015" ? 1 : +a - +b));
+  // tipos
+  const tipos = {};
+  S.imoveis.forEach(i => { const t = tipos[i.tipo] = tipos[i.tipo] || { ALG: 0, LVR: 0, OCP: 0, INTV: 0, valor: 0 }; t[i.status]++; if (i.status === "ALG") t.valor += +i.valor || 0; });
+  // faixas
+  const faixas = [["até R$ 1.000", 0, 1000], ["R$ 1.000,01 – 1.500", 1000, 1500], ["R$ 1.500,01 – 2.000", 1500, 2000], ["R$ 2.000,01 – 3.500", 2000, 3500], ["R$ 3.500,01 – 5.000", 3500, 5000], ["R$ 5.000,01 – 10.000", 5000, 10000], ["mais de R$ 10.000", 10000, Infinity]]
+    .map(([l, a, b]) => { const xs = alg.filter(i => +i.valor > a && +i.valor <= b || (a === 0 && +i.valor <= b)); return { l, q: xs.length, v: xs.reduce((s, i) => s + +i.valor, 0) }; });
+  // evolução
+  const meses = Array.from(new Set(evol.map(e => e.competencia))).sort();
+  const ev = meses.map(m => { const a = evol.find(e => e.competencia === m && e.status === "ALG") || { qtd: 0, valor: 0, comissao: 0 }; return { m, q: +a.qtd, v: +a.valor, c: +a.comissao }; });
+
+  pg.innerHTML = `<div class="grid">
+    <div class="kpis">
+      ${kpi("Comissão / mês (carteira atual)", brl(totCom), "soma de aluguel × taxa dos alugados", true)}
+      ${kpi("Aluguel total da carteira", brl(totBruto), alg.length + " imóveis alugados")}
+      ${kpi("Aluguel médio", brl(alg.length ? totBruto / alg.length : 0), "")}
+      ${kpi("Locadores com imóvel alugado", String(new Set(alg.map(i => i.locador)).size), "")}
+    </div>
+    <div class="card"><div class="card-h"><h2>De onde vem a receita (participação na comissão)</h2><span class="hint">mapa atual · como a tabela do Excel</span></div>
+      ${barrasH(ordemCat.filter(k => agg[k].com > 0).map(k => ({ l: k, v: agg[k].com })), { fmt: x => `${pct(x.v, totCom)} · ${brl(x.v)}` })}
+      <div class="tw" style="margin-top:12px"><table><thead><tr><th>Grupo</th><th class="num">Imóveis</th><th class="num">Aluguel bruto</th><th class="num">Comissão/mês</th><th class="num">% da receita</th></tr></thead><tbody>
+        ${ordemCat.map(k => `<tr><td>${esc(k)}${k === "Particular do sócio" ? ' <span class="tag idle">não é receita</span>' : ""}</td><td class="num">${agg[k].q}</td><td class="num">${n2(agg[k].bruto)}</td><td class="num">${n2(agg[k].com)}</td><td class="num">${pct(agg[k].com, totCom)}</td></tr>`).join("")}
+      </tbody><tfoot><tr><td>Total</td><td class="num">${alg.length}</td><td class="num">${n2(totBruto)}</td><td class="num">${n2(totCom)}</td><td class="num">100%</td></tr></tfoot></table></div>
+    </div>
+    ${gruposOrd.length ? `<div class="card"><div class="card-h"><h2>Grandes locadores — detalhe</h2><span class="hint">% sobre a comissão total</span></div>
+      ${barrasH(gruposOrd.map(([n, a]) => ({ l: `${n} (${a.q})`, v: a.com })), { fmt: x => `${pct(x.v, totCom)} · ${brl(x.v)}` })}</div>` : ""}
+    <div class="grid g2">
+      <div class="card"><div class="card-h"><h2>Locações ativas por ano de entrada</h2></div>
+        ${barrasV(anosOrd.map(a => ({ l: a, v: anos[a], extra: pct(anos[a], alg.length) + " dos alugados" })), (v, c) => String(Math.round(v)), "Locações")}</div>
+      <div class="card"><div class="card-h"><h2>Faixas de valor de aluguel</h2></div>
+        <div class="tw"><table><thead><tr><th>Faixa</th><th class="num">Imóveis</th><th class="num">%</th><th class="num">R$</th><th class="num">% R$</th></tr></thead><tbody>
+        ${faixas.map(x => `<tr><td>${x.l}</td><td class="num">${x.q}</td><td class="num">${pct(x.q, alg.length)}</td><td class="num">${n2(x.v)}</td><td class="num">${pct(x.v, totBruto)}</td></tr>`).join("")}</tbody></table></div></div>
+    </div>
+    <div class="card"><div class="card-h"><h2>Imóveis por tipo</h2></div>
+      <div class="tw"><table><thead><tr><th>Tipo</th><th class="num">Alugados</th><th class="num">Livres</th><th class="num">Ocupados</th><th class="num">Inativos</th><th class="num">Total</th><th class="num">Ocupação*</th><th class="num">Aluguel (alugados)</th></tr></thead><tbody>
+      ${Object.entries(tipos).sort((a, b) => b[1].ALG - a[1].ALG).map(([t, x]) => `<tr><td>${esc(t || "—")}</td><td class="num">${x.ALG}</td><td class="num">${x.LVR}</td><td class="num">${x.OCP}</td><td class="num">${x.INTV}</td><td class="num">${x.ALG + x.LVR + x.OCP + x.INTV}</td><td class="num">${pct(x.ALG, x.ALG + x.LVR)}</td><td class="num">${n2(x.valor)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">* Ocupação = alugados ÷ (alugados + livres).</p></div>
+    <div class="card"><div class="card-h"><h2>Evolução mês a mês — aluguel total dos imóveis alugados</h2><span class="hint">dos mapas guardados</span></div>
+      ${ev.length ? barrasV(ev.map(e => ({ l: mesCurto(e.m), v: e.v, extra: `${e.q} alugados · comissão ${brl(e.c)}` })), milBR, "Aluguel total") : `<p class="muted">Nenhum mapa guardado ainda.</p>`}
+      ${ev.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>Mês</th>${ev.map(e => `<th class="num">${mesCurto(e.m)}</th>`).join("")}</tr></thead><tbody>
+        <tr><td>Alugados</td>${ev.map(e => `<td class="num">${e.q}</td>`).join("")}</tr>
+        <tr><td>Comissão</td>${ev.map(e => `<td class="num">${milBR(e.c, true)}</td>`).join("")}</tr></tbody></table></div>` : ""}
+    </div>
+  </div>`;
+  ligarGrafico(pg);
+};
+
 
 /* =====================================================================
    PÁGINA: CONTRATOS
@@ -1162,7 +1689,7 @@ ACT["xls-ctt"] = () => baixarXLSX(`contratos-${hoje()}.xlsx`, { Contratos: CTT.m
 PAGES.config = async pg => {
   if (!pode.admin()) { pg.innerHTML = `<div class="card empty">Somente o administrador.</div>`; return; }
   const aba = S.f.cfg || "contas";
-  const abas = [["contas", "Contas"], ["categorias", "Plano de contas"], ["usuarios", "Usuários"], ["fechamento", "Fechamento"], ["auditoria", "Auditoria"]];
+  const abas = [["contas", "Contas"], ["categorias", "Plano de contas"], ["grupos", "Grupos de locadores"], ["usuarios", "Usuários"], ["fechamento", "Fechamento"], ["auditoria", "Auditoria"]];
   let html = "";
   if (aba === "contas") {
     const linha = c => `<tr data-act="conta-ed" data-id="${c.id}" style="cursor:pointer"${c.ativa ? "" : ` class="inativa"`}><td class="num">${c.ordem}</td><td>${esc(c.nome)}</td><td>${esc({ caixa: "Caixa", banco: "Banco", outro: "Outro" }[c.tipo] || c.tipo)}</td><td class="num">${n2(c.saldo_inicial)}</td><td>${dt(c.data_saldo)}</td><td>${c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>`}</td></tr>`;
@@ -1172,6 +1699,13 @@ PAGES.config = async pg => {
     const linha = c => `<tr data-act="cat-ed" data-id="${c.id}" style="cursor:pointer"${c.ativa ? "" : ` class="inativa"`}><td>${esc(c.nome)}</td><td>${esc(GRUPOS[c.grupo])}</td><td>${c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>`}</td></tr>`;
     html = `<div class="filters"><span class="hint">O grupo decide onde a categoria aparece na DRE.</span><span class="spacer"></span><button class="btn pri" data-act="cat-ed">+ Categoria</button></div>
       ${tabelaAtivasInativas(S.categorias, linha, `<th>Categoria</th><th>Grupo</th><th>Situação</th>`, "Categorias inativas", "não aparecem nos formulários; lançamentos antigos continuam na DRE")}`;
+  } else if (aba === "grupos") {
+    const gs = await q(sb.from("grupos_locador").select("*").order("ordem").order("nome"));
+    S.gruposCfg = gs;
+    const n = {}; S.imoveis.forEach(i => { if (i.grupo_locador) n[i.grupo_locador] = (n[i.grupo_locador] || 0) + 1; });
+    html = `<div class="filters"><span class="hint">Agrupam locadores da mesma família ou empresa (como no Excel). "Destaque" aparece sozinho nos gráficos de Indicadores; "Grande locador" entra no grupo dos grandes. O grupo de cada imóvel é escolhido no cadastro do imóvel.</span><span class="spacer"></span><button class="btn pri" data-act="grupo-ed">+ Grupo</button></div>
+      <div class="tw"><table><thead><tr><th class="num">Ordem</th><th>Grupo</th><th>Classe</th><th class="num">Imóveis</th></tr></thead><tbody>
+      ${gs.map(g => `<tr data-act="grupo-ed" data-id="${esc(g.nome)}" style="cursor:pointer"><td class="num">${g.ordem}</td><td>${esc(g.nome)}</td><td>${g.classe === "destaque" ? '<span class="tag info">Destaque</span>' : "Grande locador"}</td><td class="num">${n[g.nome] || 0}</td></tr>`).join("")}</tbody></table></div>`;
   } else if (aba === "usuarios") {
     const ms = await q(sb.from("membros").select("*").order("criado_em"));
     html = `<div class="box">Para criar um usuário: no Supabase, <b>Authentication › Users › Add user</b> (e-mail + senha). Ele aparece aqui <b>inativo</b>; ative e escolha o papel. O cadastro público deve ficar <b>desligado</b>.</div>
@@ -1246,6 +1780,23 @@ ACT["cat-ed"] = el => {
       await recarregarCategorias(); toast("Salvo."); render();
     } });
 };
+ACT["grupo-ed"] = el => {
+  const g = (S.gruposCfg || []).find(x => x.nome === el.dataset.id) || { classe: "grande", ordem: (S.gruposCfg || []).length + 1 };
+  const usados = g.nome ? S.imoveis.filter(i => i.grupo_locador === g.nome).length : 0;
+  modal({ titulo: g.nome ? "Grupo de locadores" : "Novo grupo", corpo: `
+    <label class="fl"><span>Nome do grupo</span><input name="nome" value="${esc(g.nome || "")}" required ${g.nome ? "disabled" : ""}></label>
+    <div class="row"><label class="fl"><span>Classe</span><select name="classe">${opt("grande", "Grande locador", g.classe === "grande")}${opt("destaque", "Destaque (aparece sozinho)", g.classe === "destaque")}</select></label>
+    <label class="fl"><span>Ordem</span><input type="number" name="ordem" value="${g.ordem}"></label></div>
+    ${g.nome ? `<p class="hint">${usados} imóvel(is) neste grupo.${usados ? " Para excluir o grupo, tire-o dos imóveis antes." : ""}</p>` : ""}`,
+    extra: g.nome && !usados ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "",
+    aoAbrir: (f, d) => { const b = $("[data-del]", d); if (b) b.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir grupo", `Excluir o grupo <b>${esc(g.nome)}</b>?`, "Excluir"))) return; try { await q(sb.from("grupos_locador").delete().eq("nome", g.nome)); toast("Excluído."); render(); } catch (e) { falha(e); } }); },
+    salvar: async f => {
+      const d = { classe: f.classe.value, ordem: +f.ordem.value || 0 };
+      if (g.nome) await q(sb.from("grupos_locador").update(d).eq("nome", g.nome));
+      else await q(sb.from("grupos_locador").insert(Object.assign({ nome: f.nome.value.trim() }, d)));
+      toast("Salvo."); render();
+    } });
+};
 ACT["membro-ed"] = el => {
   const m = S.membros.find(x => x.id === el.dataset.id); const eu = m.id === S.user.id;
   modal({ titulo: m.email, corpo: `
@@ -1277,8 +1828,8 @@ ACT["audit-ver"] = el => {
 /* =====================================================================
    PÁGINA: BACKUP
    ===================================================================== */
-const TABELAS_BKP = ["config", "contas", "categorias", "imoveis", "contratos", "reajustes", "cobrancas", "lancamentos", "mapa_mensal"];
-const ORDEM_PK = { config: "chave", contratos: "codigo", mapa_mensal: "competencia" };
+const TABELAS_BKP = ["config", "contas", "categorias", "grupos_locador", "imoveis", "contratos", "reajustes", "devedores", "cobrancas", "lancamentos", "mapa_mensal"];
+const ORDEM_PK = { config: "chave", contratos: "codigo", mapa_mensal: "competencia", grupos_locador: "nome" };
 PAGES.backup = async pg => {
   const cfg = await q(sb.from("config").select("*").eq("chave", "ultimo_backup").maybeSingle());
   const ub = cfg ? new Date(cfg.valor) : null, dias = ub ? Math.floor((Date.now() - ub) / 86400000) : null;
