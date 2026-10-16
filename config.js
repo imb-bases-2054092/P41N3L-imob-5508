@@ -6,8 +6,8 @@
    NUNCA coloque aqui a chave "secret" / "service_role".
    ===================================================================== */
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://SEU-PROJETO.supabase.co",
-  SUPABASE_KEY: "sb_publishable_COLE_AQUI",
-  NOME_EMPRESA: "Imobiliária",
+  SUPABASE_URL: "https://sqrrhexruokwbuovsoue.supabase.co",
+  SUPABASE_KEY: "sb_publishable_d5mYu4pCdcTWQZQKf9pUrg_tmPFex-K",
+  NOME_EMPRESA: "Imobiliária Bandeirantes",
   MINUTOS_INATIVIDADE: 20
 };
