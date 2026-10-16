@@ -1290,8 +1290,12 @@ PAGES.backup = async pg => {
       <div class="filters" style="margin-top:10px"><button class="btn pri" data-act="bkp-baixar">Baixar backup agora</button><label class="chk"><input type="checkbox" id="bkp-xlsx" checked> incluir planilha Excel</label></div>
       <p class="hint" id="bkp-prog"></p>
     </div>
+    <div class="card"><div class="card-h"><h2>Abrir / conferir um backup</h2><a class="btn pri" href="abrir-backup.html" target="_blank" rel="noopener">Abrir backup ↗</a></div>
+      <p>Abre uma página separada para <b>conferir</b> um arquivo de backup (.json.enc ou .json) e transformá-lo em <b>planilha Excel</b>. Não altera nada no sistema e funciona mesmo se o Supabase estiver fora do ar.</p>
+      <p class="hint">Dica: guarde também esse endereço nos favoritos. Em emergência, a página abre sem login.</p>
+    </div>
     <div class="card"><div class="card-h"><h2>Backup automático semanal</h2></div>
-      <p>Configurado à parte, no GitHub (veja o guia <b>LEIA-ME</b>): toda segunda-feira um robô baixa todos os dados, criptografa com a sua senha e guarda o arquivo por 90 dias. Os arquivos <b>.json.enc</b> gerados por ele podem ser restaurados abaixo.</p>
+      <p>Configurado à parte, no GitHub (veja o guia <b>LEIA-ME</b>): toda segunda e quinta-feira um robô baixa todos os dados, criptografa com a sua senha e guarda o arquivo por 90 dias. Os arquivos <b>.json.enc</b> gerados por ele podem ser restaurados abaixo.</p>
     </div>
     <div class="card"><div class="card-h"><h2>Restaurar / importar</h2></div>
       ${pode.admin() ? `<p>Envia um arquivo de backup (.json ou .json.enc) para o banco. Linhas que já existem são <b>atualizadas</b> com a versão do arquivo; nada é apagado. Use também para a <b>importação inicial</b> das planilhas.</p>
