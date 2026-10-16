@@ -301,7 +301,8 @@ function modal({ titulo, corpo, ok = "Salvar", salvar, extra = "", largo = false
   if (first) first.focus();
   return f;
 }
-function confirmar(titulo, texto, ok = "Confirmar") {
+async function confirmar(titulo, texto, ok = "Confirmar") {
+  await new Promise(r => setTimeout(r, 0)); // deixa terminar o fechamento do diálogo anterior
   return new Promise(res => {
     let feito = false;
     modal({ titulo, corpo: `<p>${texto}</p>`, ok, salvar: async () => { feito = true; } });
@@ -1164,13 +1165,13 @@ PAGES.config = async pg => {
   const abas = [["contas", "Contas"], ["categorias", "Plano de contas"], ["usuarios", "Usuários"], ["fechamento", "Fechamento"], ["auditoria", "Auditoria"]];
   let html = "";
   if (aba === "contas") {
+    const linha = c => `<tr data-act="conta-ed" data-id="${c.id}" style="cursor:pointer"${c.ativa ? "" : ` class="inativa"`}><td class="num">${c.ordem}</td><td>${esc(c.nome)}</td><td>${esc({ caixa: "Caixa", banco: "Banco", outro: "Outro" }[c.tipo] || c.tipo)}</td><td class="num">${n2(c.saldo_inicial)}</td><td>${dt(c.data_saldo)}</td><td>${c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>`}</td></tr>`;
     html = `<div class="filters"><span class="hint">Onde o dinheiro fica. O saldo inicial é o saldo real da conta na data informada (pegue no extrato).</span><span class="spacer"></span><button class="btn pri" data-act="conta-ed">+ Conta</button></div>
-      <div class="tw"><table><thead><tr><th>Conta</th><th>Tipo</th><th class="num">Saldo inicial</th><th>Em</th><th>Ativa</th></tr></thead><tbody>
-      ${S.contas.map(c => `<tr data-act="conta-ed" data-id="${c.id}" style="cursor:pointer"><td>${esc(c.nome)}</td><td>${esc(c.tipo)}</td><td class="num">${n2(c.saldo_inicial)}</td><td>${dt(c.data_saldo)}</td><td>${c.ativa ? "Sim" : "Não"}</td></tr>`).join("")}</tbody></table></div>`;
+      ${tabelaAtivasInativas(S.contas, linha, `<th class="num">Ordem</th><th>Conta</th><th>Tipo</th><th class="num">Saldo inicial</th><th>Em</th><th>Situação</th>`, "Contas inativas", "não aparecem no painel nem nos formulários; o histórico continua guardado")}`;
   } else if (aba === "categorias") {
+    const linha = c => `<tr data-act="cat-ed" data-id="${c.id}" style="cursor:pointer"${c.ativa ? "" : ` class="inativa"`}><td>${esc(c.nome)}</td><td>${esc(GRUPOS[c.grupo])}</td><td>${c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>`}</td></tr>`;
     html = `<div class="filters"><span class="hint">O grupo decide onde a categoria aparece na DRE.</span><span class="spacer"></span><button class="btn pri" data-act="cat-ed">+ Categoria</button></div>
-      <div class="tw"><table><thead><tr><th>Categoria</th><th>Grupo</th><th>Ativa</th></tr></thead><tbody>
-      ${S.categorias.map(c => `<tr data-act="cat-ed" data-id="${c.id}" style="cursor:pointer"><td>${esc(c.nome)}</td><td>${esc(GRUPOS[c.grupo])}</td><td>${c.ativa ? "Sim" : "Não"}</td></tr>`).join("")}</tbody></table></div>`;
+      ${tabelaAtivasInativas(S.categorias, linha, `<th>Categoria</th><th>Grupo</th><th>Situação</th>`, "Categorias inativas", "não aparecem nos formulários; lançamentos antigos continuam na DRE")}`;
   } else if (aba === "usuarios") {
     const ms = await q(sb.from("membros").select("*").order("criado_em"));
     html = `<div class="box">Para criar um usuário: no Supabase, <b>Authentication › Users › Add user</b> (e-mail + senha). Ele aparece aqui <b>inativo</b>; ative e escolha o papel. O cadastro público deve ficar <b>desligado</b>.</div>
@@ -1193,6 +1194,25 @@ PAGES.config = async pg => {
   }
   pg.innerHTML = `<div class="grid"><div class="chips">${abas.map(([k, t]) => `<button class="chip${aba === k ? " on" : ""}" data-act="chip" data-k="cfg" data-v="${k}">${t}</button>`).join("")}</div>${html}</div>`;
 };
+function tabelaAtivasInativas(lista, linha, ths, tituloInat, dica) {
+  const at = lista.filter(x => x.ativa), inat = lista.filter(x => !x.ativa);
+  let h = `<div class="tw"><table><thead><tr>${ths}</tr></thead><tbody>${at.map(linha).join("") || `<tr><td colspan="9" class="empty">Nenhuma ativa.</td></tr>`}</tbody></table></div>`;
+  if (inat.length) h += `<h3 style="margin-top:8px;color:var(--bad)">${esc(tituloInat)} (${inat.length})</h3><p class="hint">${esc(dica)}. Clique para reativar ou excluir.</p>
+    <div class="tw inativas"><table><thead><tr>${ths}</tr></thead><tbody>${inat.map(linha).join("")}</tbody></table></div>`;
+  return h;
+}
+async function excluirCadastro(tabela, id, nome, recarregar) {
+  if (!(await confirmar("Excluir", `Excluir <b>${esc(nome)}</b> definitivamente?`, "Excluir"))) return;
+  try {
+    await q(sb.from(tabela).delete().eq("id", id));
+    await recarregar(); toast("Excluído."); render();
+  } catch (e) {
+    if (e && (e.code === "23503" || /foreign key|violates/i.test(e.message || ""))) toast(`"${nome}" já tem lançamentos ou aluguéis ligados e não pode ser excluída. Desmarque "Ativa" para escondê-la.`, true);
+    else falha(e);
+  }
+}
+const recarregarContas = async () => { S.contas = await q(sb.from("contas").select("*").order("ordem").order("nome")); };
+const recarregarCategorias = async () => { S.categorias = await q(sb.from("categorias").select("*").order("grupo").order("nome")); };
 ACT["conta-ed"] = el => {
   const c = S.contas.find(x => x.id === el.dataset.id) || { tipo: "banco", saldo_inicial: 0, data_saldo: hoje().slice(0, 4) + "-01-01", ativa: true, ordem: S.contas.length + 1 };
   modal({ titulo: c.id ? "Conta" : "Nova conta", corpo: `
@@ -1202,11 +1222,13 @@ ACT["conta-ed"] = el => {
     <div class="row"><label class="fl"><span>Saldo inicial</span><input name="saldo" inputmode="decimal" value="${n2(c.saldo_inicial)}"></label>
     <label class="fl"><span>Na data</span><input type="date" name="data" value="${c.data_saldo}" required></label></div>
     <label class="chk"><input type="checkbox" name="ativa" ${c.ativa ? "checked" : ""}> Ativa</label>
-    <p class="hint">Lançamentos antes da data do saldo inicial não entram no saldo da conta.</p>`,
+    <p class="hint">Lançamentos antes da data do saldo inicial não entram no saldo da conta. Uma conta já usada não pode ser excluída: desmarque "Ativa" para escondê-la.</p>`,
+    extra: c.id ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "",
+    aoAbrir: (f, d) => { const b = $("[data-del]", d); if (b) b.addEventListener("click", () => { d.close(); excluirCadastro("contas", c.id, c.nome, recarregarContas); }); },
     salvar: async f => {
       const d = { nome: f.nome.value.trim(), tipo: f.tipo.value, ordem: +f.ordem.value || 0, saldo_inicial: parseMoney(f.saldo.value) || 0, data_saldo: f.data.value, ativa: f.ativa.checked };
       if (c.id) await q(sb.from("contas").update(d).eq("id", c.id)); else await q(sb.from("contas").insert(d));
-      S.contas = await q(sb.from("contas").select("*").order("ordem").order("nome")); toast("Salvo."); render();
+      await recarregarContas(); toast("Salvo."); render();
     } });
 };
 ACT["cat-ed"] = el => {
@@ -1214,11 +1236,14 @@ ACT["cat-ed"] = el => {
   modal({ titulo: c.id ? "Categoria" : "Nova categoria", corpo: `
     <label class="fl"><span>Nome</span><input name="nome" value="${esc(c.nome || "")}" required></label>
     <label class="fl"><span>Grupo</span><select name="grupo">${Object.entries(GRUPOS).map(([k, v]) => opt(k, v, c.grupo === k)).join("")}</select></label>
-    <label class="chk"><input type="checkbox" name="ativa" ${c.ativa ? "checked" : ""}> Ativa (aparece nos formulários)</label>`,
+    <label class="chk"><input type="checkbox" name="ativa" ${c.ativa ? "checked" : ""}> Ativa (aparece nos formulários)</label>
+    <p class="hint">Uma categoria já usada não pode ser excluída: desmarque "Ativa" para escondê-la.</p>`,
+    extra: c.id ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "",
+    aoAbrir: (f, d) => { const b = $("[data-del]", d); if (b) b.addEventListener("click", () => { d.close(); excluirCadastro("categorias", c.id, c.nome, recarregarCategorias); }); },
     salvar: async f => {
       const d = { nome: f.nome.value.trim(), grupo: f.grupo.value, ativa: f.ativa.checked };
       if (c.id) await q(sb.from("categorias").update(d).eq("id", c.id)); else await q(sb.from("categorias").insert(d));
-      S.categorias = await q(sb.from("categorias").select("*").order("grupo").order("nome")); toast("Salvo."); render();
+      await recarregarCategorias(); toast("Salvo."); render();
     } });
 };
 ACT["membro-ed"] = el => {
