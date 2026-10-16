@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Abrir backup</title>
+<style>
+:root{--bg:#f0f4fb;--surface:#fff;--line:#cfdcf0;--fg:#1a2d6b;--ink:#1d2433;--muted:#5f6b85;--bad:#c8192e;--ok:#2e7d32}
+@media (prefers-color-scheme: dark){:root{--bg:#0c1430;--surface:#13204a;--line:#2a3c74;--fg:#e8eefc;--ink:#e8eefc;--muted:#a3b0d0;--bad:#f0566a;--ok:#7cc983;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding:32px 16px}
+main{max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px}
+h1{color:var(--fg);margin:0 0 6px;font-size:24px}
+p{color:var(--muted)}
+label{display:block;font-weight:700;font-size:13px;margin:14px 0 4px;color:var(--muted)}
+input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:inherit;font:inherit}
+button{margin-top:16px;margin-right:8px;padding:9px 14px;border-radius:6px;border:1px solid var(--fg);background:var(--fg);color:var(--surface);font-weight:700;cursor:pointer}
+button.sec{background:transparent;color:var(--fg)}
+#msg{margin-top:14px;font-weight:600}
+.bad{color:var(--bad)} .ok{color:var(--ok)}
+ul{padding-left:18px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Abrir backup do Financeiro</h1>
+  <p>Funciona sem internet e sem login: o arquivo é aberto só neste computador. Use para consultar um backup <b>.json.enc</b> (protegido por senha) ou <b>.json</b> e convertê-lo em planilha Excel.</p>
+  <label for="arq">Arquivo de backup</label>
+  <input type="file" id="arq" accept=".json,.enc">
+  <label for="senha">Senha do backup (se for .json.enc)</label>
+  <input type="password" id="senha" autocomplete="off">
+  <button id="abrir">Abrir</button>
+  <div id="msg"></div>
+  <div id="res" hidden>
+    <ul id="lista"></ul>
+    <button id="xlsx">Baixar planilha Excel</button>
+    <button id="json" class="sec">Baixar .json sem senha</button>
+  </div>
+</main>
+<script src="vendor/xlsx-0.18.5.mini.js"></script>
+<script src="abrir-backup.js"></script>
+</body>
+</html>
