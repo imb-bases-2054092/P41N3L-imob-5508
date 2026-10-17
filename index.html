@@ -83,7 +83,7 @@ h3{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
 .mes{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
 .mes button{border:0;background:transparent;width:30px;height:30px;border-radius:6px;cursor:pointer;color:var(--fg);font-size:16px}
 .mes button:hover{background:var(--surface-2)}
-.mes span{min-width:120px;text-align:center;font-weight:700;color:var(--fg);text-transform:capitalize}
+.mes .mes-btn{width:auto;min-width:150px;font-weight:700;color:var(--fg);text-transform:capitalize;font-size:14px;padding:0 10px}
 .btn.menu-btn{display:none}
 
 /* ---------- componentes ---------- */
@@ -179,6 +179,76 @@ table.grade th.drop{box-shadow:inset 3px 0 0 var(--brand-red)}
 .hb-t i{display:block;height:100%;background:var(--s1);border-radius:0 4px 4px 0}
 .hb-v{font-family:var(--font-mono);font-size:12.5px;white-space:nowrap;color:var(--ink)}
 @media (max-width:600px){.hb{grid-template-columns:1fr auto}.hb-t{grid-column:1/-1;order:3}}
+
+/* passado / futuro */
+:root{--past:#f7efe0;--past-ink:#7a4b00;--past-line:#e2c48d;--fut:#ece8fb;--fut-ink:#4b2fa8;--fut-line:#c5b9f0;
+  --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#6250d6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--past:#2b2414;--past-ink:#f0c46a;--past-line:#6b5523;--fut:#211b3f;--fut-ink:#b9a8ff;--fut-line:#4c3d8f;
+  --c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#9085e9}}
+:root[data-theme="dark"]{--past:#2b2414;--past-ink:#f0c46a;--past-line:#6b5523;--fut:#211b3f;--fut-ink:#b9a8ff;--fut-line:#4c3d8f;
+  --c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#9085e9}
+body[data-tempo=passado] .main{background:var(--past)}
+body[data-tempo=futuro] .main{background:var(--fut)}
+body[data-tempo=passado] .mes{border-color:var(--past-ink);box-shadow:0 0 0 2px var(--past-line)}
+body[data-tempo=futuro] .mes{border-color:var(--fut-ink);box-shadow:0 0 0 2px var(--fut-line)}
+.faixa{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;font-size:14px;border:1px solid}
+.faixa.passado{background:var(--surface);color:var(--past-ink);border-color:var(--past-line)}
+.faixa.futuro{background:var(--surface);color:var(--fut-ink);border-color:var(--fut-line)}
+.faixa .btn{margin-left:auto}
+/* calendário */
+.cal-h{display:flex;align-items:center;justify-content:space-between}
+.cal-g{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.cal-g .btn{justify-content:center;text-transform:capitalize}
+.cal-g .btn.pas:not(.pri){background:var(--past);color:var(--past-ink)}
+.cal-g .btn.fut:not(.pri){background:var(--fut);color:var(--fut-ink)}
+.cal-g .btn.hoje{outline:2px solid var(--brand-red);outline-offset:-2px}
+/* cards esperado × real */
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kcard{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--kc,var(--accent));border-radius:var(--r);padding:12px 14px}
+.kcard .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px}
+.kcard .kl{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.kcard .kl span{font-size:12px;color:var(--muted)}
+.kcard .kl b{font-family:var(--font-mono);font-size:17px;font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+.kcard .kl.real b{color:var(--kc,var(--accent))}
+.kcard .s{font-size:11.5px;color:var(--muted);margin-top:4px}
+.k-bruto{--kc:var(--c6)} .k-adm{--kc:var(--c1)} .k-prop{--kc:var(--c3)} .k-socio{--kc:var(--c5)} .k-total{--kc:var(--c2)}
+.kcard.k-total{box-shadow:inset 0 0 0 1px var(--c2)}
+/* indicadores simples */
+.minis{display:flex;flex-wrap:wrap;gap:10px}
+.minis>div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;min-width:150px;flex:1}
+.minis span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.minis b{font-family:var(--font-mono);font-size:18px;font-weight:500;color:var(--fg)}
+.minis small{font-size:11.5px;color:var(--muted)}
+/* pizza */
+.pizza{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:16px;align-items:center}
+.pizza .seg{cursor:default} .pizza .seg:hover{opacity:.85}
+.pz-t{font-family:var(--font-mono);font-size:16px;fill:var(--fg);font-weight:600}
+.pz-s{font-size:11px;fill:var(--muted)}
+.pz-leg{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.pz-leg div{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center}
+.pz-leg i,.dot{display:inline-block;width:12px;height:12px;border-radius:3px}
+.dot{margin-right:6px;vertical-align:-1px}
+.pz-leg b{font-family:var(--font-mono);font-weight:500;font-size:12.5px}
+.pz-leg small{font-family:var(--font-mono);color:var(--muted);text-align:right}
+@media (max-width:600px){.pizza{grid-template-columns:1fr}}
+.hb-t.sb{display:flex;gap:2px;background:transparent}
+.hb-t.sb i{border-radius:2px}
+.chart .band{fill:var(--accent-soft);opacity:.7}
+.chart .ax.fw{font-weight:700;fill:var(--fg)}
+.chart .b2{fill:var(--s2)}
+table.evol td:first-child{white-space:nowrap}
+table.evol td.cur,table.evol th.cur{background:var(--accent-soft);font-weight:700}
+/* itens e contatos */
+.item{grid-template-columns:1fr 120px auto auto!important}
+.item .est{font-size:12px;color:var(--muted);white-space:nowrap}
+.chips.rapidos{gap:4px;align-items:center}
+.chips.rapidos .chip{padding:2px 8px;font-size:12px}
+.contatos{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.contato{display:grid;grid-template-columns:110px 1.4fr 1fr 1.3fr auto;gap:6px}
+.contato input,.contato select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 8px;min-width:0}
+@media (max-width:700px){.contato{grid-template-columns:1fr 1fr}.item{grid-template-columns:1fr 100px!important}}
+.grupo-lista{max-height:320px}
+tr.inativa td{color:var(--bad)}
 .mais{display:flex;justify-content:center;padding:10px}
 
 /* formulário / modal */
@@ -187,6 +257,7 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
 .dlg-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line-2)}
 .dlg-h h2{margin-right:auto}
 .dlg-b{padding:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:70vh;overflow-y:auto}
+.dlg-b>*{flex-shrink:0}
 .dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--line-2);flex-wrap:wrap}
 .dlg-f .left{margin-right:auto}
 .dlg-f .left~.left{margin-right:0}
@@ -325,10 +396,11 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
       <h1 id="titulo">Painel</h1>
       <div class="mes" id="mes-sel">
         <button type="button" data-act="mes-ant" aria-label="Mês anterior">‹</button>
-        <span id="mes-txt"></span>
+        <button type="button" class="mes-btn" data-act="mes-cal" title="Escolher mês"><span id="mes-txt"></span> ▾</button>
         <button type="button" data-act="mes-prox" aria-label="Próximo mês">›</button>
       </div>
     </div>
+    <div id="faixa-tempo" class="faixa" hidden></div>
     <div id="page"></div>
   </main>
 </div>
