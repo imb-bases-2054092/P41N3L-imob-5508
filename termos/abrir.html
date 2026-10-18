@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<!-- Termos (entrega de chaves / devolução de caução) rodando DENTRO do sistema Financeiro,
+     numa janela isolada (sem acesso ao login do sistema). Os dados do cadastro chegam do
+     sistema por mensagem e ficam só na memória desta janela. Nada é enviado para fora:
+     connect-src não permite nenhum servidor externo. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; frame-src blob: data:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>Termo</title>
+<style>body{font-family:system-ui,sans-serif;color:#1a2d6b;display:grid;place-items:center;min-height:90vh;margin:0}</style>
+</head>
+<body>
+<p id="msg">Carregando o termo…</p>
+<script src="abrir.js"></script>
+</body>
+</html>

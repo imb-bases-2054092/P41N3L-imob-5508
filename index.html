@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <!-- Segurança: o navegador só executa scripts deste site e só conversa com o Supabase -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://*.supabase.co wss://*.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <title>Financeiro Imobiliária</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a2d6b'/%3E%3Cpath d='M7 16l9-8 9 8M10 14v10h12V14' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
@@ -77,7 +77,7 @@ h3{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
 .me .papel{color:var(--side-muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .me button{background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--side-fg);border-radius:6px;padding:6px 8px;cursor:pointer;font-weight:600;font-size:13px}
 .me button:hover{background:var(--side-active)}
-.main{min-width:0;padding:20px 28px 60px;display:flex;flex-direction:column;gap:20px}
+.main{min-width:0;padding:20px 28px 14px;display:flex;flex-direction:column;gap:16px}
 .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .topbar h1{margin-right:auto}
 .mes{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
@@ -143,14 +143,15 @@ td.trunc{max-width:260px}
 .chip.st-LVR{border-color:var(--ok);color:var(--ok)} .chip.st-LVR.on{background:var(--ok);color:var(--surface)}
 .chip.st-OCP{border-color:var(--warn);color:var(--warn)} .chip.st-OCP.on{background:var(--warn);color:var(--surface)}
 .chip.st-INTV{border-color:var(--bad);color:var(--bad)} .chip.st-INTV.on{background:var(--bad);color:var(--surface)}
-.prev{color:var(--ok);font-style:italic}
+.prev{color:var(--prev);font-style:italic;font-family:var(--font-body);font-size:13.5px;font-weight:600}
+:root{--prev:#7b2fbe} @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--prev:#c79bff}} :root[data-theme="dark"]{--prev:#c79bff}
 /* grade estilo Excel */
 table.grade th{user-select:none;cursor:grab;padding-right:4px}
 table.grade td{white-space:nowrap}
 .tw.fixa{overflow:auto;max-height:70vh}
 .tw.fixa thead th{position:sticky;top:0;z-index:2}
 .tw.fixa tfoot td{position:sticky;bottom:0;z-index:2;box-shadow:0 -1px 0 var(--line)}
-table.grade tr.novo-dia td{border-top:2px solid var(--line)}
+table.grade tr.novo-dia td{border-top:2px solid var(--brand-red)}
 table.grade tr.interno td{color:var(--muted);font-style:italic}
 .est-tag{padding:0 6px;font-size:11px}
 table.grade td.trunc{max-width:300px}
@@ -197,10 +198,10 @@ body[data-tempo=passado] .main{background:var(--past)}
 body[data-tempo=futuro] .main{background:var(--fut)}
 body[data-tempo=passado] .mes{border-color:var(--past-ink);box-shadow:0 0 0 2px var(--past-line)}
 body[data-tempo=futuro] .mes{border-color:var(--fut-ink);box-shadow:0 0 0 2px var(--fut-line)}
-.faixa{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;font-size:14px;border:1px solid}
+.faixa{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:3px 4px 3px 12px;border-radius:8px;font-size:13.5px;border:1px solid;white-space:nowrap}
 .faixa.passado{background:var(--surface);color:var(--past-ink);border-color:var(--past-line)}
 .faixa.futuro{background:var(--surface);color:var(--fut-ink);border-color:var(--fut-line)}
-.faixa .btn{margin-left:auto}
+.faixa .btn{margin-left:4px}
 /* calendário */
 .cal-h{display:flex;align-items:center;justify-content:space-between}
 .cal-g{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
@@ -214,14 +215,15 @@ body[data-tempo=futuro] .mes{border-color:var(--fut-ink);box-shadow:0 0 0 2px va
 .kcard.k-main{border:2px solid var(--accent);box-shadow:var(--shadow)}
 .kcard.k-main .l{color:var(--fg)}
 .kcard.k-sub{background:var(--surface-2);border-color:var(--line-2)}
-.kcard.k-sub .kl b{font-size:clamp(12px,1vw,14px)}
+.kcard.k-sub .kg b{font-size:clamp(12px,1vw,14px)}
 .kcard{min-width:0;overflow:hidden}
 .kcard .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px}
-.kcard .kl{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.kcard .kl span{font-size:12px;color:var(--muted)}
-.kcard .kl b{font-family:var(--font-mono);font-size:clamp(13px,1.15vw,16px);font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap}
-.kcard .kl.real b{color:var(--real)}
-.kcard .kl.defas b{color:var(--bad)}
+.kcard .kg{display:grid;grid-template-columns:1fr auto auto;column-gap:6px;row-gap:1px;align-items:baseline}
+.kcard .kg .kt{font-size:12px;color:var(--muted)}
+.kcard .kg i{font-style:normal;font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.kcard .kg b{font-family:var(--font-mono);font-size:clamp(13px,1.15vw,16px);font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.kcard .kg b.real{color:var(--real)}
+.kcard .kg b.defas{color:var(--bad)}
 .kcard .s{font-size:11.5px;color:var(--muted);margin-top:4px}
 .kcard{--real:#1b6b2a}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .kcard{--real:#7cc983}}
@@ -271,6 +273,37 @@ table.evol td.cur,table.evol th.cur{background:var(--accent-soft);font-weight:70
 .grupo-lista{max-height:320px}
 tr.inativa td{color:var(--bad)}
 .mais{display:flex;justify-content:center;padding:10px}
+
+/* v5 */
+.topbar .faixa{order:0}
+.chip.st-REAJ{border-color:var(--prev);color:var(--prev)} .chip.st-REAJ.on{background:var(--prev);color:var(--surface)}
+.ind-pz{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr);gap:16px;align-items:stretch}
+.ind-pz .pizza{grid-template-columns:minmax(130px,170px) auto;gap:16px}
+.ind-pz .receita{grid-template-columns:minmax(120px,160px) minmax(0,1fr);gap:14px}
+.ativos{margin-top:12px;padding-top:10px;border-top:1px solid var(--line-2);font-size:14px}
+.ativos b{font-family:var(--font-mono);font-size:16px;color:var(--fg)}
+table.compacta th,table.compacta td{padding:6px 8px;font-size:13px}
+@media (max-width:1100px){.ind-pz{grid-template-columns:1fr}}
+dialog.xl .dlg-b{max-height:76vh}
+.ficha-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 12px}
+.ficha-g .largo{grid-column:span 2} .ficha-g .largo2{grid-column:1/-1}
+@media (max-width:600px){.ficha-g .largo{grid-column:auto}}
+.ficha-b{border:1px solid var(--line-2);border-radius:8px;padding:8px 12px 12px;margin:0}
+.ficha-b legend{font-size:12px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:.04em;padding:0 6px}
+.abas{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:6px}
+.aba{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:6px;padding:5px 11px;cursor:pointer;font-weight:600;font-size:13px}
+.aba.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ficha-sec{display:flex;flex-direction:column;gap:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:var(--surface);color:var(--muted);padding:5px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.mapa-opc{display:flex;flex-direction:column;gap:6px}
+.mapa-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.st-ed{cursor:pointer} .st-ed:hover{outline:2px solid var(--accent);outline-offset:1px}
+.st-ops{display:flex;flex-wrap:wrap;gap:6px}
+.termo-dlg{width:min(1240px,calc(100vw - 24px))!important}
+.termo-dlg .dlg-b{padding:0;max-height:none}
+.termo-dlg iframe{width:100%;height:calc(100vh - 140px);border:0;display:block;background:#fff}
 
 /* formulário / modal */
 dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));box-shadow:var(--shadow)}
@@ -415,13 +448,13 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
     <div class="topbar">
       <button class="btn menu-btn" type="button" data-act="menu" aria-label="Abrir menu">☰</button>
       <h1 id="titulo">Painel</h1>
+      <div id="faixa-tempo" class="faixa" hidden></div>
       <div class="mes" id="mes-sel">
         <button type="button" data-act="mes-ant" aria-label="Mês anterior">‹</button>
         <button type="button" class="mes-btn" data-act="mes-cal" title="Escolher mês"><span id="mes-txt"></span> ▾</button>
         <button type="button" data-act="mes-prox" aria-label="Próximo mês">›</button>
       </div>
     </div>
-    <div id="faixa-tempo" class="faixa" hidden></div>
     <div id="page"></div>
   </main>
 </div>
