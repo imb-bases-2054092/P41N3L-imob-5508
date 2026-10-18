@@ -72,7 +72,8 @@ h3{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
 .nav svg{width:19px;height:19px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .nav-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--side-muted);padding:14px 12px 4px}
 .spacer{flex:1}
-.me{border-top:1px solid rgba(255,255,255,.14);padding:12px 8px 0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.me{border-top:1px solid rgba(255,255,255,.14);padding:12px 4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.me-l{display:flex;flex-direction:column;min-width:0}.me-l b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .me b{color:#fff}
 .me .papel{color:var(--side-muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .me button{background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--side-fg);border-radius:6px;padding:6px 8px;cursor:pointer;font-weight:600;font-size:13px}
@@ -151,7 +152,7 @@ table.grade td{white-space:nowrap}
 .tw.fixa{overflow:auto;max-height:70vh}
 .tw.fixa thead th{position:sticky;top:0;z-index:2}
 .tw.fixa tfoot td{position:sticky;bottom:0;z-index:2;box-shadow:0 -1px 0 var(--line)}
-table.grade tr.novo-dia td{border-top:2px solid var(--brand-red)}
+table.grade tr.novo-dia td{border-top:12px solid var(--bg)}
 table.grade tr.interno td{color:var(--muted);font-style:italic}
 .est-tag{padding:0 6px;font-size:11px}
 table.grade td.trunc{max-width:300px}
@@ -301,10 +302,41 @@ dialog.xl .dlg-b{max-height:76vh}
 .mapa-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .st-ed{cursor:pointer} .st-ed:hover{outline:2px solid var(--accent);outline-offset:1px}
 .st-ops{display:flex;flex-wrap:wrap;gap:6px}
-.termo-dlg{width:min(1240px,calc(100vw - 24px))!important}
+.termo-dlg{width:min(1400px,calc(100vw - 24px))!important}
 .termo-dlg .dlg-b{padding:0;max-height:none}
-.termo-dlg iframe{width:100%;height:calc(100vh - 140px);border:0;display:block;background:#fff}
+.termo-dlg iframe{width:100%;height:calc(100vh - 100px);border:0;display:block;background:#f0f4fb}
+.termo-dlg .dlg-f{display:none}
 
+/* v6 */
+.perm{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 18px}
+.perm-s h3{margin:4px 0 6px}
+.perm-l{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-2);font-size:13.5px}
+.perm-l select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px}
+.me button{white-space:nowrap}
+.ccards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.ccard{--cc:var(--accent);text-align:left;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);border-top:4px solid var(--cc);border-radius:var(--r);padding:10px 14px;background:color-mix(in srgb,var(--cc) 7%,var(--surface));display:flex;flex-direction:column;gap:6px}
+.ccard.main{border-width:2px;border-top-width:4px;border-color:var(--cc);box-shadow:var(--shadow)}
+.ccard.on{outline:3px solid var(--cc);outline-offset:1px;background:color-mix(in srgb,var(--cc) 16%,var(--surface))}
+.ccard .l{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}
+.ccard .kg{display:grid;grid-template-columns:1fr auto auto;column-gap:6px;row-gap:1px;align-items:baseline}
+.ccard .kt{font-size:12px;color:var(--muted)} .ccard i{font-style:normal;font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.ccard b{font-family:var(--font-mono);font-weight:500;font-size:14.5px;text-align:right;white-space:nowrap}
+.ccard b.acum{color:var(--fg);font-weight:600}
+body.com-conta .main{background:color-mix(in srgb,var(--conta-cor) 9%,var(--bg))}
+.chip.st-CANC{border-color:var(--idle);color:var(--idle)} .chip.st-CANC.on{background:var(--idle);color:var(--surface)}
+.resumos{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.resumos .chip{padding:3px 10px;font-size:12.5px}
+th.sec-imv{background:#e3ecfb} th.sec-ctt{background:#e6f3ea} th.sec-gar{background:#fdf1dc} th.sec-lcd{background:#ece5fb}
+th.sec-lct{background:#dff3f6} th.sec-fdr{background:#fbe6ee} th.sec-out{background:#eeeeee} th.sec-st{background:#fff6cc} th.sec-enc{background:#e6f3ea}
+:root[data-theme="dark"] th[class*="sec-"]{background:var(--surface-2)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) th[class*="sec-"]{background:var(--surface-2)}}
+.imv-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px 12px}
+.imv-g .s2{grid-column:span 2} .imv-g .s3{grid-column:span 3} .imv-g .s5{grid-column:1/-1}
+@media (max-width:700px){.imv-g{grid-template-columns:1fr 1fr}.imv-g .s3,.imv-g .s2{grid-column:1/-1}}
+.confbox{border:1px solid var(--warn)}
+.gp-wrap{flex-wrap:wrap}
+.receita .tw{width:fit-content;max-width:100%}
+table.compacta{width:auto} table.compacta td:first-child{max-width:210px;white-space:normal}
 /* formulário / modal */
 dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));box-shadow:var(--shadow)}
 dialog::backdrop{background:rgba(8,16,42,.55)}
@@ -312,10 +344,10 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
 .dlg-h h2{margin-right:auto}
 .dlg-b{padding:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:70vh;overflow-y:auto}
 .dlg-b>*{flex-shrink:0}
-.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--line-2);flex-wrap:wrap}
-.dlg-f .left{margin-right:auto}
-.dlg-f .left~.left{margin-right:0}
-.dlg-f .left+.left{order:-1}
+.dlg-b>.btn{align-self:flex-start}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;align-items:center;padding:12px 20px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+.dlg-ex{display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center}
+.dlg-ex:empty{display:none}
 .x{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
 .fl{display:flex;flex-direction:column;gap:4px}
 .fl>span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
@@ -420,27 +452,26 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
   <aside class="side" id="side">
     <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#fff"/><path d="M7 16l9-8 9 8M10 14v10h12V14" fill="none" stroke="#1a2d6b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="brand-name">Financeiro</span></div>
     <nav class="nav" id="nav">
-      <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Painel</a>
+      <div class="nav-h">Dia a dia</div>
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg>Aluguéis do mês</a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inadimplência</a>
-      <a href="#devedores" data-p="devedores" data-nao="recepcao"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2M16 14l5 5M21 14l-5 5"/></svg>Devedores</a>
+      <a href="#devedores" data-p="devedores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2M16 14l5 5M21 14l-5 5"/></svg>Devedores</a>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Caixa e lançamentos</a>
-      <a href="#dre" data-p="dre" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Resultado (DRE)</a>
-      <a href="#indicadores" data-p="indicadores" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Indicadores</a>
       <div class="nav-h">Cadastros</div>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>Imóveis (mapa)</a>
-      <a href="#contratos" data-p="contratos" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Contratos</a>
+      <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Contratos</a>
+      <div class="nav-h">Gestão</div>
+      <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Painel</a>
+      <a href="#indicadores" data-p="indicadores"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Indicadores</a>
+      <a href="#dre" data-p="dre"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Resultado (DRE)</a>
       <div class="nav-h">Sistema</div>
-      <a href="#backup" data-p="backup" data-nao="recepcao"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>Backup</a>
-      <a href="#config" data-p="config" data-so="admin"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>Configurações</a>
+      <a href="#backup" data-p="backup"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>Backup</a>
+      <a href="#config" data-p="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>Configurações</a>
     </nav>
     <div class="spacer"></div>
     <div class="me">
-      <b id="me-nome"></b>
-      <span class="papel" id="me-papel"></span>
-      <button type="button" data-act="senha">Trocar senha</button>
-      <button type="button" data-act="tema">Tema claro/escuro</button>
-      <button type="button" data-act="sair">Sair</button>
+      <div class="me-l"><b id="me-nome"></b><span class="papel" id="me-papel"></span></div>
+      <button type="button" data-act="opcoes" title="Senha, tema, sair e suas permissões">⚙ Opções</button>
     </div>
   </aside>
 
