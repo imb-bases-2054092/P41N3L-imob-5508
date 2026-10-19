@@ -83,16 +83,16 @@ const S = {
 };
 // Permissões: o papel define o que o banco permite com dinheiro; as abas (ver / alterar) vêm de
 // Configurações › Usuários. As regras valem também no banco (RLS), não só na tela.
-const ABAS = [["Dia a dia", [["alugueis", "Aluguéis do mês"], ["atrasados", "Inadimplência"], ["devedores", "Devedores"], ["caixa", "Caixa e lançamentos"]]],
+const ABAS = [["Dia a dia", [["alugueis", "Aluguéis do mês"], ["atrasados", "Inadimplência"], ["devedores", "Devedores"], ["caixa", "Caixa e lançamentos"], ["depositos", "Depósitos"]]],
   ["Cadastros", [["imoveis", "Imóveis (mapa)"], ["contratos", "Contratos"]]],
   ["Gestão", [["painel", "Painel"], ["indicadores", "Indicadores"], ["dre", "Resultado (DRE)"]]],
   ["Sistema", [["backup", "Backup"], ["config", "Configurações"]]]];
 const FLAGS = [["saldo_acumulado", "Ver o saldo acumulado das contas"]];
 const PERM_PADRAO = {
-  admin: { painel: "editar", indicadores: "editar", dre: "editar", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", imoveis: "editar", contratos: "editar", backup: "editar", config: "editar", saldo_acumulado: true },
-  financeiro: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", imoveis: "editar", contratos: "editar", backup: "ver", saldo_acumulado: true },
-  recepcao: { alugueis: "editar", atrasados: "ver", caixa: "editar", imoveis: "ver" },
-  leitura: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "ver", atrasados: "ver", devedores: "ver", caixa: "ver", imoveis: "ver", contratos: "ver", saldo_acumulado: true },
+  admin: { painel: "editar", indicadores: "editar", dre: "editar", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", backup: "editar", config: "editar", saldo_acumulado: true },
+  financeiro: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", backup: "ver", saldo_acumulado: true },
+  recepcao: { alugueis: "editar", atrasados: "ver", caixa: "editar", depositos: "editar", imoveis: "ver" },
+  leitura: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "ver", atrasados: "ver", devedores: "ver", caixa: "ver", depositos: "ver", imoveis: "ver", contratos: "ver", saldo_acumulado: true },
   backup: {}
 };
 const pode = {
@@ -228,7 +228,7 @@ aplicarTema();
 /* ---------------- app / rotas ---------------- */
 const PAGES = {};
 const TITULOS = { painel: "Painel", alugueis: "Aluguéis do mês", atrasados: "Inadimplência", caixa: "Caixa e lançamentos",
-  dre: "Resultado (DRE)", indicadores: "Indicadores", devedores: "Devedores (ex-locatários)", imoveis: "Imóveis (mapa do aluguel)", contratos: "Contratos", backup: "Backup", config: "Configurações" };
+  dre: "Resultado (DRE)", depositos: "Depósitos aos proprietários", indicadores: "Indicadores", devedores: "Devedores (ex-locatários)", imoveis: "Imóveis (mapa do aluguel)", contratos: "Contratos", backup: "Backup", config: "Configurações" };
 const SEM_MES = ["atrasados", "contratos", "backup", "config", "devedores"];
 
 function montarApp() {
@@ -2000,6 +2000,260 @@ function pagarDevedor(dv, pag) {
 ACT["xls-dev"] = () => exportarGrade("devedores", `devedores-${hoje()}.xlsx`, "Devedores");
 
 /* =====================================================================
+   PÁGINA: DEPÓSITOS AOS PROPRIETÁRIOS (lista de depósitos + demonstrativo)
+   ===================================================================== */
+const SIT_DEP = { depositado: ["Depositado", "ok"], imob: ["Pago na imobiliária", "info"], sem_valor: ["Sem valor (descontado)", "idle"], nao_houve: ["Não houve", "idle"], carencia: ["Carência", "warn"] };
+let DEP = { favs: [], mes: [], cobs: [] };
+// aluguéis do mês que entram no depósito deste favorecido (pelos nomes de locadores ligados a ele)
+const cobsDoFav = f => DEP.cobs.filter(c => (f.locadores || []).includes(c.locador));
+const liquidoCob = c => r2(+c.valor_pago - +(c.taxa_valor || 0));
+function infoDep(f) {
+  const m = DEP.mes.find(x => x.favorecido_id === f.id);
+  const cs = cobsDoFav(f), pend = cs.filter(precisaRepasse), naoPagos = cs.filter(c => !c.data_pagamento && !c.devedor_id);
+  const prevista = f.dia ? S.mes.slice(0, 8) + pad(Math.min(f.dia, +fimMes(S.mes).slice(8))) : null;
+  const atrasado = !m && prevista && prevista < hoje() && pend.length > 0;
+  return { m, cs, pend, naoPagos, prevista, atrasado, aRepassar: pend.reduce((a, c) => a + liquidoCob(c), 0) };
+}
+const COLS_DEP = [
+  { k: "dia", t: "Dia", tipo: "num", int: true, dica: "Dia previsto do depósito" },
+  { k: "nome", t: "Favorecido", cls: "trunc" },
+  { k: "locadores", t: "Locadores (mapa)", v: f => (f.locadores || []).join(" · "), cls: "trunc", html: f => f.locadores && f.locadores.length ? esc(f.locadores.join(" · ")) : `<span class="tag warn">sem locador ligado</span>` },
+  { k: "imoveis", t: "Aluguéis", tipo: "num", int: true, v: f => cobsDoFav(f).length, dica: "Aluguéis do mês ligados a este depósito" },
+  { k: "receber", t: "Falta receber", tipo: "num", int: true, v: f => infoDep(f).naoPagos.length, html: f => { const n = infoDep(f).naoPagos.length; return n ? `<span class="neg">${n}</span>` : ""; } },
+  { k: "arepassar", t: "A repassar", tipo: "num", v: f => infoDep(f).aRepassar || null },
+  { k: "situacao", t: "Situação", v: f => { const i = infoDep(f); return i.m ? SIT_DEP[i.m.situacao][0] : i.atrasado ? "Atrasado" : "Pendente"; },
+    html: f => { const i = infoDep(f); if (i.m) return `<span class="tag ${SIT_DEP[i.m.situacao][1]}">${esc(SIT_DEP[i.m.situacao][0])}${i.m.data ? " " + dt(i.m.data).slice(0, 5) : ""}</span>`;
+      return i.atrasado ? `<span class="tag bad">Atrasado</span>` : `<span class="tag idle">Pendente</span>`; } },
+  { k: "valor", t: "Depositado", tipo: "num", v: f => { const i = infoDep(f); return i.m && i.m.valor != null ? +i.m.valor : null; } },
+  { k: "conta_bancaria", t: "Conta bancária", cls: "trunc" },
+  { k: "obs", t: "Observações", cls: "trunc", oculta: true }
+];
+PAGES.depositos = async pg => {
+  const [favs, mes, cobs] = await Promise.all([
+    q(sb.from("depositos_fav").select("*").order("dia").order("nome")),
+    q(sb.from("depositos_mes").select("*").eq("competencia", S.mes)),
+    fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("id"), "id,imovel_id,competencia,locador,locatario,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,taxa_adm_pct,repasse_data,repasse_valor,devedor_id")
+  ]);
+  DEP = { favs, mes, cobs };
+  setRd(pg, () => desenharDepositos());
+  desenharDepositos(pg);
+};
+function desenharDepositos(pg) {
+  pg = pg || $("#page");
+  const f = S.f.dep || "todos", busca = S.f.depBusca || "", inativos = S.f.depInat === "1";
+  const base = DEP.favs.filter(x => inativos || x.ativo);
+  const teste = { todos: () => true, pend: x => !infoDep(x).m, atras: x => infoDep(x).atrasado, feitos: x => !!infoDep(x).m, semloc: x => !(x.locadores || []).length };
+  let lista = base.filter(teste[f] || teste.todos);
+  if (busca) { const b = norm(busca); lista = lista.filter(x => norm(x.nome + " " + (x.locadores || []).join(" ") + " " + x.conta_bancaria).includes(b)); }
+  const tot = base.reduce((a, x) => { const i = infoDep(x); a.rep += i.aRepassar; if (i.m && i.m.valor) a.dep += +i.m.valor; if (i.atrasado) a.atr++; return a; }, { rep: 0, dep: 0, atr: 0 });
+  const g = grade("depositos", COLS_DEP, lista, { attr: x => `data-act="dep-ed" data-id="${x.id}" style="cursor:pointer"`, sort: { k: "dia", dir: "asc" }, divisor: "dia",
+    cls: x => x.ativo ? (infoDep(x).atrasado ? "atrasada" : "") : "inativa",
+    rodape: fl => `${fl.length} depósitos · a repassar <b>${brl(fl.reduce((a, x) => a + infoDep(x).aRepassar, 0))}</b> · depositado <span class="pos">${brl(fl.reduce((a, x) => { const m = infoDep(x).m; return a + (m && m.valor ? +m.valor : 0); }, 0))}</span>` });
+  g.redesenhar = () => desenharDepositos();
+  const chips = [["todos", "Todos", ""], ["pend", "Pendentes", "st-OCP"], ["atras", "Atrasados", "st-INTV"], ["feitos", "Feitos", "st-LVR"], ["semloc", "Sem locador ligado", ""]];
+  pg.innerHTML = `<div class="grid">
+    <div class="kpis">${kpi("A repassar no mês", brl(tot.rep), "aluguéis já recebidos e ainda não repassados", true)}${kpi("Já depositado", `<span class="pos">${brl(tot.dep)}</span>`, mesTxt(S.mes))}${kpi("Atrasados", `<span class="${tot.atr ? "neg" : ""}">${tot.atr}</span>`, "dia previsto já passou")}</div>
+    <div class="filters">
+      <div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="dep" data-v="${k}">${t}<span class="c">${base.filter(teste[k]).length}</span></button>`).join("")}</div>
+      <input type="search" placeholder="Buscar favorecido, locador, conta…" value="${esc(busca)}" data-busca="depBusca">
+      <label class="chk"><input type="checkbox" data-inat ${inativos ? "checked" : ""}> mostrar inativos</label>
+      <span class="spacer"></span>${gradeBarra("depositos")}
+      ${pode.ed("depositos") ? `<button class="btn" data-act="dep-importar">Importar planilha</button><button class="btn" data-act="dep-fav">+ Favorecido</button>` : ""}
+      <button class="btn" data-act="dep-rel-mes">Relatório do mês</button><button class="btn" data-act="xls-dep">Excel</button>
+    </div>
+    ${gradeHTML("depositos")}
+  </div>`;
+  ligarBusca(pg);
+  const ci = $("[data-inat]", pg); if (ci) ci.addEventListener("change", () => { S.f.depInat = ci.checked ? "1" : ""; desenharDepositos(); requestAnimationFrame(ajustarAlturas); });
+}
+ACT["xls-dep"] = () => exportarGrade("depositos", `depositos-${S.mes.slice(0, 7)}.xlsx`, "Depositos");
+
+// ---- cadastro do favorecido ----
+function locadoresDoMapa() { return Array.from(new Set(S.imoveis.map(i => i.locador).filter(Boolean))).sort((a, b) => COLL.compare(a, b)); }
+ACT["dep-fav"] = el => {
+  const fav = DEP.favs.find(x => x.id === (el && el.dataset.id)) || { ativo: true, locadores: [] };
+  const usados = new Map(); DEP.favs.forEach(x => { if (x.id !== fav.id) (x.locadores || []).forEach(l => usados.set(l, x.nome)); });
+  const todos = Array.from(new Set(locadoresDoMapa().concat(fav.locadores || [])));
+  modal({ titulo: fav.id ? "Favorecido do depósito" : "Novo favorecido", largo: true,
+    extra: fav.id && pode.admin() ? `<button type="button" class="btn danger" data-del>Excluir</button>` : "",
+    corpo: `<div class="row"><label class="fl" style="grid-column:span 2"><span>Nome (como na lista de depósitos)</span><input name="nome" value="${esc(fav.nome || "")}" required></label>
+        <label class="fl"><span>Dia previsto</span><input type="number" name="dia" min="1" max="31" value="${fav.dia || ""}"></label></div>
+      <label class="fl"><span>Conta bancária / PIX</span><input name="conta" value="${esc(fav.conta_bancaria || "")}"></label>
+      <h3>Locadores do mapa que entram neste depósito</h3>
+      <p class="hint">Marque um ou mais nomes, como estão no mapa. Os aluguéis desses locadores aparecem no depósito. Nomes já ligados a outro depósito mostram ao lado de qual.</p>
+      <input type="search" placeholder="Pesquisar nome…" data-lbusca style="width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 10px">
+      <div class="gp-lista grupo-lista">${todos.map(l => `<label data-txt="${esc(norm(l))}"><input type="checkbox" value="${esc(l)}" ${(fav.locadores || []).includes(l) ? "checked" : ""}> <span>${esc(l)}</span><small>${usados.has(l) ? "em: " + esc(usados.get(l)) : S.imoveis.filter(i => i.locador === l && i.status === "ALG").length + " alug."}</small></label>`).join("")}</div>
+      <label class="chk"><input type="checkbox" name="ativo" ${fav.ativo ? "checked" : ""}> Ativo</label>
+      <label class="fl"><span>Observações</span><textarea name="obs" rows="2">${esc(fav.obs || "")}</textarea></label>`,
+    aoAbrir: (f, d) => {
+      $("[data-lbusca]", d).addEventListener("input", e => { const t = norm(e.target.value); $$(".grupo-lista label", d).forEach(l => (l.hidden = !!t && !l.dataset.txt.includes(t))); });
+      const del = $("[data-del]", d); if (del) del.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir favorecido", `Excluir <b>${esc(fav.nome)}</b> e o histórico de depósitos dele? Prefira desmarcar "Ativo".`, "Excluir"))) return; try { await q(sb.from("depositos_fav").delete().eq("id", fav.id)); toast("Excluído."); render(); } catch (e) { falha(e); } });
+    },
+    salvar: async f => {
+      const dd = { nome: f.nome.value.trim(), dia: +f.dia.value || null, conta_bancaria: f.conta.value.trim(), ativo: f.ativo.checked, obs: f.obs.value.trim(),
+        locadores: $$(".grupo-lista input:checked", $("#dlg")).map(x => x.value) };
+      if (!dd.nome) throw new Error("Informe o nome.");
+      if (fav.id) await q(sb.from("depositos_fav").update(dd).eq("id", fav.id)); else await q(sb.from("depositos_fav").insert(dd));
+      toast("Salvo."); render();
+    } });
+};
+
+// ---- depósito do mês ----
+ACT["dep-ed"] = el => {
+  const fav = DEP.favs.find(x => x.id === el.dataset.id); if (!fav) return;
+  const i = infoDep(fav), ed = pode.ed("depositos"), soCaixa = S.papel === "recepcao";
+  const podeReg = ed && (!i.m || i.pend.length > 0); // complemento: aluguel pago depois do depósito do mês
+  const linhaCob = c => { const im = S.imovelPor[c.imovel_id] || {}, pend = precisaRepasse(c);
+    return `<tr><td>${pend && podeReg ? `<input type="checkbox" data-cob="${c.id}" checked>` : ""}</td><td class="trunc">${esc(im.endereco || "")}</td><td class="trunc">${esc(c.locatario)}</td>
+      <td class="num">${c.data_pagamento ? n2(c.valor_pago) : "—"}</td><td>${c.data_pagamento ? dt(c.data_pagamento) : '<span class="tag bad">não recebido</span>'}</td>
+      <td class="num">${c.data_pagamento ? n2(c.taxa_valor || 0) : ""}</td><td class="num">${pend ? `<input data-val="${c.id}" inputmode="decimal" value="${n2(liquidoCob(c))}" ${podeReg ? "" : "disabled"}>` : c.repasse_data ? n2(c.repasse_valor) + ` <small class="muted">${dt(c.repasse_data).slice(0, 5)}</small>` : ""}</td></tr>`; };
+  modal({ titulo: `Depósito · ${fav.nome}`, xl: true, semOk: !podeReg, ok: i.m ? "Registrar complemento" : "Registrar",
+    extra: `<button type="button" class="btn" data-rel>📄 Demonstrativo</button>${ed ? `<button type="button" class="btn" data-fav>Cadastro do favorecido</button>` : ""}${i.m && ed ? `<span class="spacer"></span><button type="button" class="btn danger" data-est>Desfazer este registro</button>` : ""}`,
+    corpo: `<div class="box"><b>${esc(fav.nome)}</b> · dia previsto <b>${fav.dia || "—"}</b> · ${esc(fav.conta_bancaria || "sem conta cadastrada")}<br>
+        <span class="hint">Locadores: ${esc((fav.locadores || []).join(" · ") || "nenhum ligado — abra o cadastro do favorecido")}</span></div>
+      ${i.m ? `<div class="box ${SIT_DEP[i.m.situacao][1] === "ok" ? "" : "warn"}">${esc(mesTxt(S.mes))}: <b>${esc(SIT_DEP[i.m.situacao][0])}</b>${i.m.data ? " em " + dt(i.m.data) : ""}${i.m.valor != null ? " · " + brl(i.m.valor) : ""}${i.m.conta_id ? " · saiu de " + esc(contaPor(i.m.conta_id).nome || "") : ""}${i.m.obs ? "<br>" + esc(i.m.obs) : ""}</div>` : ""}
+      <h3>Aluguéis de ${esc(mesTxt(S.mes))}</h3>
+      <div class="tw"><table class="compacta dep-t"><thead><tr><th></th><th>Imóvel</th><th>Locatário</th><th class="num">Recebido</th><th>Em</th><th class="num">Taxa</th><th class="num">Repasse</th></tr></thead><tbody>
+        ${i.cs.map(linhaCob).join("") || `<tr><td colspan="7" class="muted">Nenhum aluguel deste mês ligado a este depósito${(fav.locadores || []).length ? "" : " (ligue os locadores no cadastro do favorecido)"}.</td></tr>`}</tbody></table></div>
+      ${podeReg ? `${i.m ? `<div class="box warn">Há aluguéis recebidos depois do registro deste mês. Registre o complemento: o valor soma ao que já foi depositado.</div>` : ""}<div class="row">
+        <label class="fl"><span>Situação</span><select name="sit">${Object.entries(SIT_DEP).map(([k, v]) => opt(k, v[0], k === (i.pend.length ? "depositado" : "nao_houve"))).join("")}</select></label>
+        <label class="fl"><span>Data</span><input type="date" name="data" value="${hoje()}"></label>
+        <label class="fl"><span>Saiu da conta</span><select name="conta">${contasOpts(null, soCaixa)}</select></label>
+        <label class="fl"><span>Valor depositado</span><input name="valor" inputmode="decimal" value=""></label></div>
+        <label class="fl"><span>Observação</span><input name="obs" placeholder="ex.: descontado reparo de R$ 150"></label>
+        <p class="hint">Os aluguéis marcados recebem o repasse (saída no caixa) com o valor da coluna Repasse. Se descontou alguma despesa, ajuste o valor de cada um.</p>` : ""}`,
+    aoAbrir: (f, d) => {
+      const soma = () => { if (!f.valor) return; const t = $$("[data-cob]:checked", d).reduce((a, x) => a + (parseMoney($(`[data-val="${x.dataset.cob}"]`, d).value) || 0), 0); f.valor.value = n2(t); };
+      $$("[data-cob],[data-val]", d).forEach(x => x.addEventListener("input", soma)); soma();
+      $("[data-rel]", d).addEventListener("click", () => { d.close(); setTimeout(() => demonstrativo(fav), 0); });
+      const bf = $("[data-fav]", d); if (bf) bf.addEventListener("click", () => { d.close(); setTimeout(() => ACT["dep-fav"]({ dataset: { id: fav.id } }), 0); });
+      const be = $("[data-est]", d); if (be) be.addEventListener("click", async () => { d.close(); if (!(await confirmar("Desfazer depósito", `Desfazer o registro de ${esc(mesTxt(S.mes))} de <b>${esc(fav.nome)}</b>? Os repasses que ele registrou também saem do caixa.`, "Desfazer"))) return; try { await rpc("estornar_deposito", { p_id: i.m.id }); toast("Desfeito."); render(); } catch (e) { falha(e); } });
+    },
+    salvar: async f => {
+      const marc = $$("[data-cob]:checked", $("#dlg")).map(x => x.dataset.cob);
+      const vals = marc.map(id => parseMoney($(`[data-val="${id}"]`, $("#dlg")).value) || 0);
+      const sit = f.sit.value, valor = r2((parseMoney(f.valor.value) || 0) + (i.m && i.m.valor ? +i.m.valor : 0)) || null;
+      if (sit === "depositado" && !(valor > 0)) throw new Error("Informe o valor depositado.");
+      await rpc("registrar_deposito", { p_fav: fav.id, p_comp: S.mes, p_situacao: sit, p_data: f.data.value || null, p_conta: f.conta.value || null,
+        p_cobrancas: sit === "depositado" ? marc : [], p_valores: sit === "depositado" ? vals : [], p_valor: valor, p_obs: f.obs.value.trim() });
+      toast("Depósito registrado."); render();
+    } });
+};
+
+// ---- demonstrativo (relatório para o proprietário) ----
+function demonstrativo(fav) {
+  const i = infoDep(fav), cs = i.cs.filter(c => c.data_pagamento);
+  const tot = cs.reduce((a, c) => { a.rec += +c.valor_pago; a.tx += +(c.taxa_valor || 0); a.rep += c.repasse_data ? +c.repasse_valor : liquidoCob(c); return a; }, { rec: 0, tx: 0, rep: 0 });
+  const html = `<div class="relatorio">
+    <div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Demonstrativo de repasse de aluguéis</span></div><div class="rel-m">${esc(mesTxt(S.mes))}</div></div>
+    <p><b>Proprietário:</b> ${esc(fav.nome)}<br><b>Conta para depósito:</b> ${esc(fav.conta_bancaria || "—")}</p>
+    <table class="rel-t"><thead><tr><th>Imóvel</th><th>Locatário</th><th>Recebido em</th><th class="num">Aluguel recebido</th><th class="num">Taxa de administração</th><th class="num">Valor repassado</th></tr></thead><tbody>
+      ${cs.map(c => `<tr><td>${esc((S.imovelPor[c.imovel_id] || {}).endereco || "")}</td><td>${esc(c.locatario)}</td><td>${dt(c.data_pagamento)}</td><td class="num">${n2(c.valor_pago)}</td><td class="num">${n2(c.taxa_valor || 0)}</td><td class="num">${n2(c.repasse_data ? c.repasse_valor : liquidoCob(c))}</td></tr>`).join("") || `<tr><td colspan="6">Nenhum aluguel recebido neste mês.</td></tr>`}
+    </tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${n2(tot.rec)}</td><td class="num">${n2(tot.tx)}</td><td class="num">${n2(tot.rep)}</td></tr></tfoot></table>
+    ${i.naoPagos.length ? `<p class="rel-obs">Ainda não recebidos neste mês: ${i.naoPagos.map(c => esc((S.imovelPor[c.imovel_id] || {}).endereco || c.locatario)).join("; ")}.</p>` : ""}
+    <p>${i.m ? `<b>${esc(SIT_DEP[i.m.situacao][0])}</b>${i.m.data ? " em " + dt(i.m.data) : ""}${i.m.valor != null ? ": <b>" + brl(i.m.valor) + "</b>" : ""}${i.m.obs ? " — " + esc(i.m.obs) : ""}` : "Depósito ainda não realizado."}</p>
+    <p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p></div>`;
+  abrirRelatorio("Demonstrativo · " + fav.nome, html);
+}
+ACT["dep-rel-mes"] = () => {
+  const ls = DEP.favs.filter(f => f.ativo).sort((a, b) => (a.dia || 99) - (b.dia || 99) || COLL.compare(a.nome, b.nome));
+  const html = `<div class="relatorio"><div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Depósitos aos proprietários</span></div><div class="rel-m">${esc(mesTxt(S.mes))}</div></div>
+    <table class="rel-t"><thead><tr><th>Dia</th><th>Favorecido</th><th>Conta</th><th class="num">A repassar</th><th>Situação</th><th class="num">Depositado</th></tr></thead><tbody>
+    ${ls.map(f => { const i = infoDep(f); return `<tr><td>${f.dia || ""}</td><td>${esc(f.nome)}</td><td>${esc(f.conta_bancaria)}</td><td class="num">${i.aRepassar ? n2(i.aRepassar) : ""}</td><td>${i.m ? esc(SIT_DEP[i.m.situacao][0]) + (i.m.data ? " " + dt(i.m.data) : "") : i.atrasado ? "ATRASADO" : "pendente"}</td><td class="num">${i.m && i.m.valor != null ? n2(i.m.valor) : ""}</td></tr>`; }).join("")}
+    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p></div>`;
+  abrirRelatorio("Depósitos de " + mesTxt(S.mes), html);
+};
+function abrirRelatorio(titulo, html) {
+  modal({ titulo, largo: true, semOk: true, extra: `<button type="button" class="btn pri" data-imp>🖨 Imprimir / salvar PDF</button>`, corpo: html,
+    aoAbrir: (f, d) => $("[data-imp]", d).addEventListener("click", () => { document.body.classList.add("imprimindo"); window.print(); setTimeout(() => document.body.classList.remove("imprimindo"), 500); }) });
+}
+
+// ---- importação da planilha de depósitos (aba do semestre, ex.: "Jul26") ----
+const nzN = s => norm(s).toUpperCase();
+const STOP_N = new Set(["DE", "DA", "DO", "DOS", "DAS", "E", "FB", "SQ", "PFC", "IMOB", "CF", "OUTROS"]);
+const toksN = s => (nzN(s).match(/[A-Z]+\.?/g) || []).filter(t => !STOP_N.has(t.replace(".", "")));
+function notaNome(dn, ln) {
+  const a = toksN(dn), b = toksN(ln).map(t => t.replace(".", ""));
+  if (!a.length || !b.length) return 0;
+  let hit = 0;
+  a.forEach(t => {
+    if (t.endsWith(".") || t.length === 1) { if (b.some(x => x.startsWith(t.replace(".", "")))) hit += 0.5; }
+    else if (b.includes(t)) hit += 1;
+    else if (t.length >= 4 && b.some(x => x.length >= 4 && (x.startsWith(t) || t.startsWith(x)))) hit += 0.7;
+  });
+  return (hit + (a[0].replace(".", "") === b[0] ? 1 : 0)) / (a.length + 1);
+}
+const MES_ABA = { JAN: 1, JUL: 7 };
+function lerAbaDepositos(ws, nomeAba) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+  const m = String(nomeAba).match(/^([A-Za-z]{3})(\d{2})$/), ini = m ? (MES_ABA[m[1].toUpperCase()] || 1) : 1, ano = m ? 2000 + +m[2] : +hoje().slice(0, 4);
+  const cab = rows[0] || [], colsMes = [];
+  for (let k = 2; k < 8; k++) { const t = String(cab[k] || "").trim().toUpperCase().slice(0, 3); const n = MES3.map(x => x.toUpperCase()).indexOf(t); if (n >= 0) colsMes.push([k, `${ano}-${pad(n + 1)}-01`]); }
+  void ini;
+  const out = [];
+  rows.slice(1).forEach(r => {
+    const nome = String(r[1] || "").trim(); if (!nome || /^LOCADOR$/i.test(nome)) return;
+    const dia = parseInt(r[0], 10);
+    const hist = colsMes.map(([k, comp]) => {
+      const v = r[k]; if (v === "" || v == null) return null;
+      if (v instanceof Date) return { comp, situacao: "depositado", data: iso(v) };
+      const s = String(v).trim().toLowerCase();
+      if (/^\d{1,2}$/.test(s)) { const ult = +fimMes(comp).slice(8); return { comp, situacao: "depositado", data: comp.slice(0, 8) + pad(Math.min(+s, ult)) }; }
+      if (s.startsWith("imob")) return { comp, situacao: "imob" };
+      if (s.startsWith("desc")) return { comp, situacao: "sem_valor" };
+      if (s.startsWith("car")) return { comp, situacao: "carencia" };
+      if (s === "x" || s === "-") return { comp, situacao: "nao_houve" };
+      return null;
+    }).filter(Boolean);
+    out.push({ nome, dia: dia >= 1 && dia <= 31 ? dia : null, conta: String(r[8] || "").trim(), hist });
+  });
+  return out;
+}
+ACT["dep-importar"] = () => {
+  let lidos = null;
+  const locs = locadoresDoMapa();
+  modal({ titulo: "Importar lista de depósitos", xl: true, ok: "Importar",
+    corpo: `<p>Escolha a planilha de depósitos (ex.: <b>DEPOSITO - BKP LICO.xlsx</b>). O sistema lê a <b>última aba</b> (o semestre atual): dia previsto, nome, conta e o que já foi feito em cada mês, e tenta ligar cada nome a um <b>locador do mapa</b>.</p>
+      <input type="file" data-arq accept=".xlsx,.xlsm"><div data-res></div><datalist id="dl-locs">${locs.map(l => `<option value="${esc(l)}">`).join("")}</datalist>`,
+    aoAbrir: (f, d) => {
+      $("[data-arq]", d).addEventListener("change", async e => {
+        const arq = e.target.files[0], res = $("[data-res]", d); if (!arq) return;
+        res.innerHTML = `<p class="hint">Lendo…</p>`;
+        try {
+          await carregarXLSX();
+          const wb = XLSX.read(await arq.arrayBuffer(), { type: "array", cellDates: true });
+          const aba = wb.SheetNames[wb.SheetNames.length - 1];
+          lidos = lerAbaDepositos(wb.Sheets[aba], aba);
+          lidos.forEach(x => {
+            const cands = locs.map(l => [notaNome(x.nome, l), l]).sort((a, b) => b[0] - a[0]);
+            x.nota = cands.length ? cands[0][0] : 0; x.sugestao = x.nota >= 0.35 ? cands[0][1] : "";
+          });
+          const ok = lidos.filter(x => x.nota >= 0.6).length, duv = lidos.filter(x => x.nota >= 0.35 && x.nota < 0.6).length;
+          res.innerHTML = `<div class="box">Aba <b>${esc(aba)}</b>: ${lidos.length} depósitos · <span class="pos">${ok} ligados com segurança</span> · <span style="color:var(--warn)">${duv} para conferir</span> · <span class="neg">${lidos.length - ok - duv} sem par</span>. Confira a coluna "Locador do mapa" (pode digitar para trocar, ou deixar vazio).</div>
+            <div class="tw" style="max-height:52vh"><table class="compacta"><thead><tr><th>Dia</th><th>Nome na planilha</th><th>Locador do mapa</th><th>Confiança</th><th>Meses</th></tr></thead><tbody>
+            ${lidos.map((x, k) => `<tr><td>${x.dia || ""}</td><td>${esc(x.nome)}</td><td><input data-loc="${k}" list="dl-locs" value="${esc(x.sugestao)}" style="width:100%;min-width:260px;border:1px solid var(--line);border-radius:6px;padding:4px 6px"></td>
+              <td><span class="tag ${x.nota >= 0.6 ? "ok" : x.nota >= 0.35 ? "warn" : "bad"}">${x.nota >= 0.6 ? "alta" : x.nota >= 0.35 ? "conferir" : "sem par"}</span></td><td>${x.hist.length}</td></tr>`).join("")}</tbody></table></div>`;
+        } catch (err) { lidos = null; res.innerHTML = `<p class="neg">Não foi possível ler: ${esc(erroMsg(err))}</p>`; }
+      });
+    },
+    salvar: async f => {
+      if (!lidos) throw new Error("Escolha o arquivo.");
+      const dlg = $("#dlg"); let n = 0;
+      const exist = new Map(DEP.favs.map(x => [norm(x.nome) + "|" + (x.dia || ""), x]));
+      for (let k = 0; k < lidos.length; k++) {
+        const x = lidos[k], loc = ($(`[data-loc="${k}"]`, dlg).value || "").trim();
+        const dd = { nome: x.nome, dia: x.dia, conta_bancaria: x.conta, locadores: loc ? [loc] : [], ativo: true };
+        let fav = exist.get(norm(x.nome) + "|" + (x.dia || "")) || null;
+        if (fav) { await q(sb.from("depositos_fav").update({ dia: dd.dia, conta_bancaria: dd.conta_bancaria, locadores: Array.from(new Set((fav.locadores || []).concat(dd.locadores))) }).eq("id", fav.id)); }
+        else { fav = await q(sb.from("depositos_fav").insert(dd).select().single()); exist.set(norm(x.nome) + "|" + (x.dia || ""), fav); }
+        if (x.hist.length) await q(sb.from("depositos_mes").upsert(x.hist.map(h => ({ favorecido_id: fav.id, competencia: h.comp, situacao: h.situacao, data: h.data || null, obs: "importado da planilha" })), { onConflict: "favorecido_id,competencia", ignoreDuplicates: true }));
+        n++;
+      }
+      toast(`${n} depósitos importados.`); render();
+    } });
+};
+
+/* =====================================================================
    PÁGINA: INDICADORES
    ===================================================================== */
 function barrasH(itens, opts) {
@@ -2348,7 +2602,7 @@ function desenharContratos(pg) {
       <input type="search" placeholder="Buscar código, endereço, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca">
       <span class="spacer"></span>${gradeBarra("contratos5")}
       <button class="btn" data-act="ctt-termo">🔑 Termos</button>
-      ${pode.editar() ? `<button class="btn" data-act="ctt-importar">Importar planilha</button><button class="btn pri" data-act="ctt-novo">+ Contrato</button>` : ""}<button class="btn" data-act="xls-ctt">Excel</button>
+      ${pode.editar() ? `<button class="btn" data-act="ctt-importar">Importar planilha</button><button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha manual</button><button class="btn pri" data-act="ctt-gerar">📄 Novo contrato</button>` : ""}<button class="btn" data-act="xls-ctt">Excel</button>
     </div>
     <div class="resumos"><span class="hint">Colunas:</span>${Object.entries(RESUMOS).map(([id, [t]]) => `<button class="chip${S.f.cttResumo === id ? " on" : ""}" data-act="ctt-resumo" data-r="${id}">${esc(t)}</button>`).join("")}</div>
     ${gradeHTML("contratos5")}</div>`;
@@ -2434,8 +2688,12 @@ function formContrato(c) {
 // lê o formulário e devolve a ficha (texto, como no Excel)
 function lerFicha(d, base) {
   const f = Object.assign({}, base || {});
+  const g = norm(($("[data-f=garantia]", d) || {}).value || ""), cau = g.includes("cau"), fia = g.includes("fiador");
   $$("[data-f]", d).forEach(x => {
     const cp = CPK[x.dataset.f]; let v = x.value.trim();
+    // garantia escolhida apaga os dados da outra (como no Excel: "---")
+    if (cau && (cp.sec === "fdr" || cp.k.startsWith("ig_"))) v = "";
+    if (fia && cp.k.startsWith("caucao_")) v = "";
     if (cp.tipo === "dext" && x.type === "date") v = dataExt(v);
     if (cp.tipo === "moeda") { const n = parseMoney(v); v = n == null ? v : n2(n); }
     if (cp.tipo === "tel") v = v.replace(/\D/g, "");
@@ -2453,6 +2711,15 @@ function ligarFicha(form, d, c) {
   const ext = (a, b) => { const va = $(`[data-f=${a}]`, d), vb = $(`[data-f=${b}]`, d); if (!va || !vb) return;
     va.addEventListener("change", () => { const n = parseMoney(va.value); if (n != null) { va.value = n2(n); vb.value = extensoReais(n); } }); };
   ext("valor", "valor_ext"); ext("caucao_valor", "caucao_ext");
+  // garantia: com caução não existe aba de fiadores; com fiador os campos de caução somem (viram "---")
+  const gar = $("[data-f=garantia]", d);
+  const aplicarGarantia = () => {
+    const g = norm(gar.value), cau = g.includes("cau"), fia = g.includes("fiador");
+    const abaF = $(".ficha-abas [data-aba=fdr]", d); if (abaF) abaF.hidden = cau;
+    ["caucao_valor", "caucao_ext", "caucao_conta"].forEach(k => { const x = $(`[data-f=${k}]`, d); if (x) x.closest("label").hidden = fia; });
+    $$("[data-f^=ig_]", d).forEach(x => { const fs = x.closest("fieldset"); if (fs) fs.hidden = cau; });
+  };
+  if (gar) { gar.addEventListener("input", aplicarGarantia); aplicarGarantia(); }
   // dia do pagamento = dia do início (pode trocar)
   const ini = $("[data-f=inicio]", d), dia = $("[data-f=dia_venc]", d);
   if (ini && dia && ini.type === "date") ini.addEventListener("change", () => { if (ini.value) { const n = +ini.value.slice(8, 10); dia.value = `${pad(n)} (${porExtenso(n)})`; } });
@@ -2511,11 +2778,13 @@ async function salvarContrato(form, d, c) {
     await recarregarImoveis();
   }
 }
+ACT["ctt-gerar"] = () => abrirTermo("gerador", "", proximoCodigo());
 ACT["ctt-novo"] = () => modal({ titulo: "Novo contrato", xl: true, corpo: formContrato(null), aoAbrir: (f, d) => ligarFicha(f, d, null),
   salvar: async f => { await salvarContrato(f, $("#dlg"), null); toast("Contrato salvo."); render(); } });
 ACT["ctt-ed"] = el => {
   const c = CTT.find(x => x.codigo === el.dataset.id); if (!c) return;
-  const termos = c.situacao !== "CANCELADO" ? `<button type="button" class="btn left" data-termo="entrega">🔑 Termo de entrega de chaves</button><button type="button" class="btn left" data-termo="caucao">💰 Devolução de caução</button>` : "";
+  const termos = (pode.editar() ? `<button type="button" class="btn" data-termo="gerador" title="Abre o gerador com os dados deste contrato">📄 Gerar contrato (Word)</button>` : "") +
+    (c.situacao !== "CANCELADO" ? `<button type="button" class="btn" data-termo="entrega">🔑 Entrega de chaves</button><button type="button" class="btn" data-termo="caucao">💰 Devolução de caução</button>` : "");
   modal({ titulo: "Contrato " + c.codigo + (c.locatario ? " · " + c.locatario : ""), xl: true, corpo: formContrato(c), semOk: !pode.editar(),
     extra: termos + (pode.admin() ? `<span class="spacer"></span><button type="button" class="btn danger" data-del>Excluir</button>` : ""),
     salvar: async f => { await salvarContrato(f, $("#dlg"), c); toast("Salvo."); render(); },
@@ -2527,29 +2796,64 @@ ACT["ctt-ed"] = el => {
   });
 };
 // ---- termos (seus apps de entrega de chaves e devolução de caução) ----
-const TERMOS = { entrega: ["Declaração de entrega de chaves", "termos/entrega-chaves.html"], caucao: ["Declaração de devolução de caução", "termos/devolucao-caucao.html"] };
-async function abrirTermo(tipo, codigo) {
+const TERMOS = { entrega: ["Declaração de entrega de chaves", "termos/entrega-chaves.html"], caucao: ["Declaração de devolução de caução", "termos/devolucao-caucao.html"],
+  gerador: ["Gerador de contratos", "termos/gerador-contratos.html"] };
+// planilha (em memória) no mesmo formato da aba "Contratos Locação", entregue aos apps no lugar da planilha externa
+async function cadastroXLSX() {
+  await carregarXLSX();
+  const cab = CP.map(c => c.t), linhas = [cab, cab, ["Nº Contrato"].concat(cab.slice(1))]
+    .concat(CTT.filter(c => c.situacao !== "CANCELADO").map(c => CP.map(cp => String(fv(c, cp.k) || ""))));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas), "Contratos Locação");
+  return XLSX.write(wb, { type: "array", bookType: "xlsx" });
+}
+async function abrirTermo(tipo, codigo, novoCodigo) {
   try {
     const [titulo, arq] = TERMOS[tipo];
     if (!CTT.length) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
     const resp = await fetch(arq, { cache: "no-cache" });
-    if (!resp.ok) throw new Error("Arquivo do termo não encontrado: " + arq);
-    const html = await resp.text();
-    // mesmo formato da aba "Contratos Locação" (3 linhas de cabeçalho + uma linha por contrato, colunas A..EJ)
-    const linhas = [[], [], []].concat(CTT.filter(c => c.situacao !== "CANCELADO").map(c => CP.map(cp => fv(c, cp.k))));
+    if (!resp.ok) throw new Error("Arquivo não encontrado no site: " + arq);
+    const html = await resp.text(), xlsx = await cadastroXLSX(), arquivos = {};
+    if (tipo === "gerador") {
+      const m = await fetch("termos/contrato_padrao.docx", { cache: "no-cache" }).catch(() => null);
+      if (m && m.ok) arquivos["contrato_padrao.docx"] = await m.arrayBuffer();
+      else toast('O modelo "contrato_padrao.docx" não está na pasta termos do site: o botão "Gerar Contrato (Word)" não vai funcionar até ele ser enviado.', true);
+    }
     const d = $("#dlg");
     modal({ titulo, semOk: true, corpo: `<iframe title="${esc(titulo)}" sandbox="allow-scripts allow-downloads allow-modals allow-popups" referrerpolicy="no-referrer"></iframe>` });
     d.classList.add("termo-dlg");
-    d.addEventListener("close", () => d.classList.remove("termo-dlg"), { once: true });
     const fr = $("iframe", d);
     const ouvir = ev => {
-      if (ev.source !== fr.contentWindow || !ev.data || ev.data.tipo !== "termo-pronto") return;
-      window.removeEventListener("message", ouvir);
-      fr.contentWindow.postMessage({ tipo: "termo", html, linhas, codigo: codigo || "" }, "*");
+      if (ev.source !== fr.contentWindow || !ev.data) return;
+      if (ev.data.tipo === "termo-pronto") fr.contentWindow.postMessage({ tipo: "termo", html, xlsx, arquivos, codigo: codigo || "", novoCodigo: novoCodigo || "" }, "*");
+      if (ev.data.tipo === "gerador-salvar") salvarDoGerador(ev.data.linha, fr);
     };
     window.addEventListener("message", ouvir);
+    d.addEventListener("close", () => { d.classList.remove("termo-dlg"); window.removeEventListener("message", ouvir); if (S.page === "contratos" && d.dataset.mudou) { delete d.dataset.mudou; render(); } }, { once: true });
     fr.src = "termos/abrir.html";
   } catch (e) { falha(e); }
+}
+// "Salvar no sistema" do gerador: a linha que ia para o Excel vira a ficha do contrato
+async function salvarDoGerador(linha, fr) {
+  const avisar = t => fr.contentWindow && fr.contentWindow.postMessage({ tipo: "aviso", texto: t }, "*");
+  try {
+    if (!pode.ed("contratos")) throw new Error("Sem permissão para alterar contratos.");
+    const cod = String(linha[0] || "").trim();
+    if (!/^L\.\d{2}\.\d{3}$/.test(cod)) throw new Error("Nº do contrato inválido (formato L.26.001).");
+    const novos = {};
+    CP.forEach((cp, i) => { if (i && i < linha.length) { const v = String(linha[i] == null ? "" : linha[i]).trim(); novos[cp.k] = v === "---" ? "" : v; } });
+    const ex = (await q(sb.from("contratos").select("*").eq("codigo", cod).maybeSingle()));
+    if (ex) {
+      if (!confirm(`O contrato ${cod} já existe no sistema${ex.locatario ? " (" + ex.locatario + ")" : ""}. Atualizar a ficha com os dados do gerador?\n\nSituação, status (assinaturas, CPFL…) e saldo continuam como estão.`)) return;
+      const f = Object.assign(fichaDe(ex), novos, { situacao: ex.situacao });
+      await q(sb.from("contratos").update({ ficha: f }).eq("codigo", cod));
+    } else {
+      const im = S.imoveis.find(i => norm(i.endereco).trim() === norm(novos.end_rua).trim());
+      await q(sb.from("contratos").insert({ codigo: cod, imovel_id: im ? im.id : null, ficha: Object.assign(novos, { situacao: "EM ELABORAÇÃO" }) }));
+    }
+    CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+    $("#dlg").dataset.mudou = "1";
+    avisar(`✅ Contrato ${cod} salvo no sistema${ex ? " (ficha atualizada)" : " como Em elaboração"}.`);
+  } catch (e) { avisar("⚠️ Não foi salvo: " + erroMsg(e)); }
 }
 ACT["ctt-termo"] = el => {
   const p = pop(el, `<div class="gp-h">Gerar termo</div><div class="gp-cols">${Object.entries(TERMOS).map(([k, [t]]) => `<button type="button" class="btn sm" data-t="${k}" style="justify-content:flex-start">${esc(t)}</button>`).join("")}</div><p class="hint">Dentro do termo, busque pelo endereço ou nome. Para já abrir preenchido, use os botões dentro do contrato.</p>`, 300);
@@ -2888,7 +3192,7 @@ ACT["audit-ver"] = el => {
 /* =====================================================================
    PÁGINA: BACKUP
    ===================================================================== */
-const TABELAS_BKP = ["config", "contas", "categorias", "grupos_locador", "imoveis", "contratos", "reajustes", "devedores", "cobrancas", "lancamentos", "mapa_mensal"];
+const TABELAS_BKP = ["config", "contas", "categorias", "grupos_locador", "imoveis", "contratos", "reajustes", "devedores", "cobrancas", "lancamentos", "mapa_mensal", "depositos_fav", "depositos_mes"];
 const ORDEM_PK = { config: "chave", contratos: "codigo", mapa_mensal: "competencia", grupos_locador: "nome" };
 PAGES.backup = async pg => {
   const cfg = await q(sb.from("config").select("*").eq("chave", "ultimo_backup").maybeSingle());

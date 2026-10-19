@@ -337,6 +337,16 @@ th.sec-lct{background:#dff3f6} th.sec-fdr{background:#fbe6ee} th.sec-out{backgro
 .gp-wrap{flex-wrap:wrap}
 .receita .tw{width:fit-content;max-width:100%}
 table.compacta{width:auto} table.compacta td:first-child{max-width:210px;white-space:normal}
+tr.atrasada td{background:var(--bad-soft)}
+.dep-t input{width:100px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;text-align:right;font-family:var(--font-mono)}
+.relatorio{background:#fff;color:#111;padding:18px 22px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.rel-h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2d6b;padding-bottom:8px;margin-bottom:12px}
+.rel-h b{font-size:16px;color:#1a2d6b} .rel-m{font-size:15px;font-weight:700;text-transform:capitalize;color:#1a2d6b}
+.rel-t{width:100%;border-collapse:collapse;margin:10px 0} .rel-t th,.rel-t td{border:1px solid #ccd;padding:5px 7px;font-size:12.5px;color:#111;background:#fff}
+.rel-t th{background:#eef2f9;position:static} .rel-t tfoot td{font-weight:700;background:#eef2f9}
+.rel-obs{color:#8a6d00} .rel-rod{color:#666;font-size:11.5px;margin-top:14px}
+@media print{body.imprimindo *{visibility:hidden!important} body.imprimindo .relatorio,body.imprimindo .relatorio *{visibility:visible!important}
+  body.imprimindo .relatorio{position:fixed;left:0;top:0;width:100%;border:0} body.imprimindo dialog{position:static;box-shadow:none;border:0}}
 /* formulário / modal */
 dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));box-shadow:var(--shadow)}
 dialog::backdrop{background:rgba(8,16,42,.55)}
@@ -457,6 +467,7 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inadimplência</a>
       <a href="#devedores" data-p="devedores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2M16 14l5 5M21 14l-5 5"/></svg>Devedores</a>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Caixa e lançamentos</a>
+      <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg>Depósitos</a>
       <div class="nav-h">Cadastros</div>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>Imóveis (mapa)</a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Contratos</a>
