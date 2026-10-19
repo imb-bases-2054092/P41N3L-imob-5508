@@ -25,6 +25,16 @@
     };
   }
 
+  // avisa o sistema quando o termo (PDF) é baixado — é assim que o termo obrigatório fica "feito"
+  function avisarDownload() {
+    var orig = HTMLAnchorElement.prototype.click;
+    if (orig.__lico) return;
+    var novo = function () {
+      try { if (this.hasAttribute("download")) window.parent.postMessage({ tipo: "termo-baixado", arquivo: this.getAttribute("download") || "" }, "*"); } catch (e) {}
+      return orig.apply(this, arguments);
+    };
+    novo.__lico = true; HTMLAnchorElement.prototype.click = novo;
+  }
   window.addEventListener("message", function (ev) {
     if (ev.source !== window.parent || !ev.data) return;
     var d = ev.data;
@@ -73,6 +83,7 @@
     instalarFetch(d.xlsx, d.arquivos || {});
     document.open(); document.write(html); document.close();
     instalarFetch(d.xlsx, d.arquivos || {}); // garante a troca também depois da reabertura do documento
+    avisarDownload();
   });
   window.parent.postMessage({ tipo: "termo-pronto" }, "*");
 })();
