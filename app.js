@@ -84,15 +84,15 @@ const S = {
 // Permissões: o papel define o que o banco permite com dinheiro; as abas (ver / alterar) vêm de
 // Configurações › Usuários. As regras valem também no banco (RLS), não só na tela.
 const ABAS = [["Dia a dia", [["alugueis", "Aluguéis do mês"], ["atrasados", "Inadimplência"], ["devedores", "Devedores"], ["caixa", "Caixa e lançamentos"], ["depositos", "Depósitos"]]],
-  ["Cadastros", [["imoveis", "Imóveis (mapa)"], ["contratos", "Contratos"]]],
+  ["Cadastro locação", [["imoveis", "Imóveis"], ["contratos", "Contratos"], ["caucao", "Contas caução"]]],
   ["Gestão", [["painel", "Painel"], ["indicadores", "Indicadores"], ["dre", "Resultado (DRE)"]]],
   ["Sistema", [["backup", "Backup"], ["config", "Configurações"]]]];
 const FLAGS = [["saldo_acumulado", "Ver o saldo acumulado das contas"]];
 const PERM_PADRAO = {
-  admin: { painel: "editar", indicadores: "editar", dre: "editar", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", backup: "editar", config: "editar", saldo_acumulado: true },
-  financeiro: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", backup: "ver", saldo_acumulado: true },
+  admin: { painel: "editar", indicadores: "editar", dre: "editar", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", caucao: "editar", backup: "editar", config: "editar", saldo_acumulado: true },
+  financeiro: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "editar", atrasados: "editar", devedores: "editar", caixa: "editar", depositos: "editar", imoveis: "editar", contratos: "editar", caucao: "editar", backup: "ver", saldo_acumulado: true },
   recepcao: { alugueis: "editar", atrasados: "ver", caixa: "editar", depositos: "editar", imoveis: "ver" },
-  leitura: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "ver", atrasados: "ver", devedores: "ver", caixa: "ver", depositos: "ver", imoveis: "ver", contratos: "ver", saldo_acumulado: true },
+  leitura: { painel: "ver", indicadores: "ver", dre: "ver", alugueis: "ver", atrasados: "ver", devedores: "ver", caixa: "ver", depositos: "ver", imoveis: "ver", contratos: "ver", caucao: "ver", saldo_acumulado: true },
   backup: {}
 };
 const pode = {
@@ -228,7 +228,7 @@ aplicarTema();
 /* ---------------- app / rotas ---------------- */
 const PAGES = {};
 const TITULOS = { painel: "Painel", alugueis: "Aluguéis do mês", atrasados: "Inadimplência", caixa: "Caixa e lançamentos",
-  dre: "Resultado (DRE)", depositos: "Depósitos aos proprietários", indicadores: "Indicadores", devedores: "Devedores (ex-locatários)", imoveis: "Imóveis (mapa do aluguel)", contratos: "Contratos", backup: "Backup", config: "Configurações" };
+  dre: "Resultado (DRE)", depositos: "Depósitos aos proprietários", indicadores: "Indicadores", devedores: "Devedores (ex-locatários)", imoveis: "Imóveis", contratos: "Contratos", caucao: "Contas caução", backup: "Backup", config: "Configurações" };
 const SEM_MES = ["atrasados", "contratos", "backup", "config", "devedores"];
 
 function montarApp() {
@@ -465,7 +465,10 @@ PAGES.painel = async pg => {
   ];
   tarefas.push(pode.ver("devedores") ? q(sb.from("devedores").select("valor_total,valor_pago").in("situacao", ["EM ABERTO", "ACORDO"])) : Promise.resolve([]));
   tarefas.push(rpc("resumo_mapa"), rpc("resumo_cobrancas", {}));
-  const [res, cobMes, atras, saldosTodos, reaj, cfg, vencendo, devs, evol, cobsAll] = await Promise.all(tarefas);
+  tarefas.push(pode.ver("contratos") || pode.ver("imoveis") ? q(sb.from("contratos").select("codigo,locatario,termos").eq("termos->entrega->>estado", "pendente")).catch(() => []) : Promise.resolve([]));
+  tarefas.push(pode.ver("caucao") ? q(sb.from("cauc_mov").select("id,contrato_codigo").is("data_saida", null)).catch(() => []) : Promise.resolve([]));
+  const [res, cobMes, atras, saldosTodos, reaj, cfg, vencendo, devs, evol, cobsAll, termosPend, caucVig] = await Promise.all(tarefas);
+  const caucBaixa = caucVig.length ? (await q(sb.from("contratos").select("codigo").in("codigo", caucVig.map(m => m.contrato_codigo).filter(Boolean)).neq("situacao", "ATIVO").neq("situacao", "EM ELABORAÇÃO")).catch(() => [])).length : 0;
   const saldos = soMinhasContas(saldosTodos);
 
   // DRE por mês (realizado)
@@ -507,6 +510,8 @@ PAGES.painel = async pg => {
   const fin = S.papel !== "recepcao";
   pg.innerHTML = `
   <div class="grid">
+    ${termosPend.length ? `<div class="alert bad"><span><b>Termo de entrega de chaves pendente</b>: ${termosPend.map(c => `<button class="btn sm" data-act="termo-pend" data-id="${esc(c.codigo)}">🔑 ${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>` : ""}
+    ${caucBaixa ? `<div class="alert warn"><span><b>${caucBaixa}</b> conta(s) caução aguardando baixa (locatário já saiu): devolução e termo de devolução obrigatórios.</span><a class="btn sm" href="#caucao">Abrir Contas caução</a></div>` : ""}
     <div class="kpis" ${fin ? "" : "hidden"}>
       ${kpi("Receita bruta", brl(cur.receita), "taxas, comissões e aluguéis próprios")}
       ${kpi("Impostos", brl(cur.imposto), cur.receita ? (cur.imposto / cur.receita * 100).toFixed(1).replace(".", ",") + "% da receita" : "")}
@@ -520,9 +525,9 @@ PAGES.painel = async pg => {
         <div class="lst">
           <div><span>Previsto (${cobMes.length})</span><b class="num">${brl(prev)}</b></div>
           <div><span>Recebido</span><b class="num pos">${brl(receb)}</b></div>
-          <div><span>Falta receber (${nAberto})</span><b class="num">${brl(Math.max(prev - receb, 0))}</b></div>
+          <div><span title="Aluguéis deste mês ainda não pagos, vencidos ou não">Falta receber neste mês (${nAberto})</span><b class="num">${brl(Math.max(prev - receb, 0))}</b></div>
           <div><span>Repasses pendentes (${repPend.length})</span><b class="num">${brl(repPendV)}</b></div>
-          <div><span>Inadimplência total</span><b class="num neg">${brl(atrasV)}</b></div>
+          <div><span title="Só aluguéis com vencimento já passado (de qualquer mês), sem contar os que foram para Devedores">Em atraso (já vencidos)</span><b class="num neg">${brl(atrasV)}</b></div>
         </div>
         ${prev ? `<div class="bar" style="margin-top:10px" title="Recebido ${Math.round(receb / prev * 100)}%"><i style="width:${Math.min(receb / prev * 100, 100)}%;background:var(--ok)"></i></div><p class="hint" style="margin-top:4px">${Math.round(receb / prev * 100)}% recebido</p>` : ""}
       </div>
@@ -905,9 +910,9 @@ function partesDesc(l) {
   return [d || catPor(l.categoria_id).nome || "", ""];
 }
 const COLS_LANC = [
-  { k: "data", t: "Data", tipo: "data", html: l => `${dt(l.data)}${l.pago ? "" : ` <span class="tag warn">Previsto</span>`}` },
-  { k: "ref", t: "Referente a", v: l => partesDesc(l)[0], cls: "trunc" },
-  { k: "quem", t: "Quem", v: l => partesDesc(l)[1], cls: "trunc" },
+  { k: "data", t: "Data", tipo: "data", dica: "Linhas amarelas: previstas. Laranja: previstas com a data já passada." },
+  { k: "ref", t: "Referente a", v: l => partesDesc(l)[0], cls: "trunc", html: l => l.afeta_caixa === false ? `<span title="Lançamento interno: não mexe no saldo. A taxa sai da parte do proprietário e vira receita da imobiliária (para a DRE).">↳ ${esc(partesDesc(l)[0])} <small>(interno)</small></span>` : esc(partesDesc(l)[0]) },
+  { k: "quem", t: "De quem", v: l => partesDesc(l)[1], cls: "trunc" },
   { k: "descricao", t: "Descrição completa", cls: "trunc", oculta: true },
   { k: "categoria", t: "Categoria", v: l => catPor(l.categoria_id).nome, cls: "trunc" },
   { k: "grupo", t: "Grupo", f: l => GRUPOS[catPor(l.categoria_id).grupo] || "", oculta: true },
@@ -921,14 +926,17 @@ const COLS_LANC = [
   { k: "competencia", t: "Competência", f: l => mesCurto(l.competencia), v: l => l.competencia, oculta: true }
 ];
 let CAIXA_SALDOS = { fim: [] }, CAIXA_PREV = 0;
-const COR_CONTA = ["var(--c1)", "var(--c3)", "var(--c2)", "var(--c6)", "var(--c4)", "var(--c5)"];
+const COR_CONTA = ["var(--c3)", "var(--c2)", "var(--c6)", "var(--c5)", "var(--c4)", "var(--c1)"];
 PAGES.caixa = async pg => {
   const fim = fimMes(S.mes);
   const [lanc, saldosFimT] = await Promise.all([
     fetchAll("lancamentos", b => b.gte("data", S.mes).lte("data", fim).order("data").order("criado_em").order("id")),
     rpc("saldos_contas", { p_ate: fim })
   ]);
-  LANC = lanc;
+  // mesma data: o aluguel e seus lançamentos internos (taxa) ficam juntos, nessa ordem
+  const ORD = { pagamento: 1, taxa: 2, devedor: 3, repasse: 4, manual: 5, transferencia: 6 };
+  LANC = lanc.slice().sort((a, b) => a.data.localeCompare(b.data) || String(a.cobranca_id || a.id).localeCompare(String(b.cobranca_id || b.id))
+    || (ORD[a.origem] || 9) - (ORD[b.origem] || 9) || (a.tipo === b.tipo ? 0 : a.tipo === "entrada" ? -1 : 1));
   CAIXA_SALDOS = { fim: soMinhasContas(saldosFimT) };
   // despesas/receitas fixas do plano de contas que ainda não viraram previsão neste mês
   const ja = new Set(lanc.filter(l => l.previsao_de).map(l => l.previsao_de));
@@ -959,18 +967,18 @@ function desenharCaixa(pg) {
   document.body.style.setProperty("--conta-cor", conta ? corDe(conta) : "transparent");
   document.body.classList.toggle("com-conta", !!conta);
   const g = grade("caixa6", COLS_LANC, lista, {
-    sort: { k: "data", dir: "asc" }, divisor: "data", cls: l => l.afeta_caixa === false ? "interno" : "", attr: l => `data-act="lanc-ed" data-id="${l.id}" style="cursor:pointer"`,
+    sort: { k: "data", dir: "asc" }, divisor: "data", cls: l => l.afeta_caixa === false ? "interno" : !l.pago ? (l.data < hoje() ? "prev-atras" : "previsto") : "", attr: l => `data-act="lanc-ed" data-id="${l.id}" style="cursor:pointer"`,
     rodape: fl => { const pg2 = fl.filter(l => l.pago), e = pg2.filter(l => l.tipo === "entrada").reduce((a, l) => a + +l.valor, 0), s = pg2.filter(l => l.tipo === "saida").reduce((a, l) => a + +l.valor, 0), pv = fl.filter(l => !l.pago);
       return `${fl.length} lançamentos · realizados: entradas <span class="pos">${brl(e)}</span> · saídas <span class="neg">${brl(s)}</span> · resultado <b>${brl(e - s)}</b>${pv.length ? ` · previstos: ${pv.length} (${brl(pv.reduce((a, l) => a + (l.tipo === "entrada" ? +l.valor : -l.valor), 0))})` : ""}`; }
   });
   g.redesenhar = () => desenharCaixa();
   const chip = (k, v, t, cls, atual) => `<button class="chip ${cls}${atual === v ? " on" : ""}" data-act="chip" data-k="${k}" data-v="${v}">${t}</button>`;
   pg.innerHTML = `<div class="grid">
-    <div class="ccards">${contas.length > 1 ? card("", "Todas as contas", tot, "var(--accent)", true) : ""}${contas.map(c => card(c.conta_id, c.nome, c.saldo, corDe(c.conta_id), contas.length === 1)).join("")}</div>
+    <div class="ccards">${contas.length > 1 ? card("", "Todas as contas", tot, "var(--idle)", true) : ""}${contas.map(c => card(c.conta_id, c.nome, c.saldo, corDe(c.conta_id), contas.length === 1)).join("")}</div>
     ${CAIXA_PREV && pode.editar() ? `<div class="alert warn"><span>${CAIXA_PREV} despesa(s)/receita(s) fixa(s) do plano de contas ainda não foram lançadas como previstas em ${esc(mesTxt(S.mes))}.</span><button class="btn sm" data-act="gerar-prev">Lançar previstos</button></div>` : ""}
     <div class="filters">
-      <div class="chips">${chip("lcTipo", "todos", "Todos", "", tipo)}${chip("lcTipo", "entrada", "Só entradas", "st-LVR", tipo)}${chip("lcTipo", "saida", "Só saídas", "st-INTV", tipo)}</div>
-      <div class="chips">${chip("lcSit", "todos", "Previstos e realizados", "", sit)}${chip("lcSit", "prev", "Só previstos", "st-OCP", sit)}${chip("lcSit", "real", "Só realizados", "", sit)}</div>
+      <div class="fgrupo"><span>Tipo</span>${chip("lcTipo", "todos", "Todos", "", tipo)}${chip("lcTipo", "entrada", "Só entradas", "st-LVR", tipo)}${chip("lcTipo", "saida", "Só saídas", "st-INTV", tipo)}</div>
+      <div class="fgrupo"><span>Situação</span>${chip("lcSit", "todos", "Previstos e realizados", "", sit)}${chip("lcSit", "prev", "Só previstos", "st-OCP", sit)}${chip("lcSit", "real", "Só realizados", "", sit)}</div>
       <input type="search" placeholder="Buscar descrição, documento, categoria…" value="${esc(busca)}" data-busca="lcBusca">
       ${nInt ? `<label class="chk" title="Taxas de administração retidas dos aluguéis: viram receita sem mexer no saldo das contas"><input type="checkbox" data-int ${internos ? "checked" : ""}> lançamentos internos (${nInt})</label>` : ""}
       <span class="spacer"></span>${gradeBarra("caixa6")}
@@ -1128,7 +1136,7 @@ PAGES.dre = async pg => {
   const L = (rotulo, vals, cls, total, suf) => {
     const t = total != null ? total : vals.reduce((a, b) => a + b, 0);
     DRE_LINHAS.push({ rotulo, vals, total: t });
-    return `<tr class="${cls || ""}"><td>${esc(rotulo)}</td>${vals.map(v => cel(v, suf)).join("")}${cel(t, suf).replace(/>([^<]*)<\/td>$/, "><b>$1</b></td>")}</tr>`;
+    return `<tr class="${cls || ""}${/tot/.test(cls || "") && t < 0 ? " neg" : ""}"><td>${esc(rotulo)}</td>${vals.map(v => cel(v, suf)).join("")}${cel(t, suf).replace(/>([^<]*)<\/td>$/, "><b>$1</b></td>")}</tr>`;
   };
   const cats = g => Object.entries(val[g] || {}).sort((a, b) => a[0].localeCompare(b[0])).map(([n, m]) => L(n, meses.map(x => m[x] || 0), "sub")).join("");
   const pct = (a, b) => a.map((v, i) => b[i] ? v / b[i] * 100 : 0);
@@ -1138,14 +1146,14 @@ PAGES.dre = async pg => {
     <div class="tw"><table class="dre"><thead><tr><th>${ano}</th>${meses.map(m => `<th class="num">${MES3[+m.slice(5, 7) - 1]}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>
       ${L("Receita bruta", rec, "grp")}${cats("receita")}
       ${L("(−) Impostos sobre a receita", imp, "grp")}${cats("imposto")}
-      ${L("= Receita líquida", liq, "tot")}
+      ${L("= Receita líquida", liq, "tot t1")}
       ${L("(−) Custos (comissões etc.)", cus, "grp")}${cats("custo")}
-      ${L("= Lucro bruto", bruto, "tot")}
+      ${L("= Lucro bruto", bruto, "tot t2")}
       ${L("(−) Despesas operacionais", des, "grp")}${cats("despesa")}
-      ${L("= Resultado operacional", oper, "tot")}
+      ${L("= Resultado operacional", oper, "tot t3")}
       ${L("Margem (% da receita bruta)", pct(oper, rec), "memo", (() => { const r = rec.reduce((a, b) => a + b, 0); return r ? oper.reduce((a, b) => a + b, 0) / r * 100 : 0; })(), "%")}
       ${L("(−) Retiradas dos sócios", ret, "grp")}${cats("retirada")}
-      ${L("= Resultado após retiradas", fin, "tot")}
+      ${L("= Resultado após retiradas", fin, "tot t4")}
       <tr><td colspan="14" class="hint" style="padding-top:16px">Dinheiro de proprietários (não entra no resultado)</td></tr>
       ${L("Recebido de inquilinos p/ proprietários", te, "memo")}
       ${L("Repassado / pago p/ proprietários", ts, "memo")}
@@ -1230,7 +1238,7 @@ function gradeHTML(id) {
     if (g.opts.cls) { const c = g.opts.cls(r); if (c) cls.push(c); }
     return `<tr${cls.length ? ` class="${cls.join(" ")}"` : ""} ${g.opts.attr ? g.opts.attr(r) : ""}>${vis.map(c => td(c, r)).join("")}</tr>`;
   };
-  return `<div class="tw fixa"><table class="grade"><thead><tr>${vis.map(th).join("")}</tr></thead><tbody>
+  return `<div class="tw fixa"><table class="grade ${g.opts.tcls || ""}"><thead><tr>${vis.map(th).join("")}</tr></thead><tbody>
     ${filtradas.map(linhaHTML).join("") || `<tr><td colspan="${vis.length}" class="empty">${esc(g.opts.vazio || "Nada encontrado.")}</td></tr>`}
     </tbody>${g.opts.rodape ? `<tfoot><tr><td colspan="${vis.length}">${g.opts.rodape(filtradas)}</td></tr></tfoot>` : ""}</table></div>`;
 }
@@ -1315,10 +1323,12 @@ ACT["g-filtro"] = el => {
 };
 ACT["g-cols"] = el => {
   const id = el.dataset.g, g = G[id];
+  // a barra é redesenhada a cada mudança: a janelinha se ancora sempre no botão atual
+  const anc = () => document.querySelector(`[data-act="g-cols"][data-g="${id}"]`) || el;
   const desenhar = () => {
-    const p = pop(el, `<div class="gp-h">Colunas exibidas</div><p class="hint" style="margin:0 0 6px">Marque as que quer ver. Use as setas, ou arraste o título da coluna na tabela, para mudar a ordem.</p>
+    const p = pop(anc(), `<div class="gp-h">Colunas exibidas</div><p class="hint" style="margin:0 0 6px">Marque as que quer ver. Use as setas, ou arraste o título da coluna na tabela, para mudar a ordem.</p>
       <div class="gp-cols">${g.ordem.map((k, i) => { const c = gCol(g, k); if (!c) return ""; return `<div><label><input type="checkbox" data-k="${k}" ${g.ocultas.includes(k) ? "" : "checked"} ${c.fixo ? "disabled" : ""}> ${esc(c.t || c.k)}</label><span><button type="button" class="btn sm" data-up="${i}" ${i ? "" : "disabled"} aria-label="Subir">↑</button><button type="button" class="btn sm" data-dn="${i}" ${i < g.ordem.length - 1 ? "" : "disabled"} aria-label="Descer">↓</button></span></div>`; }).join("")}</div>
-      <div class="gp-f gp-wrap">${pode.admin() ? `<button type="button" class="btn sm" data-todos title="Novos usuários (e quem clicar em Restaurar padrão) passam a ver as colunas nesta ordem">Salvar padrão</button>` : ""}<button type="button" class="btn sm" data-padrao>Restaurar padrão</button><button type="button" class="btn sm pri" data-fim>Fechar</button></div>`, 380);
+      <div class="gp-f gp-wrap">${pode.admin() ? `<button type="button" class="btn sm" data-todos title="Novos usuários (e quem clicar em Restaurar padrão) passam a ver as colunas nesta ordem">Salvar padrão</button>` : ""}<button type="button" class="btn sm" data-padrao>Restaurar padrão</button><button type="button" class="btn sm" data-todas>Mostrar todas</button><button type="button" class="btn sm pri" data-fim>Fechar</button></div>`, 400);
     $$("[data-k]", p).forEach(x => x.addEventListener("change", () => {
       g.ocultas = x.checked ? g.ocultas.filter(k => k !== x.dataset.k) : g.ocultas.concat(x.dataset.k);
       gradeSalvar(id); gRedesenhar(id);
@@ -1332,7 +1342,9 @@ ACT["g-cols"] = el => {
       else { g.ordem = todas; g.ocultas = g.cols.filter(c => c.oculta).map(c => c.k); g.sort = g.opts.sort || null; }
       gradeSalvar(id); gRedesenhar(id); desenhar();
     });
+    $("[data-todas]", p).addEventListener("click", () => { g.ocultas = []; gradeSalvar(id); gRedesenhar(id); desenhar(); });
     const tb = $("[data-todos]", p); if (tb) tb.addEventListener("click", async () => {
+      if (!tb.dataset.conf) { tb.dataset.conf = "1"; tb.textContent = "Confirmar: vale para todos"; tb.classList.add("danger"); return; }
       try {
         const v = { ordem: g.ordem, ocultas: g.ocultas, sort: g.sort };
         await q(sb.from("config").upsert({ chave: "grade." + id, valor: JSON.stringify(v) }));
@@ -1494,9 +1506,9 @@ function desenharImoveis(pg) {
   const mesAtual = inicioMes(hoje()), passado = S.mes < mesAtual, futuro = S.mes > mesAtual, lib = !!S.liberado[S.mes];
   const base = passado ? (IMV.hist || []) : S.imoveis;
   const f = S.f.imv || "todos", busca = S.f.imvBusca || "";
-  const cont = { todos: base.length, ALG: 0, LVR: 0, OCP: 0, INTV: 0, reaj: 0 };
-  base.forEach(i => { cont[i.status] = (cont[i.status] || 0) + 1; if (IMV.reajPor[i.id]) cont.reaj++; });
-  let lista = base.filter(i => f === "todos" || (f === "reaj" ? !!IMV.reajPor[i.id] : i.status === f));
+  const cont = { todos: base.length, ALG: 0, LVR: 0, OCP: 0, INTV: 0, reaj: 0, ativos: 0 };
+  base.forEach(i => { cont[i.status] = (cont[i.status] || 0) + 1; if (IMV.reajPor[i.id]) cont.reaj++; if (i.status === "ALG" || i.status === "LVR") cont.ativos++; });
+  let lista = base.filter(i => f === "todos" || (f === "reaj" ? !!IMV.reajPor[i.id] : f === "ativos" ? (i.status === "ALG" || i.status === "LVR") : i.status === f));
   if (G.imoveis && f === "reaj" && S.f.imvAnt !== "reaj") { G.imoveis.sortAntes = G.imoveis.sort; G.imoveis.sort = { k: "reajuste", dir: "asc" }; } // na ordem dos meses: nov, dez, jan…
   if (G.imoveis && f !== "reaj" && S.f.imvAnt === "reaj") { G.imoveis.sort = G.imoveis.sortAntes || null; delete G.imoveis.sortAntes; }
   S.f.imvAnt = f;
@@ -1512,7 +1524,7 @@ function desenharImoveis(pg) {
     rodape: fl => { const alg = fl.filter(i => i.status === "ALG"); return `${fl.length} imóveis · ${alg.length} alugados · aluguel ${brl(alg.reduce((a, i) => a + (+i.valor || 0), 0))}`; }
   });
   g.redesenhar = () => desenharImoveis();
-  const chips = [["todos", "Todos", ""], ["ALG", "Alugados", "st-ALG"], ["LVR", "Livres", "st-LVR"], ["OCP", "Ocupados", "st-OCP"], ["INTV", "Inativos", "st-INTV"], ["reaj", "Reajuste programado", "st-REAJ"]];
+  const chips = [["todos", "Todos", ""], ["ativos", "Ativos (alugados + livres)", ""], ["ALG", "Alugados", "st-ALG"], ["LVR", "Livres", "st-LVR"], ["OCP", "Ocupados", "st-OCP"], ["INTV", "Inativos", "st-INTV"], ["reaj", "Reajuste programado", "st-REAJ"]];
   let aviso = "";
   const nReajPend = Object.values(IMV.reajPor).flat().filter(r => r.competencia <= mesAtual).length;
   if (nReajPend && pode.ed("imoveis")) aviso += `<div class="alert warn"><span>${nReajPend} reajuste(s) chegaram no mês e aguardam confirmação.</span><button class="btn sm" data-act="reaj-conf">Confirmar reajustes</button></div>`;
@@ -1636,13 +1648,14 @@ ACT["imv-novo"] = () => modal({ titulo: "Novo imóvel", xl: true, corpo: formImo
     await q(sb.from("imoveis").insert(d)); await salvarGrupo(f, ""); await recarregarImoveis(); toast("Imóvel cadastrado."); render(); } });
 ACT["imv-ed"] = async el => {
   const i = S.imovelPor[el.dataset.id]; if (!i) return;
-  const [reaj, hist, cobs] = await Promise.all([
+  const [reaj, hist, cobs, ultAlg] = await Promise.all([
     q(sb.from("reajustes").select("*").eq("imovel_id", i.id).order("competencia", { ascending: false })),
     q(sb.from("mapa_mensal").select("competencia,status,valor,locatario").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(14)),
-    q(sb.from("cobrancas").select("competencia,vencimento,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,repasse_data,locatario,devedor_id").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(12))
+    q(sb.from("cobrancas").select("competencia,vencimento,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,repasse_data,locatario,devedor_id").eq("imovel_id", i.id).order("competencia", { ascending: false }).limit(12)),
+    q(sb.from("mapa_mensal").select("competencia,valor,locatario").eq("imovel_id", i.id).eq("status", "ALG").order("competencia", { ascending: false }).limit(1))
   ]);
-  const saida = pode.editar() && i.status === "ALG" ? `<button type="button" class="btn left" data-saida>🚪 Registrar saída do locatário</button>` : "";
-  const excluir = pode.admin() ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "";
+  const saida = pode.editar() && i.status === "ALG" ? `<button type="button" class="btn" data-saida>🚪 Registrar saída do locatário</button>` : "";
+  const excluir = pode.admin() ? `<span class="spacer"></span><button type="button" class="btn danger" data-del>Excluir</button>` : "";
   modal({
     titulo: i.endereco, xl: true, semOk: !pode.editar(), extra: saida + excluir,
     corpo: formImovel(i) + `
@@ -1658,6 +1671,8 @@ ACT["imv-ed"] = async el => {
       <h3 style="margin-top:8px">Histórico do mapa</h3>
       <div class="tw"><table><thead><tr><th>Mês</th><th>Situação</th><th class="num">Valor</th><th>Locatário</th></tr></thead><tbody>
         ${hist.map(h => `<tr><td>${mesCurto(h.competencia)}</td><td><span class="tag ${(STATUS_IMV[h.status] || ["", "idle"])[1]}">${(STATUS_IMV[h.status] || [h.status])[0]}</span></td><td class="num">${h.valor != null ? n2(h.valor) : ""}</td><td class="trunc">${esc(h.locatario)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem histórico.</td></tr>`}
+        ${ultAlg.length && !hist.some(h => h.status === "ALG") ? `<tr class="ult-alg"><td>${mesCurto(ultAlg[0].competencia)}</td><td colspan="3">Último mês alugado registrado: <b>${brl(ultAlg[0].valor)}</b>${ultAlg[0].locatario ? " · " + esc(ultAlg[0].locatario) : ""}</td></tr>` : ""}
+        ${!ultAlg.length && hist.length ? `<tr class="ult-alg"><td colspan="4">Nenhum mês alugado registrado no histórico.</td></tr>` : ""}
       </tbody></table></div>`,
     salvar: async f => {
       const d = lerImovel(f);
@@ -1731,10 +1746,23 @@ function mascaraTel(inp) {
   });
 }
 const contatosTxt = cs => (cs || []).map(c => `${c.papel}: ${c.nome}${c.tel ? " · " + fmtTel(c.tel) : ""}${c.email ? " · " + c.email : ""}`).join("\n");
-// termo aberto por cima de outro formulário: abre numa aba separada do diálogo atual
-function abrirTermoJanela(tipo, codigo) {
-  if (!(confirm("Abrir o termo? O formulário de saída será fechado (os dados digitados nele não são salvos)."))) return;
-  $("#dlg").close(); setTimeout(() => abrirTermo(tipo, codigo), 0);
+// termos obrigatórios pendentes (entrega de chaves depois da saída)
+const termoEst = (c, t) => ((c.termos || {})[t] || {}).estado || "";
+function termosPendentesHTML() {
+  const ls = CTT.filter(c => termoEst(c, "entrega") === "pendente");
+  if (!ls.length) return "";
+  return `<div class="alert bad"><span><b>Termo de entrega de chaves pendente</b> (obrigatório depois da saída): ${ls.map(c => `<button class="btn sm" data-act="termo-pend" data-id="${esc(c.codigo)}">🔑 ${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>`;
+}
+ACT["termo-pend"] = el => abrirTermoObrig(el.dataset.id);
+// abre o termo de entrega; ao baixar o PDF ele fica "feito"
+function abrirTermoObrig(codigo) {
+  abrirTermo("entrega", codigo, "", { aoBaixar: () => marcarEntregaFeita(codigo) });
+}
+async function marcarEntregaFeita(codigo) {
+    try { await rpc("marcar_termo", { p_codigo: codigo, p_tipo: "entrega", p_estado: "feito", p_motivo: "" });
+      const c = CTT.find(x => x.codigo === codigo); if (c) c.termos = Object.assign({}, c.termos, { entrega: { estado: "feito" } });
+      toast(`Termo de entrega do contrato ${codigo} registrado como feito.`); $("#dlg").dataset.mudou = "1";
+    } catch (e) { falha(e); }
 }
 async function abrirSaida(i) {
   try {
@@ -1768,11 +1796,15 @@ async function abrirSaida(i) {
           ${contatos.length ? `<div class="box"><b>Contatos que irão para a lista de devedores</b> (do contrato):<br>${esc(contatosTxt(contatos)).replace(/\n/g, "<br>")}</div>` : `<p class="hint">Sem contatos no contrato: você pode incluir telefone e e-mail depois, na tela Devedores.</p>`}
           <label class="fl"><span>Observações (acordo, combinado…)</span><textarea name="obs"></textarea></label>
         </div>
-        ${i.contrato_codigo ? `<div class="filters"><span class="hint">Termos deste contrato:</span><button type="button" class="btn sm" data-termo="entrega">🔑 Entrega de chaves</button><button type="button" class="btn sm" data-termo="caucao">💰 Devolução de caução</button></div>` : ""}
+        ${i.contrato_codigo ? `<div class="obrig" data-obrig><b>🔑 Termo de entrega de chaves: OBRIGATÓRIO.</b> Ao registrar a saída, o termo abre já preenchido; ele só conta como feito quando o PDF for gerado/baixado. Enquanto isso, o contrato fica com aviso de <b>termo pendente</b>.
+          <label class="chk" style="margin-top:6px"><input type="checkbox" name="semtermo"> Neste caso específico o termo <b>não é necessário</b></label>
+          <label class="fl" data-motivo hidden><span>Motivo (fica registrado na auditoria)</span><input name="motivo" placeholder="Ex.: chaves devolvidas em cartório, termo feito em papel…"></label>
+          ${/CAU/i.test(norm((ctt && ctt.garantia) || "")) ? `<p class="hint" style="margin:6px 0 0">Contrato com <b>caução</b>: a devolução (baixa da conta caução e termo de devolução) é feita em <b>Cadastro locação → Contas caução</b>.</p>` : ""}</div>`
+          : `<p class="hint">Imóvel sem contrato ligado: não há termo de entrega para gerar pelo sistema.</p>`}
         <p class="hint">Ao registrar: o imóvel muda para a situação escolhida (o valor do aluguel fica como previsto), o contrato fica <b>Encerrado</b> — ou <b>Débito em aberto</b> se ficou devendo — e o devedor entra na lista de <b>Devedores</b> com os dados e contatos do contrato.</p>`,
       aoAbrir: (f, d) => {
         lerItens = ligarItens(d, [], () => total(d));
-        $$("[data-termo]", d).forEach(b => b.addEventListener("click", () => abrirTermoJanela(b.dataset.termo, i.contrato_codigo)));
+        if (f.semtermo) f.semtermo.addEventListener("change", () => { $("[data-motivo]", d).hidden = !f.semtermo.checked; $("[data-obrig]", d).classList.toggle("ok", f.semtermo.checked); });
         $$("[name=deve]", d).forEach(r => r.addEventListener("change", () => { $("[data-divida]", d).hidden = f.deve.value !== "sim"; total(d); }));
         $$("[data-cob]", d).forEach(x => x.addEventListener("change", () => total(d)));
         total(d);
@@ -1787,13 +1819,21 @@ async function abrirSaida(i) {
           itens = abs.filter(c => cobsSel.includes(c.id)).map(c => ({ descricao: "Aluguel " + mesTxt(c.competencia), valor: devido(c) })).concat(lerItens());
           if (!itens.length) throw new Error('Informe o que ele ficou devendo, ou marque "Saiu sem dever".');
         }
+        const semTermo = !!(f.semtermo && f.semtermo.checked), motivo = f.motivo ? f.motivo.value.trim() : "";
+        if (semTermo && motivo.length < 5) throw new Error("Explique por que o termo de entrega não é necessário neste caso.");
         const totalTxt = deve ? brl(itens.reduce((a, x) => a + (+x.valor || 0), 0)) : "";
         if (!pedeConfirmacao(f, `<b>Confirma a saída de ${esc(i.locatario || "?")}</b> de ${esc(i.endereco)} em <b>${dt(f.data.value)}</b>?<br>
-          O imóvel passa a ficar <b>${esc((STATUS_IMV[f.status.value] || [f.status.value])[0])}</b>${deve ? ` e o devedor entra na lista com <b>${totalTxt}</b>` : " (saiu sem dever)"}.`, "Sim, registrar a saída")) return false;
+          O imóvel passa a ficar <b>${esc((STATUS_IMV[f.status.value] || [f.status.value])[0])}</b>${deve ? ` e o devedor entra na lista com <b>${totalTxt}</b>` : " (saiu sem dever)"}.
+          ${i.contrato_codigo ? (semTermo ? `<br>⚠️ Termo de entrega <b>DISPENSADO</b>: “${esc(motivo)}”.` : "<br>Em seguida abre o <b>termo de entrega de chaves</b> (obrigatório).") : ""}`, "Sim, registrar a saída")) return false;
         await rpc("registrar_saida", { p_imovel: i.id, p_data: f.data.value, p_devedor: deve ? f.devedor.value : null, p_itens: itens, p_obs: deve ? f.obs.value : "", p_cobrancas: cobsSel, p_status: f.status.value });
+        if (i.contrato_codigo) {
+          try { await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "entrega", p_estado: semTermo ? "dispensado" : "pendente", p_motivo: motivo }); } catch (e) { falha(e); }
+        }
         await recarregarImoveis();
+        CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
         toast(deve ? "Saída registrada e devedor incluído na lista." : "Saída registrada.");
         render();
+        if (i.contrato_codigo && !semTermo) setTimeout(() => abrirTermoObrig(i.contrato_codigo), 300);
       }
     });
   } catch (e) { falha(e); }
@@ -2559,8 +2599,20 @@ function sitPill(c) {
   const ed = pode.editar() ? ` data-act="ctt-st" data-id="${esc(c.codigo)}" data-k="situacao" role="button" tabindex="0" title="Clique para alterar"` : "";
   return `<span class="tag ${SIT_CTT[c.situacao] || "idle"} st-ed"${ed}>${esc(c.situacao)}</span>`;
 }
+// títulos curtos nas colunas (o nome completo aparece ao passar o mouse)
+const CURTO_CTT = { st_ass_lcd: "Ass. LCD", st_ass_lct: "Ass. LCT/FDR", st_scan: "Scan", st_cpfl: "CPFL", st_condominio: "Condom.", st_brimob: "BRIMOB",
+  situacao: "Situação", saldo_entrega: "Saldo entrega", obs: "Obs.", data_contrato: "Data ctt", prazo: "Prazo", valor: "Aluguel", valor_ext: "Aluguel ext.",
+  dia_venc: "Dia", enc_agua_energia: "Água/luz", enc_gas: "Gás", enc_condominio: "Condom.", enc_iptu: "IPTU", caucao_valor: "Caução", caucao_ext: "Caução ext.",
+  caucao_conta: "Conta caução", insc_cad: "Insc. cad.", desc_carencia: "Desc./car.", desc_meses: "Meses", desc_valor: "Desconto", inundacao: "Inundação" };
+function tituloCurto(c) {
+  if (CURTO_CTT[c.k]) return CURTO_CTT[c.k];
+  let t = c.t.replace(/^Locador(es)? ?/, "LCD").replace(/^Locatário(s)? ?/, "LCT").replace(/^Fiador(es)? ?/, "FDR").replace(/^Testemunha /, "Test.").replace(/^Imóvel em garantia/, "Imv gar.");
+  t = t.replace(" · nome", "").replace(" · ", " ").replace("órgão emissor/UF", "OE").replace("estado civil", "est. civil").replace("nacionalidade", "nac.").replace("profissão", "prof.").replace("endereço ", "end.").replace("quantidade", "qtd").replace("casados entre si", "casados").replace("regime de bens", "regime").replace("data do casamento", "dt casam.").replace("município/UF", "munic.").replace("CPF/CNPJ", "CPF");
+  if (/^(LCD|LCT|FDR)\d$/.test(t)) t = { LCD: "Locador ", LCT: "Locatário ", FDR: "Fiador " }[t.slice(0, 3)] + t.slice(3);
+  return t;
+}
 const COLS_CTT = CP.map(c => {
-  const col = { k: c.k, t: c.t, v: r => fv(r, c.k), cls: /_nome$|^obs$|_rua$|^ig_|_ext$|^enc_/.test(c.k) ? "trunc" : "" };
+  const col = { k: c.k, t: tituloCurto(c), dica: c.t + " · clique para ordenar, arraste para mover", v: r => fv(r, c.k), cls: /_nome$|^obs$|_rua$|^ig_|_ext$|^enc_|_email$|_prof$|_bairro$|_cidade$/.test(c.k) ? "trunc" : "" };
   col.thcls = "sec-" + c.sec;
   if (c.k === "codigo") Object.assign(col, { t: "Contrato", cls: "mono", fixo: true });
   if (c.k === "end_rua") col.t = "Imóvel";
@@ -2569,45 +2621,90 @@ const COLS_CTT = CP.map(c => {
   if (c.tipo === "dext") Object.assign(col, { tipo: "data", v: r => dataDeTexto(fv(r, c.k)) || null, f: r => dt(dataDeTexto(fv(r, c.k))) || fv(r, c.k) });
   if (c.tipo === "moeda") Object.assign(col, { tipo: "num", v: r => parseMoney(fv(r, c.k)), f: r => { const n = parseMoney(fv(r, c.k)); return n == null ? fv(r, c.k) : n2(n); } });
   if (c.tipo === "tel") col.f = r => fmtTel(fv(r, c.k));
+  if (c.k === "prazo" || c.k === "dia_venc") col.f = r => String(fv(r, c.k)).split(" (")[0];
   return col;
 });
 // o resumo "Resumo" do Excel é o padrão
 (() => { const vis = new Set(resumoKs("r3")); COLS_CTT.forEach(c => { if (!vis.has(c.k)) c.oculta = true; }); })();
 
 PAGES.contratos = async pg => {
-  CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+  [CTT] = await Promise.all([fetchAll("contratos", b => b.order("codigo", { ascending: false })), carregarCauc().catch(() => null)]);
   setRd(pg, () => desenharContratos());
   desenharContratos(pg);
 };
 let CTT = [];
+// pendências (só contam para contratos ATIVOS)
+const PEND_CTT = [["st_ass_lcd", "Falta ass. LCD"], ["st_ass_lct", "Falta ass. LCT/FDR"], ["st_scan", "Falta scan"], ["st_cpfl", "Falta CPFL"], ["st_condominio", "Falta condomínio"], ["st_brimob", "Falta BRIMOB"]];
+const pendsDe = c => c.situacao === "ATIVO" ? PEND_CTT.filter(([k]) => ehPend(fv(c, k))) : [];
+const garDe = c => { const g = norm(fv(c, "garantia") || c.garantia || "").toUpperCase(); return /FIAD/.test(g) ? "fiador" : /CAU/.test(g) ? "caucao" : /SEGURO/.test(g) ? "seguro" : /TITULO|CAPITALIZ/.test(g) ? "titulo" : g ? "outra" : "sem"; };
+const GAR_CTT = [["", "Todas as garantias"], ["fiador", "Fiador"], ["caucao", "Caução"], ["seguro", "Seguro fiança"], ["titulo", "Título de capitalização"], ["sem", "Sem garantia / não informado"]];
+function corCtt(c) {
+  return { "ATIVO": pendsDe(c).length ? "ct-pend" : "ct-ativo", "EM ELABORAÇÃO": "ct-elab", "ENCERRADO": "ct-enc", "DÉBITO EM ABERTO": "ct-deb", "CANCELADO": "ct-canc" }[c.situacao] || "";
+}
+const NAO_ATIVOS = ["ENCERRADO", "DÉBITO EM ABERTO", "CANCELADO"];
 function desenharContratos(pg) {
   pg = pg || $("#page");
-  const f = S.f.ctt || "todos", busca = S.f.cttBusca || "";
+  let f = S.f.ctt || "todos"; if (!["todos", "ATIVO", "EM ELABORAÇÃO", "naoativos"].includes(f)) f = S.f.ctt = "todos";
+  const sub = S.f.cttSub || "", pend = S.f.cttPend || "", gar = S.f.cttGar || "", busca = S.f.cttBusca || "";
   const lim60 = iso(new Date(Date.now() + 60 * 86400000));
-  const testa = { todos: () => true, vencendo: c => c.situacao === "ATIVO" && c.termino && c.termino >= hoje() && c.termino <= lim60,
-    pend: c => c.situacao !== "CANCELADO" && ST_K.some(k => ehPend(fv(c, k))) };
-  const filtro = c => testa[f] ? testa[f](c) : c.situacao === f;
-  const cont = k => CTT.filter(c => testa[k] ? testa[k](c) : c.situacao === k).length;
-  let lista = CTT.filter(filtro);
+  const grupo = { todos: () => true, ATIVO: c => c.situacao === "ATIVO", "EM ELABORAÇÃO": c => c.situacao === "EM ELABORAÇÃO", naoativos: c => NAO_ATIVOS.includes(c.situacao) };
+  const subT = { pend: c => pendsDe(c).length > 0, sempend: c => !pendsDe(c).length, vencendo: c => c.termino && c.termino >= hoje() && c.termino <= lim60,
+    ENCERRADO: c => c.situacao === "ENCERRADO", "DÉBITO EM ABERTO": c => c.situacao === "DÉBITO EM ABERTO", CANCELADO: c => c.situacao === "CANCELADO" };
+  const base = CTT.filter(c => !gar || garDe(c) === gar);
+  const nG = k => base.filter(grupo[k]).length;
+  let lista = base.filter(grupo[f]);
+  const subs = f === "ATIVO" ? [["", "Todos os ativos", ""], ["sempend", "Sem pendência", "st-LVR"], ["pend", "Com pendências", "st-OCP"], ["vencendo", "Terminam em 60 dias", ""]]
+    : f === "naoativos" ? [["", "Todos não ativos", ""], ["ENCERRADO", "Encerrados sem pendência", "st-ALG"], ["DÉBITO EM ABERTO", "Encerrados com débito", "st-INTV"], ["CANCELADO", "Cancelados", "st-CANC"]] : [];
+  const subOk = subs.some(x => x[0] === sub) ? sub : "";
+  const listaG = lista, nS = k => k ? listaG.filter(subT[k]).length : listaG.length;
+  if (subOk) lista = lista.filter(subT[subOk]);
+  const verPend = f === "ATIVO" && subOk === "pend";
+  const listaP = lista, nP = k => listaP.filter(c => ehPend(fv(c, k))).length;
+  if (verPend && pend) lista = lista.filter(c => ehPend(fv(c, pend)));
   if (busca) { const b = norm(busca); lista = lista.filter(c => norm([c.codigo, c.endereco, c.locador, c.locatario, c.fiador, fv(c, "lct1_cpf"), fv(c, "lct2_cpf")].join(" ")).includes(b)); }
   const g = grade("contratos5", COLS_CTT, lista, { attr: c => `data-act="ctt-ed" data-id="${esc(c.codigo)}" style="cursor:pointer"`, sort: { k: "codigo", dir: "desc" }, rodape: fl => `${fl.length} contratos`,
-    divisor: { k: "codigo", g: c => c.codigo.slice(2, 4) } });
+    divisor: { k: "codigo", g: c => c.codigo.slice(2, 4) }, cls: corCtt, tcls: "ctt" });
   g.redesenhar = () => desenharContratos();
-  const chips = [["todos", "Todos"], ["ATIVO", "Ativos"], ["vencendo", "Terminam em 60 dias"], ["pend", "Com pendências"], ["DÉBITO EM ABERTO", "Débito em aberto"], ["EM ELABORAÇÃO", "Em elaboração"], ["ENCERRADO", "Encerrados"], ["CANCELADO", "Cancelados"]];
+  const chip = (k, t, cls, n, on, key) => `<button class="chip ${cls || ""}${on ? " on" : ""}" data-act="chip" data-k="${key}" data-v="${esc(k)}">${t}<span class="c">${n}</span></button>`;
   const semFicha = CTT.filter(c => !c.ficha || !Object.keys(c.ficha).length).length;
+  const sabado = new Date().getDay() === 6, nPendAtivos = CTT.filter(c => pendsDe(c).length).length;
   pg.innerHTML = `<div class="grid">
     ${semFicha && pode.editar() ? `<div class="alert warn"><span><b>${semFicha}</b> contratos ainda sem a ficha completa (RG, CPF, UC, matrícula…). Use <b>Importar planilha</b> com o arquivo "Gerador de Contratos" para trazer todos os dados do Excel.</span></div>` : ""}
+    ${sabado && nPendAtivos ? `<div class="alert warn"><span>Hoje é sábado: dia de emitir o <b>relatório de pendências</b> (${nPendAtivos} contratos ativos com pendência).</span><button class="btn" data-act="ctt-rel-pend">📋 Emitir agora</button></div>` : ""}
+    ${termosPendentesHTML()}
+    ${(() => { if (!CAUC.contas.length) return ""; const sc = caucSemConta(); return sc.length ? `<div class="alert warn"><span><b>Contratos com caução sem conta caução vinculada</b> (obrigatório): ${sc.map(c => `<button class="btn sm" data-act="cauc-vinc-ctt" data-id="${esc(c.codigo)}">${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>` : ""; })()}
     <div class="filters">
-      <div class="chips">${chips.map(([k, t]) => `<button class="chip ${SIT_CTT_CHIP[k] || ""}${f === k ? " on" : ""}" data-act="chip" data-k="ctt" data-v="${esc(k)}">${t}<span class="c">${cont(k)}</span></button>`).join("")}</div>
-      <input type="search" placeholder="Buscar código, endereço, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca">
+      <div class="chips">${chip("todos", "Todos", "", nG("todos"), f === "todos", "ctt")}${chip("ATIVO", "Ativos", "st-LVR", nG("ATIVO"), f === "ATIVO", "ctt")}${chip("EM ELABORAÇÃO", "Em elaboração", "st-OCP", nG("EM ELABORAÇÃO"), f === "EM ELABORAÇÃO", "ctt")}${chip("naoativos", "Não ativos", "st-ALG", nG("naoativos"), f === "naoativos", "ctt")}</div>
+      <select data-act="ctt-gar" title="Filtrar pela garantia" style="width:170px">${GAR_CTT.map(([k, t]) => opt(k, t, k === gar)).join("")}</select>
+      <input type="search" placeholder="Buscar código, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca" style="width:180px">
       <span class="spacer"></span>${gradeBarra("contratos5")}
       <button class="btn" data-act="ctt-termo">🔑 Termos</button>
-      ${pode.editar() ? `<button class="btn" data-act="ctt-importar">Importar planilha</button><button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha manual</button><button class="btn pri" data-act="ctt-gerar">📄 Novo contrato</button>` : ""}<button class="btn" data-act="xls-ctt">Excel</button>
+      ${pode.editar() ? `<button class="btn" data-act="ctt-importar">Importar planilha</button>` : ""}
     </div>
+    <div class="filters">
+      ${subs.length ? `<div class="chips sub">${subs.map(([k, t, cls]) => chip(k, t, cls, nS(k), subOk === k, "cttSub")).join("")}</div>` : `<div class="leg-ct"><span><i style="background:var(--ok-soft)"></i>Ativo</span><span><i style="background:var(--warn-soft)"></i>Ativo com pendência</span><span><i style="background:color-mix(in srgb,var(--c2) 12%,var(--surface))"></i>Em elaboração</span><span><i style="background:var(--info-soft)"></i>Encerrado</span><span><i style="background:var(--bad-soft)"></i>Encerrado com débito</span><span><i style="background:var(--idle-soft)"></i>Cancelado</span></div>`}
+      <span class="spacer"></span>
+      <button class="btn" data-act="ctt-rel-pend" title="Relatório de pendências para imprimir ou salvar em PDF (sábados)">📋 Pendências</button>
+      ${pode.editar() ? `<button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha</button><button class="btn pri" data-act="ctt-gerar">📄 Novo contrato</button>` : ""}<button class="btn" data-act="xls-ctt">Excel</button>
+    </div>
+    ${verPend ? `<div class="filters"><div class="chips sub">${chip("", "Todas as pendências", "", listaP.length, !pend, "cttPend")}${PEND_CTT.map(([k, t]) => chip(k, t, "", nP(k), pend === k, "cttPend")).join("")}</div></div>` : ""}
     <div class="resumos"><span class="hint">Colunas:</span>${Object.entries(RESUMOS).map(([id, [t]]) => `<button class="chip${S.f.cttResumo === id ? " on" : ""}" data-act="ctt-resumo" data-r="${id}">${esc(t)}</button>`).join("")}</div>
     ${gradeHTML("contratos5")}</div>`;
   ligarBusca(pg);
+  const sel = $("[data-act=ctt-gar]", pg); sel.addEventListener("change", () => { S.f.cttGar = sel.value; desenharContratos(); requestAnimationFrame(ajustarAlturas); });
 }
+ACT["ctt-gar"] = () => {};
+ACT["aud-limpar"] = () => { S.f.aud = { dia: "", user: "", sec: "" }; render(); };
+ACT["ctt-rel-pend"] = () => {
+  const ls = CTT.filter(c => pendsDe(c).length).sort((a, b) => COLL.compare(a.codigo, b.codigo));
+  const porTipo = PEND_CTT.map(([k, t]) => [t, ls.filter(c => ehPend(fv(c, k))).length]).filter(x => x[1]);
+  const html = `<div class="relatorio"><div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Contratos ativos com pendências</span></div><div class="rel-m">${new Date().toLocaleDateString("pt-BR")}</div></div>
+    <p>${ls.length} contratos · ${porTipo.map(([t, n]) => `${esc(t)}: <b>${n}</b>`).join(" · ")}</p>
+    <table class="rel-t"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locatário</th><th>Início</th>${PEND_CTT.map(([, t]) => `<th>${esc(t.replace("Falta ", ""))}</th>`).join("")}<th>Obs.</th></tr></thead><tbody>
+    ${ls.map(c => `<tr><td>${esc(c.codigo)}</td><td>${esc(c.endereco || fv(c, "end_rua"))}</td><td>${esc(c.locatario || fv(c, "lct1_nome"))}</td><td>${dt(c.inicio)}</td>${PEND_CTT.map(([k]) => { const v = String(fv(c, k) || "").trim(); return `<td>${ehPend(v) ? "<b>" + esc(v) + "</b>" : esc(v === "---" ? "" : v)}</td>`; }).join("")}<td>${esc(String(fv(c, "obs") || "").slice(0, 80))}</td></tr>`).join("")}
+    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleString("pt-BR")} por ${esc(S.membro.nome || S.membro.email)}</p></div>`;
+  abrirRelatorio("Relatório de pendências", html);
+};
 ACT["ctt-resumo"] = el => {
   const g = G.contratos5, vis = new Set(resumoKs(el.dataset.r));
   g.ordem = CP.map(c => c.k); g.ocultas = CP.map(c => c.k).filter(k => !vis.has(k) && !(gCol(g, k) || {}).fixo);
@@ -2716,9 +2813,23 @@ function ligarFicha(form, d, c) {
   const aplicarGarantia = () => {
     const g = norm(gar.value), cau = g.includes("cau"), fia = g.includes("fiador");
     const abaF = $(".ficha-abas [data-aba=fdr]", d); if (abaF) abaF.hidden = cau;
-    ["caucao_valor", "caucao_ext", "caucao_conta"].forEach(k => { const x = $(`[data-f=${k}]`, d); if (x) x.closest("label").hidden = fia; });
+    ["caucao_valor", "caucao_ext", "caucao_conta"].forEach(k => { const x = $(`[data-f=${k}]`, d); if (x && !x.closest("label").dataset.sempreOculto) x.closest("label").hidden = fia; });
+    const cb = $("[data-cauc-box]", d); if (cb) cb.hidden = !cau;
     $$("[data-f^=ig_]", d).forEach(x => { const fs = x.closest("fieldset"); if (fs) fs.hidden = cau; });
   };
+  // conta caução: escolher uma conta LIVRE da lista (obrigatório para contrato ativo com caução)
+  const cc = $("[data-f=caucao_conta]", d);
+  if (cc && CAUC.contas.length) {
+    const vig = c && CAUC.vigPorCtt[c.codigo], conta = vig && CAUC.contas.find(x => x.id === vig.conta_id);
+    cc.type = "hidden";
+    const box = document.createElement("div");
+    box.className = "fl largo";
+    box.innerHTML = vig ? `<span>Conta da caução</span><div class="box">✔ Vinculada: <b>${esc(contaCaucTxt(conta))}</b> · ${brl(vig.valor_entrada)} desde ${dt(vig.data_entrada)}<br><span class="hint">Para devolver ou trocar, use Cadastro locação → Contas caução.</span></div>`
+      : `<span>Conta da caução (escolha uma conta livre)</span><select data-cauc-sel ${pode.editar() ? "" : "disabled"}>${opt("", "— não vinculada —", true)}${CAUC.contas.filter(x => estadoCauc(x) === "livre").map(x => opt(x.id, contaCaucTxt(x), false)).join("")}</select>`;
+    cc.closest("label").after(box); cc.closest("label").hidden = true; cc.closest("label").dataset.sempreOculto = "1";
+    const sel = $("[data-cauc-sel]", box); if (sel) sel.addEventListener("change", () => { const x = CAUC.contas.find(y => y.id === sel.value); cc.value = x ? contaCaucTxt(x) : ""; });
+    box.dataset.caucBox = "1";
+  }
   if (gar) { gar.addEventListener("input", aplicarGarantia); aplicarGarantia(); }
   // dia do pagamento = dia do início (pode trocar)
   const ini = $("[data-f=inicio]", d), dia = $("[data-f=dia_venc]", d);
@@ -2764,9 +2875,17 @@ async function salvarContrato(form, d, c) {
   const ficha = lerFicha(d, c ? fichaDe(c) : {});
   if (!ficha.end_rua && imovel_id) ficha.end_rua = S.imovelPor[imovel_id].endereco;
   const atualizarMapa = $("[data-mapa=sim]", d) && $("[data-mapa=sim]", d).classList.contains("on");
+  // caução: contrato ativo com caução precisa de conta caução vinculada
+  const selC = $("[data-cauc-sel]", d), contaSel = selC && selC.value ? CAUC.contas.find(x => x.id === selC.value) : null;
+  const ehCau = /CAU/i.test(norm(ficha.garantia || "")), jaVinc = !novo && CAUC.vigPorCtt[codigo];
+  if (ehCau && CAUC.contas.length && !jaVinc) {
+    if (!contaSel && (ficha.situacao || "") === "ATIVO") throw new Error("Contrato ativo com caução: escolha uma conta caução livre (aba Garantia).");
+    if (contaSel && !(parseMoney(ficha.caucao_valor) > 0)) throw new Error("Informe o valor da caução (aba Garantia).");
+  }
   let salvo;
   if (novo) salvo = await q(sb.from("contratos").insert({ codigo, imovel_id, ficha }).select().single());
   else salvo = await q(sb.from("contratos").update({ imovel_id, ficha }).eq("codigo", codigo).select().single());
+  if (ehCau && contaSel && !jaVinc) { await gravarVinculoCauc(contaSel, salvo, parseMoney(ficha.caucao_valor), dataDeTexto(ficha.inicio) || salvo.inicio || hoje()); await carregarCauc(); }
   if (atualizarMapa) {
     if (!imovel_id) throw new Error("Contrato salvo. Para ligar ao mapa, escolha o imóvel na aba Imóvel.");
     const im = S.imovelPor[imovel_id];
@@ -2779,10 +2898,12 @@ async function salvarContrato(form, d, c) {
   }
 }
 ACT["ctt-gerar"] = () => abrirTermo("gerador", "", proximoCodigo());
-ACT["ctt-novo"] = () => modal({ titulo: "Novo contrato", xl: true, corpo: formContrato(null), aoAbrir: (f, d) => ligarFicha(f, d, null),
+ACT["ctt-novo"] = async () => { try { if (pode.ver("caucao") || pode.ver("contratos")) await carregarCauc(); } catch (e) { console.warn(e); } abrirNovoCtt(); };
+const abrirNovoCtt = () => modal({ titulo: "Novo contrato", xl: true, corpo: formContrato(null), aoAbrir: (f, d) => ligarFicha(f, d, null),
   salvar: async f => { await salvarContrato(f, $("#dlg"), null); toast("Contrato salvo."); render(); } });
-ACT["ctt-ed"] = el => {
+ACT["ctt-ed"] = async el => {
   const c = CTT.find(x => x.codigo === el.dataset.id); if (!c) return;
+  try { await carregarCauc(); } catch (e) { console.warn(e); }
   const termos = (pode.editar() ? `<button type="button" class="btn" data-termo="gerador" title="Abre o gerador com os dados deste contrato">📄 Gerar contrato (Word)</button>` : "") +
     (c.situacao !== "CANCELADO" ? `<button type="button" class="btn" data-termo="entrega">🔑 Entrega de chaves</button><button type="button" class="btn" data-termo="caucao">💰 Devolução de caução</button>` : "");
   modal({ titulo: "Contrato " + c.codigo + (c.locatario ? " · " + c.locatario : ""), xl: true, corpo: formContrato(c), semOk: !pode.editar(),
@@ -2806,7 +2927,9 @@ async function cadastroXLSX() {
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas), "Contratos Locação");
   return XLSX.write(wb, { type: "array", bookType: "xlsx" });
 }
-async function abrirTermo(tipo, codigo, novoCodigo) {
+async function abrirTermo(tipo, codigo, novoCodigo, opts) {
+  opts = opts || {};
+  if (!opts.aoBaixar && tipo === "entrega" && codigo && termoEst(CTT.find(c => c.codigo === codigo) || {}, "entrega") === "pendente") opts.aoBaixar = () => marcarEntregaFeita(codigo);
   try {
     const [titulo, arq] = TERMOS[tipo];
     if (!CTT.length) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
@@ -2826,9 +2949,10 @@ async function abrirTermo(tipo, codigo, novoCodigo) {
       if (ev.source !== fr.contentWindow || !ev.data) return;
       if (ev.data.tipo === "termo-pronto") fr.contentWindow.postMessage({ tipo: "termo", html, xlsx, arquivos, codigo: codigo || "", novoCodigo: novoCodigo || "" }, "*");
       if (ev.data.tipo === "gerador-salvar") salvarDoGerador(ev.data.linha, fr);
+      if (ev.data.tipo === "termo-baixado" && opts.aoBaixar) opts.aoBaixar(ev.data.arquivo);
     };
     window.addEventListener("message", ouvir);
-    d.addEventListener("close", () => { d.classList.remove("termo-dlg"); window.removeEventListener("message", ouvir); if (S.page === "contratos" && d.dataset.mudou) { delete d.dataset.mudou; render(); } }, { once: true });
+    d.addEventListener("close", () => { d.classList.remove("termo-dlg"); window.removeEventListener("message", ouvir); if (d.dataset.mudou) { delete d.dataset.mudou; if (["contratos", "painel", "imoveis", "caucao"].includes(S.page)) render(); } }, { once: true });
     fr.src = "termos/abrir.html";
   } catch (e) { falha(e); }
 }
@@ -2958,7 +3082,7 @@ const COLS_MEMBROS = [
   { k: "exige_mfa", t: "Código (2FA)", f: m => m.exige_mfa ? "Exigido" : "Não exigido" }
 ];
 // Auditoria em linguagem do dia a dia
-const SECAO_AUD = { imoveis: "Imóveis (mapa)", contratos: "Contratos", lancamentos: "Caixa", cobrancas: "Aluguéis do mês", devedores: "Devedores", reajustes: "Reajustes",
+const SECAO_AUD = { imoveis: "Imóveis", cauc_contas: "Contas caução", cauc_mov: "Caução (entradas e baixas)", depositos_fav: "Depósitos (favorecidos)", depositos_mes: "Depósitos do mês", contratos: "Contratos", lancamentos: "Caixa", cobrancas: "Aluguéis do mês", devedores: "Devedores", reajustes: "Reajustes",
   mapa_mensal: "Histórico do mapa", contas: "Contas", categorias: "Plano de contas", grupos_locador: "Grupos de locadores", membros: "Usuários", config: "Configurações" };
 const OPER_AUD = { INSERT: "Criou", UPDATE: "Alterou", DELETE: "Excluiu" };
 const CAMPO_AUD = { valor: "valor", status: "situação", situacao: "situação", locatario: "locatário", locador: "locador", fiador: "fiador", data_pagamento: "data do pagamento",
@@ -2992,7 +3116,7 @@ function resumoAud(a) {
     const fk = Object.keys(fd).filter(k => JSON.stringify(fa[k]) !== JSON.stringify(fd[k]));
     const outros = mud.filter(k => k !== "ficha" && !["endereco", "finalidade", "data_contrato", "inicio", "termino", "prazo_meses", "valor", "dia_venc", "garantia", "locador", "locatario", "fiador", "obs", "situacao", "saldo_devedor"].includes(k));
     const p = fk.slice(0, 3).map(k => `${(CPK[k] || { t: k }).t}: ${fmtAud(fa[k])} → ${fmtAud(fd[k])}`);
-    return (Object.keys(fa).length ? p.join(" · ") + (fk.length > 3 ? ` (+${fk.length - 3})` : "") : "ficha completa preenchida") + (outros.length ? " · " + outros.join(", ") : "");
+    return (fk.some(k => fa[k] != null && fa[k] !== "") || fk.length < 6 ? p.join(" · ") + (fk.length > 3 ? ` (+${fk.length - 3})` : "") : `ficha preenchida (${fk.length} campos)`) + (outros.length ? " · " + outros.join(", ") : "");
   }
   return mud.slice(0, 3).map(k => `${CAMPO_AUD[k] || k}: ${fmtAud(A[k])} → ${fmtAud(D[k])}`).join(" · ") + (mud.length > 3 ? ` (+${mud.length - 3})` : "") || "sem mudança visível";
 }
@@ -3011,7 +3135,14 @@ PAGES.config = async pg => {
   const aba = S.f.cfg || "contas";
   if (aba === "grupos") S.gruposCfg = await q(sb.from("grupos_locador").select("*").order("ordem").order("nome"));
   if (aba === "usuarios") S.membros = await q(sb.from("membros").select("*").order("criado_em"));
-  if (aba === "auditoria") [S.audit, S.membros] = await Promise.all([q(sb.from("auditoria").select("*").order("em", { ascending: false }).limit(500)), q(sb.from("membros").select("*").order("criado_em"))]);
+  if (aba === "auditoria") {
+    const fa = S.f.aud || (S.f.aud = { dia: "", user: "", sec: "" });
+    let qa = sb.from("auditoria").select("*").order("em", { ascending: false }).limit(fa.dia || fa.user || fa.sec ? 2000 : 500);
+    if (fa.dia) { const d0 = new Date(fa.dia + "T00:00:00"); qa = qa.gte("em", d0.toISOString()).lt("em", new Date(d0.getTime() + 86400000).toISOString()); }
+    if (fa.user) qa = qa.eq("usuario", fa.user);
+    if (fa.sec) qa = qa.eq("tabela", fa.sec);
+    [S.audit, S.membros] = await Promise.all([q(qa), q(sb.from("membros").select("*").order("criado_em"))]);
+  }
   if (aba === "fechamento") S.cfgBloq = await q(sb.from("config").select("*").eq("chave", "bloqueado_ate").maybeSingle());
   setRd(pg, () => desenharConfig());
   desenharConfig(pg);
@@ -3048,10 +3179,16 @@ function desenharConfig(pg) {
       <div class="filters"><button class="btn pri" data-act="fechar-ate" data-v="${fimMes(addMes(inicioMes(hoje()), -1))}">Fechar até ${esc(mesTxt(addMes(inicioMes(hoje()), -1)))}</button>
       ${b ? `<button class="btn danger" data-act="fechar-ate" data-v="">Reabrir tudo</button>` : ""}</div></div>`;
   } else if (aba === "auditoria") {
-    const g = grade("auditoria6", COLS_AUD, (S.audit || []).map((a, k) => Object.assign({ _k: k }, a)), { attr: a => `data-act="audit-ver" data-k="${a._k}" style="cursor:pointer"`, sort: { k: "em", dir: "desc" } }); g.redesenhar = () => desenharConfig();
-    html = `<div class="filters"><span class="hint">Últimas 500 alterações. Ninguém consegue apagar este registro.</span><span class="spacer"></span>${gradeBarra("auditoria6")}</div>${gradeHTML("auditoria6")}`;
+    const g = grade("auditoria6", COLS_AUD, (S.audit || []).map((a, k) => Object.assign({ _k: k }, a)), { attr: a => `data-act="audit-ver" data-k="${a._k}" style="cursor:pointer"`, sort: { k: "em", dir: "desc" }, divisor: { k: "em", g: a => new Date(a.em).toLocaleDateString("pt-BR") } }); g.redesenhar = () => desenharConfig();
+    const fa = S.f.aud || {};
+    html = `<div class="aud-f"><label>Dia<input type="date" data-aud="dia" value="${esc(fa.dia || "")}"></label>
+      <label>Usuário<select data-aud="user">${opt("", "Todos", !fa.user)}${(S.membros || []).map(m => opt(m.id, m.nome || m.email, fa.user === m.id)).join("")}</select></label>
+      <label>Seção<select data-aud="sec">${opt("", "Todas", !fa.sec)}${Object.entries(SECAO_AUD).sort((a, b) => a[1].localeCompare(b[1])).map(([k, t]) => opt(k, t, fa.sec === k)).join("")}</select></label>
+      ${fa.dia || fa.user || fa.sec ? `<button class="btn" data-act="aud-limpar">Limpar filtros</button>` : ""}
+      <span class="hint">${fa.dia || fa.user || fa.sec ? `${(S.audit || []).length} alterações encontradas.` : "Últimas 500 alterações."} Ninguém consegue apagar este registro; guarda os últimos 12 meses.</span><span class="spacer"></span>${gradeBarra("auditoria6")}</div>${gradeHTML("auditoria6")}`;
   }
   pg.innerHTML = `<div class="grid"><div class="chips">${abas.map(([k, t]) => `<button class="chip${aba === k ? " on" : ""}" data-act="cfg-aba" data-v="${k}">${t}</button>`).join("")}</div>${html}</div>`;
+  $$("[data-aud]", pg).forEach(el => el.addEventListener("change", () => { S.f.aud = Object.assign({}, S.f.aud, { [el.dataset.aud]: el.value }); render(); }));
 }
 ACT["cfg-aba"] = el => { S.f.cfg = el.dataset.v; render(); };
 function tabelaAtivasInativas() { return ""; } // (substituída pelas grades)
@@ -3192,7 +3329,289 @@ ACT["audit-ver"] = el => {
 /* =====================================================================
    PÁGINA: BACKUP
    ===================================================================== */
-const TABELAS_BKP = ["config", "contas", "categorias", "grupos_locador", "imoveis", "contratos", "reajustes", "devedores", "cobrancas", "lancamentos", "mapa_mensal", "depositos_fav", "depositos_mes"];
+/* =====================================================================
+   PÁGINA: CONTAS CAUÇÃO (Cadastro locação)
+   O dinheiro da caução fica nas contas de poupança e NÃO passa pelo caixa.
+   ===================================================================== */
+const CAUC = { contas: [], movs: [], ctt: {} };
+async function carregarCauc() {
+  const [contas, movs, ctts] = await Promise.all([
+    fetchAll("cauc_contas", b => b.order("numero", { ascending: true, nullsFirst: false })),
+    fetchAll("cauc_mov", b => b.order("data_entrada", { ascending: false, nullsFirst: false })),
+    fetchAll("contratos", b => b.order("codigo"), "codigo,situacao,locatario,locador,endereco,garantia,inicio,ficha")
+  ]);
+  CAUC.contas = contas; CAUC.movs = movs; CAUC.ctt = Object.fromEntries(ctts.map(c => [c.codigo, c]));
+  CAUC.vig = {}; movs.forEach(m => { if (!m.data_saida) CAUC.vig[m.conta_id] = m; });
+  CAUC.vigPorCtt = {}; movs.forEach(m => { if (!m.data_saida && m.contrato_codigo) CAUC.vigPorCtt[m.contrato_codigo] = m; });
+}
+const contaCaucTxt = c => c ? `${c.banco || "Banco"} · Ag. ${c.agencia || "?"} · Conta ${c.conta || c.conta_antiga || "?"}${c.numero != null ? ` (nº ${c.numero})` : ""}` : "";
+const ehCaucao = c => /CAU/i.test(norm((c && ((c.ficha && c.ficha.garantia) || c.garantia)) || ""));
+// estado da conta: bloqueada / livre / ocupada / aguardando baixa (o locatário já saiu)
+function estadoCauc(conta) {
+  if (conta.bloqueada) return "bloq";
+  const m = CAUC.vig[conta.id];
+  if (!m) return "livre";
+  const c = CAUC.ctt[m.contrato_codigo];
+  return c && ["ENCERRADO", "DÉBITO EM ABERTO", "CANCELADO"].includes(c.situacao) ? "baixa" : "ocup";
+}
+const EST_CAUC = { livre: ["Livre", "ok"], ocup: ["Ocupada", "info"], baixa: ["Aguardando baixa", "bad"], bloq: ["Bloqueada", "idle"] };
+const vigDe = c => CAUC.vig[c.id] || {};
+const COLS_CAUC = [
+  { k: "numero", t: "Nº", tipo: "num", v: c => c.numero, f: c => c.numero == null ? "" : String(c.numero), fixo: true },
+  { k: "banco", t: "Banco", v: c => c.banco },
+  { k: "agencia", t: "Ag.", v: c => c.agencia, cls: "mono" },
+  { k: "conta", t: "Conta", v: c => c.conta, cls: "mono" },
+  { k: "conta_antiga", t: "Conta antiga", v: c => c.conta_antiga, cls: "mono", oculta: true },
+  { k: "estado", t: "Situação", v: c => EST_CAUC[estadoCauc(c)][0], html: c => { const e = EST_CAUC[estadoCauc(c)]; return `<span class="tag ${e[1]}">${e[0]}</span>`; } },
+  { k: "ctt", t: "Contrato", v: c => vigDe(c).contrato_codigo || "", cls: "mono" },
+  { k: "imovel", t: "Imóvel", v: c => vigDe(c).imovel || "", cls: "trunc" },
+  { k: "locador", t: "Locador", v: c => vigDe(c).locador || "", cls: "trunc" },
+  { k: "locatario", t: "Locatário", v: c => vigDe(c).locatario || "", cls: "trunc" },
+  { k: "valor", t: "Caução", tipo: "num", v: c => vigDe(c).valor_entrada ?? null, f: c => vigDe(c).valor_entrada != null ? n2(vigDe(c).valor_entrada) : "" },
+  { k: "entrada", t: "Entrada", tipo: "data", v: c => vigDe(c).data_entrada || null, f: c => dt(vigDe(c).data_entrada) },
+  { k: "passagens", t: "Locatários anteriores", tipo: "num", v: c => CAUC.movs.filter(m => m.conta_id === c.id && m.data_saida).length },
+  { k: "obs", t: "Obs.", v: c => c.obs, cls: "trunc", oculta: true }
+];
+PAGES.caucao = async pg => {
+  await carregarCauc();
+  if (!CTT.length && pode.ver("contratos")) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+  setRd(pg, () => desenharCauc());
+  desenharCauc(pg);
+};
+// contratos com caução (ativos ou em elaboração) que ainda não têm conta vinculada
+const caucSemConta = () => Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO"].includes(c.situacao) && ehCaucao(c) && !CAUC.vigPorCtt[c.codigo]);
+function desenharCauc(pg) {
+  pg = pg || $("#page");
+  const f = S.f.cauc || "todas", busca = S.f.caucBusca || "";
+  const cont = { todas: CAUC.contas.length, livre: 0, ocup: 0, baixa: 0, bloq: 0 };
+  CAUC.contas.forEach(c => cont[estadoCauc(c)]++);
+  let lista = CAUC.contas.filter(c => f === "todas" || estadoCauc(c) === f);
+  if (busca) { const b = norm(busca); lista = lista.filter(c => norm([c.numero, c.banco, c.agencia, c.conta, c.conta_antiga, c.obs, ...CAUC.movs.filter(m => m.conta_id === c.id).map(m => [m.contrato_codigo, m.imovel, m.locador, m.locatario].join(" "))].join(" ")).includes(b)); }
+  const g = grade("caucao", COLS_CAUC, lista, { attr: c => `data-act="cauc-ver" data-id="${c.id}" style="cursor:pointer"`, sort: { k: "numero", dir: "asc" }, rodape: fl => `${fl.length} contas · caução nas contas ocupadas: ${brl(fl.reduce((a, c) => a + (+vigDe(c).valor_entrada || 0), 0))}`,
+    cls: c => ({ livre: "ct-ativo", baixa: "ct-deb", bloq: "ct-canc" })[estadoCauc(c)] || "" });
+  g.redesenhar = () => desenharCauc();
+  const semConta = caucSemConta(), termoPend = CAUC.movs.filter(m => m.data_saida && m.termo === "pendente");
+  const chips = [["todas", "Todas", ""], ["livre", "Livres", "st-LVR"], ["ocup", "Ocupadas", "st-ALG"], ["baixa", "Aguardando baixa", "st-INTV"], ["bloq", "Bloqueadas", "st-CANC"]];
+  pg.innerHTML = `<div class="grid">
+    <div class="box">O dinheiro da caução fica nestas contas de poupança e <b>não passa pelo caixa</b>. Toda locação com caução precisa de uma conta <b>livre</b> vinculada; quando o locatário sai, faça a <b>baixa</b> aqui (com o termo de devolução, obrigatório).</div>
+    ${!CAUC.contas.length && pode.ed("caucao") ? `<div class="alert warn"><span>Nenhuma conta cadastrada. Use <b>Importar planilha</b> com o arquivo "Gerador de Contratos" (aba <b>Contas Caução</b>) para trazer as contas e o histórico.</span></div>` : ""}
+    ${cont.baixa ? `<div class="alert bad"><span><b>${cont.baixa}</b> conta(s) aguardando baixa: o locatário já saiu, falta registrar a devolução da caução e gerar o termo.</span><button class="btn sm" data-act="chip" data-k="cauc" data-v="baixa">Ver</button></div>` : ""}
+    ${termoPend.length ? `<div class="alert bad"><span><b>Termo de devolução de caução pendente:</b> ${termoPend.map(m => `<button class="btn sm" data-act="cauc-termo" data-id="${m.id}">💰 ${esc(m.contrato_codigo || "?")} · ${esc(m.locatario)}</button>`).join(" ")}</span></div>` : ""}
+    ${semConta.length ? `<div class="alert warn"><span><b>Contratos com caução sem conta vinculada:</b> ${semConta.map(c => `<button class="btn sm" data-act="cauc-vinc-ctt" data-id="${esc(c.codigo)}">${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>` : ""}
+    <div class="filters">
+      <div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="cauc" data-v="${k}">${t}<span class="c">${cont[k]}</span></button>`).join("")}</div>
+      <input type="search" placeholder="Buscar conta, contrato, imóvel, nomes…" value="${esc(busca)}" data-busca="caucBusca">
+      <span class="spacer"></span>${gradeBarra("caucao")}
+      ${pode.ed("caucao") ? `<button class="btn" data-act="cauc-importar">Importar planilha</button><button class="btn" data-act="cauc-nova">+ Conta</button>` : ""}<button class="btn" data-act="xls-cauc">Excel</button>
+    </div>
+    ${gradeHTML("caucao")}</div>`;
+  ligarBusca(pg);
+}
+ACT["xls-cauc"] = () => exportarGrade("caucao", `contas-caucao-${hoje()}.xlsx`, "Contas caução");
+function histCaucHTML(conta) {
+  const ms = CAUC.movs.filter(m => m.conta_id === conta.id).sort((a, b) => (b.data_entrada || "").localeCompare(a.data_entrada || ""));
+  if (!ms.length) return `<p class="hint">Nenhum locatário passou por esta conta ainda.</p>`;
+  return `<div class="tw"><table class="compacta cx-hist"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locador</th><th>Locatário</th><th class="num">Entrada</th><th>Data E</th><th class="num">Saída</th><th>Data S</th><th>Termo de devolução</th></tr></thead><tbody>
+    ${ms.map(m => `<tr${m.data_saida ? "" : ' class="ct-ativo"'}><td class="mono">${esc(m.contrato_codigo || "—")}</td><td class="trunc">${esc(m.imovel)}</td><td class="trunc">${esc(m.locador)}</td><td class="trunc">${esc(m.locatario)}</td>
+      <td class="num">${m.valor_entrada != null ? n2(m.valor_entrada) : ""}</td><td>${dt(m.data_entrada)}</td><td class="num">${m.valor_saida != null ? n2(m.valor_saida) : ""}</td><td>${m.data_saida ? dt(m.data_saida) : "<b>vigente</b>"}</td>
+      <td>${m.data_saida ? (m.termo === "pendente" ? `<span class="tag bad">pendente</span>` : esc(m.termo || "—")) : ""}</td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+ACT["cauc-ver"] = el => {
+  const c = CAUC.contas.find(x => x.id === el.dataset.id); if (!c) return;
+  const ed = pode.ed("caucao"), dis = ed ? "" : "disabled", est = estadoCauc(c), m = CAUC.vig[c.id];
+  const acoes = !ed ? "" : m ? `<button type="button" class="btn pri" data-baixa>Dar baixa (devolução)</button>` : !c.bloqueada ? `<button type="button" class="btn pri" data-vinc>Vincular contrato</button>` : "";
+  modal({ titulo: `Conta caução nº ${c.numero ?? "—"}`, xl: true, semOk: !ed, ok: "Salvar conta",
+    corpo: `<div class="row">
+        <label class="fl"><span>Nº (referência)</span><input name="numero" type="number" value="${c.numero ?? ""}" ${dis}></label>
+        <label class="fl"><span>Banco</span><input name="banco" value="${esc(c.banco)}" ${dis}></label>
+        <label class="fl"><span>Agência</span><input name="agencia" value="${esc(c.agencia)}" ${dis}></label>
+        <label class="fl"><span>Conta atual</span><input name="conta" value="${esc(c.conta)}" ${dis}></label>
+        <label class="fl"><span>Conta antiga</span><input name="conta_antiga" value="${esc(c.conta_antiga)}" ${dis}></label></div>
+      <label class="chk"><input type="checkbox" name="bloqueada" ${c.bloqueada ? "checked" : ""} ${dis} ${m ? "disabled title=\"Com locatário vigente não dá para bloquear\"" : ""}> Conta bloqueada (não recebe novas cauções)</label>
+      <label class="fl"><span>Observações</span><textarea name="obs" rows="2" ${dis}>${esc(c.obs)}</textarea></label>
+      <div class="box ${est === "baixa" ? "bad" : ""}"><b>Situação: ${EST_CAUC[est][0]}</b>${m ? ` — contrato <b>${esc(m.contrato_codigo || "?")}</b> · ${esc(m.locatario)} · caução ${brl(m.valor_entrada)} desde ${dt(m.data_entrada)}${est === "baixa" ? `<br>O contrato está <b>${esc(CAUC.ctt[m.contrato_codigo].situacao)}</b>: faça a baixa e o termo de devolução.` : ""}` : ""}</div>
+      <h3 style="margin-top:12px">Histórico de quem passou pela conta</h3>${histCaucHTML(c)}`,
+    extra: acoes + (pode.admin() && !CAUC.movs.some(x => x.conta_id === c.id) ? `<span class="spacer"></span><button type="button" class="btn danger" data-del>Excluir</button>` : ""),
+    aoAbrir: (f, d) => {
+      const b1 = $("[data-baixa]", d); if (b1) b1.addEventListener("click", () => { d.close(); setTimeout(() => darBaixaCauc(m), 0); });
+      const b2 = $("[data-vinc]", d); if (b2) b2.addEventListener("click", () => { d.close(); setTimeout(() => vincularCauc(c, ""), 0); });
+      const b3 = $("[data-del]", d); if (b3) b3.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir conta", `Excluir a conta caução nº ${esc(c.numero ?? "")}?`, "Excluir"))) return; try { await q(sb.from("cauc_contas").delete().eq("id", c.id)); toast("Excluída."); render(); } catch (e) { falha(e); } });
+    },
+    salvar: async f => {
+      const n = f.numero.value === "" ? null : +f.numero.value;
+      await q(sb.from("cauc_contas").update({ numero: n, banco: f.banco.value.trim(), agencia: f.agencia.value.trim(), conta: f.conta.value.trim(), conta_antiga: f.conta_antiga.value.trim(), bloqueada: f.bloqueada.checked, obs: f.obs.value }).eq("id", c.id));
+      toast("Conta salva."); render();
+    }
+  });
+};
+ACT["cauc-nova"] = () => modal({ titulo: "Nova conta caução", ok: "Cadastrar",
+  corpo: `<div class="row"><label class="fl"><span>Nº (referência)</span><input name="numero" type="number" value="${Math.max(0, ...CAUC.contas.map(c => c.numero || 0)) + 1}"></label>
+    <label class="fl"><span>Banco</span><input name="banco" value="Brasil"></label><label class="fl"><span>Agência</span><input name="agencia" value="${esc((CAUC.contas[0] || {}).agencia || "")}"></label>
+    <label class="fl"><span>Conta</span><input name="conta" required></label></div>`,
+  salvar: async f => { await q(sb.from("cauc_contas").insert({ numero: f.numero.value === "" ? null : +f.numero.value, banco: f.banco.value.trim(), agencia: f.agencia.value.trim(), conta: f.conta.value.trim() })); toast("Conta cadastrada."); render(); } });
+
+// vincular: conta livre + contrato com caução (ativo ou em elaboração)
+async function gravarVinculoCauc(conta, ctt, valor, data) {
+  if (CAUC.vig[conta.id]) throw new Error("Esta conta já tem um locatário vigente.");
+  if (conta.bloqueada) throw new Error("Conta bloqueada.");
+  if (CAUC.vigPorCtt[ctt.codigo]) throw new Error(`O contrato ${ctt.codigo} já está vinculado a outra conta caução.`);
+  const fx = ctt.ficha || {};
+  await q(sb.from("cauc_mov").insert({ conta_id: conta.id, contrato_codigo: ctt.codigo, imovel: ctt.endereco || fx.end_rua || "", locador: ctt.locador || "", locatario: ctt.locatario || "", valor_entrada: valor, data_entrada: data || null }));
+  // a ficha do contrato passa a mostrar a conta (texto usado nos documentos)
+  if (ctt.ficha && Object.keys(ctt.ficha).length && pode.ed("contratos")) {
+    try { await q(sb.from("contratos").update({ ficha: Object.assign({}, ctt.ficha, { caucao_conta: contaCaucTxt(conta), situacao: ctt.situacao }) }).eq("codigo", ctt.codigo)); } catch (e) { console.warn(e); }
+  }
+}
+async function vincularCauc(conta, codigo) {
+  if (!CAUC.contas.length) await carregarCauc();
+  const livres = CAUC.contas.filter(c => estadoCauc(c) === "livre");
+  const cands = Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO"].includes(c.situacao) && !CAUC.vigPorCtt[c.codigo]).sort((a, b) => (ehCaucao(b) - ehCaucao(a)) || COLL.compare(b.codigo, a.codigo));
+  modal({ titulo: "Vincular caução a uma conta", ok: "Vincular",
+    corpo: `<label class="fl"><span>Conta caução (livre)</span><select name="conta" required>${conta ? opt(conta.id, contaCaucTxt(conta), true) : opt("", "Escolha…", true) + livres.map(c => opt(c.id, contaCaucTxt(c), false)).join("")}</select></label>
+      <label class="fl"><span>Contrato</span><select name="ctt" required>${opt("", "Escolha…", !codigo)}${cands.map(c => opt(c.codigo, `${c.codigo} · ${c.locatario || "?"} · ${c.endereco || ""}${ehCaucao(c) ? "" : " (garantia: " + (c.garantia || "?") + ")"}`, c.codigo === codigo)).join("")}</select></label>
+      <div class="row"><label class="fl"><span>Valor da caução</span><input name="valor" inputmode="decimal" required></label><label class="fl"><span>Data do depósito</span><input type="date" name="data" required></label></div>
+      <p class="hint">A caução vai direto para a poupança: não entra no caixa da imobiliária.</p>`,
+    aoAbrir: (f) => {
+      mascaraMoeda(f.valor);
+      const pre = () => { const c = CAUC.ctt[f.ctt.value]; if (!c) return; const fx = c.ficha || {}; const v = parseMoney(fx.caucao_valor); if (v) f.valor.value = moedaFmt(v); if (c.inicio) f.data.value = c.inicio; };
+      f.ctt.addEventListener("change", pre); pre();
+    },
+    salvar: async f => {
+      const ct = CAUC.contas.find(c => c.id === f.conta.value), cc = CAUC.ctt[f.ctt.value], v = parseMoney(f.valor.value);
+      if (!ct || !cc) throw new Error("Escolha a conta e o contrato.");
+      if (!(v > 0)) throw new Error("Informe o valor da caução.");
+      await gravarVinculoCauc(ct, cc, v, f.data.value);
+      toast(`Caução do contrato ${cc.codigo} vinculada à conta nº ${ct.numero ?? ""}.`); render();
+    } });
+}
+ACT["cauc-vinc-ctt"] = el => vincularCauc(null, el.dataset.id);
+
+// baixa: devolução da caução + termo de devolução (obrigatório, ou dispensa com motivo)
+function darBaixaCauc(m) {
+  const c = CAUC.ctt[m.contrato_codigo] || {};
+  modal({ titulo: "Baixa da caução (devolução)", largo: true, ok: "Registrar baixa",
+    corpo: `<div class="box"><b>Contrato ${esc(m.contrato_codigo || "?")}</b> · ${esc(m.imovel)}<br>Locatário: <b>${esc(m.locatario)}</b> · Locador: ${esc(m.locador)}<br>Caução: <b>${brl(m.valor_entrada)}</b> em ${dt(m.data_entrada)}${c.situacao ? ` · contrato <b>${esc(c.situacao)}</b>` : ""}</div>
+      <div class="row"><label class="fl"><span>Valor devolvido (com rendimento, ou descontado)</span><input name="valor" inputmode="decimal" required></label>
+        <label class="fl"><span>Data da devolução</span><input type="date" name="data" value="${hoje()}" required></label></div>
+      <label class="fl"><span>Observações (descontos, combinado…)</span><input name="obs" value="${esc(m.obs)}"></label>
+      <div class="obrig" data-obrig><b>💰 Termo de devolução de caução: OBRIGATÓRIO.</b> Ao registrar a baixa, o termo abre já preenchido; ele só conta como feito quando o PDF for gerado/baixado.
+        <label class="chk" style="margin-top:6px"><input type="checkbox" name="semtermo"> Neste caso específico o termo <b>não é necessário</b></label>
+        <label class="fl" data-motivo hidden><span>Motivo (fica registrado)</span><input name="motivo"></label></div>
+      <p class="hint">A devolução sai da poupança da caução: não passa pelo caixa. Depois da baixa a conta fica <b>livre</b> para outra locação.</p>`,
+    aoAbrir: (f, d) => {
+      f.valor.value = m.valor_entrada != null ? n2(m.valor_entrada) : ""; mascaraMoeda(f.valor);
+      f.semtermo.addEventListener("change", () => { $("[data-motivo]", d).hidden = !f.semtermo.checked; $("[data-obrig]", d).classList.toggle("ok", f.semtermo.checked); });
+    },
+    salvar: async f => {
+      const v = parseMoney(f.valor.value), sem = f.semtermo.checked, mot = f.motivo.value.trim();
+      if (v == null || v < 0) throw new Error("Informe o valor devolvido.");
+      if (sem && mot.length < 5) throw new Error("Explique por que o termo de devolução não é necessário.");
+      if (!pedeConfirmacao(f, `<b>Confirma a baixa?</b> Devolução de <b>${brl(v)}</b> a ${esc(m.locatario)} em <b>${dt(f.data.value)}</b>. ${sem ? `Termo <b>DISPENSADO</b>: “${esc(mot)}”.` : "Em seguida abre o <b>termo de devolução</b>."}${c.situacao === "ATIVO" ? `<br>⚠️ Atenção: o contrato ainda está <b>ATIVO</b> (a saída do locatário não foi registrada em Imóveis).` : ""}`, "Sim, registrar a baixa")) return false;
+      await q(sb.from("cauc_mov").update({ valor_saida: v, data_saida: f.data.value, obs: f.obs.value, termo: sem ? "dispensado: " + mot : "pendente" }).eq("id", m.id));
+      toast("Baixa registrada: a conta está livre."); render();
+      if (!sem) setTimeout(() => abrirTermoCauc(m.id, m.contrato_codigo), 300);
+    } });
+}
+function abrirTermoCauc(movId, codigo) {
+  abrirTermo("caucao", codigo || "", "", { aoBaixar: async () => {
+    try { await q(sb.from("cauc_mov").update({ termo: "feito " + new Date().toLocaleDateString("pt-BR") }).eq("id", movId)); toast("Termo de devolução registrado como feito."); $("#dlg").dataset.mudou = "1"; }
+    catch (e) { falha(e); }
+  } });
+}
+ACT["cauc-termo"] = el => { const m = CAUC.movs.find(x => x.id === el.dataset.id); if (m) abrirTermoCauc(m.id, m.contrato_codigo); };
+
+// ---- importação da aba "Contas Caução" do Gerador de Contratos (.xlsm) ----
+// Colunas: A banco, B ag., C nº, D conta antiga, E conta atual; vigente F..N (Ctt, Imv, LCD, LCT, valor, dia, mês, ano, data);
+// depois 7 blocos "locatário anterior" de 14 colunas (Ctt, Imv, Lcd, Lct, valor E, dia/mês/ano/data E, valor S, dia/mês/ano/data S).
+function lerAbaCaucao(rows) {
+  const vz = v => { const s = String(v == null ? "" : v).trim(); return !s || /^-+$/.test(s) ? "" : s; };
+  const cod = v => { if (typeof v === "number") v = v.toFixed(3); const s = vz(v).replace(/^L\.?/i, ""); return /^\d{2}\.\d{3}$/.test(s) ? "L." + s : ""; };
+  const num = v => { if (typeof v === "number") return v; const n = parseMoney(vz(v)); return n == null ? null : n; };
+  const data = (d, m, a, txt) => {
+    const D = +d, M = +m, A = +a;
+    if (D && M && A) return `${A < 100 ? 2000 + A : A}-${pad(M)}-${pad(D)}`;
+    if (txt instanceof Date && !isNaN(txt)) return iso(txt);
+    const t = vz(txt); if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    return dataDeTexto(t) || null;
+  };
+  const contas = [];
+  rows.slice(4).forEach(r => {
+    const numero = typeof r[2] === "number" ? r[2] : parseInt(vz(r[2]), 10);
+    if (!numero && numero !== 0) return;
+    const c = { numero, banco: vz(r[0]), agencia: vz(r[1]), conta_antiga: vz(r[3]), conta: vz(r[4]), bloqueada: /BLOQUEAD/i.test(String(r[8] || "") + String(r[6] || "")), movs: [] };
+    const bloco = (b, saida) => {
+      const m = { contrato_codigo: cod(r[b]), imovel: vz(r[b + 1]), locador: vz(r[b + 2]), locatario: vz(r[b + 3]), valor_entrada: num(r[b + 4]), data_entrada: data(r[b + 5], r[b + 6], r[b + 7], r[b + 8]) };
+      if (saida) Object.assign(m, { valor_saida: num(r[b + 9]), data_saida: data(r[b + 10], r[b + 11], r[b + 12], r[b + 13]) });
+      if (/BLOQUEAD/i.test(m.locatario)) return;
+      if (!m.locatario && !m.contrato_codigo && !m.imovel) return;
+      if (saida && !m.data_saida) m.data_saida = m.data_entrada || "1900-01-01"; // anterior sem data de saída
+      c.movs.push(m);
+    };
+    for (let n = 7; n >= 1; n--) bloco(14 + 14 * (n - 1), true);
+    bloco(5, false);
+    contas.push(c);
+  });
+  return contas;
+}
+ACT["cauc-importar"] = () => {
+  let lidas = null;
+  modal({ titulo: "Importar contas caução", xl: true, ok: "Importar",
+    corpo: `<p>Escolha o arquivo <b>Gerador de Contratos – OFICIAL</b> (.xlsm). O sistema lê a aba <b>Contas Caução</b>: as contas (banco, agência, conta), o locatário vigente e os anteriores (entrada e saída). Pode importar de novo: o que já existe não é duplicado.</p>
+      <input type="file" data-arq accept=".xlsx,.xlsm"><div data-res></div>`,
+    aoAbrir: (f, d) => {
+      $("[data-arq]", d).addEventListener("change", async e => {
+        const arq = e.target.files[0], res = $("[data-res]", d); if (!arq) return;
+        res.innerHTML = `<p class="hint">Lendo…</p>`;
+        try {
+          await carregarXLSX();
+          const wb = XLSX.read(await arq.arrayBuffer(), { type: "array", cellDates: true, sheets: ["Contas Caução"] });
+          const ws = wb.Sheets["Contas Caução"]; if (!ws) throw new Error('A aba "Contas Caução" não foi encontrada neste arquivo.');
+          lidas = lerAbaCaucao(XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }));
+          const vig = lidas.filter(c => c.movs.some(m => !m.data_saida)).length, ant = lidas.reduce((a, c) => a + c.movs.filter(m => m.data_saida).length, 0);
+          res.innerHTML = `<div class="box"><b>${lidas.length}</b> contas · <b>${vig}</b> com locatário vigente · <b>${lidas.filter(c => c.bloqueada).length}</b> bloqueadas · <b>${ant}</b> locatários anteriores no histórico.</div>
+            <div class="tw" style="max-height:340px"><table class="compacta"><thead><tr><th>Nº</th><th>Conta</th><th>Vigente</th><th class="num">Caução</th><th>Entrada</th><th>Anteriores</th></tr></thead><tbody>
+            ${lidas.map(c => { const v = c.movs.find(m => !m.data_saida); return `<tr><td>${c.numero}</td><td>${esc(c.banco)} ${esc(c.agencia)} · ${esc(c.conta)}</td><td>${c.bloqueada ? "<i>bloqueada</i>" : v ? esc((v.contrato_codigo ? v.contrato_codigo + " · " : "") + v.locatario) : "<i>livre</i>"}</td><td class="num">${v && v.valor_entrada != null ? n2(v.valor_entrada) : ""}</td><td>${v ? dt(v.data_entrada) : ""}</td><td>${c.movs.filter(m => m.data_saida).length}</td></tr>`; }).join("")}
+            </tbody></table></div>`;
+        } catch (err) { res.innerHTML = `<p class="err">${esc(erroMsg(err))}</p>`; lidas = null; }
+      });
+    },
+    salvar: async f => {
+      if (!lidas) throw new Error("Escolha o arquivo primeiro.");
+      await carregarCauc();
+      const porNum = new Map(CAUC.contas.map(c => [c.numero, c]));
+      let novas = 0, movsN = 0, ligados = 0, avisos = [];
+      // vigente sem nº de contrato na planilha: tenta achar o contrato pelo locatário ou pelo endereço
+      const so = t => norm(t).replace(/[^a-z0-9]/g, "");
+      const ctts = Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO", "DÉBITO EM ABERTO"].includes(c.situacao));
+      lidas.forEach(c => c.movs.forEach(m => {
+        if (m.data_saida || (m.contrato_codigo && CAUC.ctt[m.contrato_codigo])) return;
+        const p1 = t => so(String(t || "").split(" - ")[0].replace(/\(.*?\)/g, ""));
+        const lt = p1(m.locatario), ed = so(m.imovel);
+        const cand = ctts.filter(x => (lt.length > 6 && p1(x.locatario) === lt) || (ed.length > 8 && so(x.endereco) === ed));
+        if (cand.length === 1 && !CAUC.vigPorCtt[cand[0].codigo]) { m.contrato_codigo = cand[0].codigo; ligados++; }
+      }));
+      for (const c of lidas) {
+        let ex = porNum.get(c.numero);
+        const dados = { numero: c.numero, banco: c.banco, agencia: c.agencia, conta: c.conta, conta_antiga: c.conta_antiga, bloqueada: c.bloqueada };
+        if (ex) await q(sb.from("cauc_contas").update(dados).eq("id", ex.id));
+        else { ex = await q(sb.from("cauc_contas").insert(dados).select().single()); novas++; }
+        const jaTem = CAUC.movs.filter(m => m.conta_id === ex.id);
+        const chave = m => [norm(m.locatario).trim(), m.data_entrada || ""].join("|");
+        const vistos = new Map(jaTem.map(m => [chave(m), m]));
+        for (const m of c.movs) { const e = vistos.get(chave(m)); if (e && !e.contrato_codigo && m.contrato_codigo) await q(sb.from("cauc_mov").update({ contrato_codigo: m.contrato_codigo }).eq("id", e.id)); }
+        const novosMovs = c.movs.filter(m => !vistos.has(chave(m))).map(m => Object.assign({ conta_id: ex.id }, m));
+        const temVig = jaTem.some(m => !m.data_saida);
+        const ins = novosMovs.filter(m => m.data_saida || !temVig);
+        if (novosMovs.length > ins.length) avisos.push(`conta ${c.numero}: já tem locatário vigente diferente no sistema`);
+        if (ins.length) { await q(sb.from("cauc_mov").insert(ins)); movsN += ins.length; }
+      }
+      toast(`Importado: ${novas} contas novas, ${movsN} registros de histórico${ligados ? `, ${ligados} ligados ao contrato pelo nome/endereço` : ""}.${avisos.length ? " Atenção: " + avisos.join("; ") : ""}`, !!avisos.length);
+      render();
+    } });
+};
+
+const TABELAS_BKP = ["config", "contas", "categorias", "grupos_locador", "imoveis", "contratos", "reajustes", "devedores", "cobrancas", "lancamentos", "mapa_mensal", "depositos_fav", "depositos_mes", "cauc_contas", "cauc_mov"];
 const ORDEM_PK = { config: "chave", contratos: "codigo", mapa_mensal: "competencia", grupos_locador: "nome" };
 PAGES.backup = async pg => {
   const cfg = await q(sb.from("config").select("*").eq("chave", "ultimo_backup").maybeSingle());
