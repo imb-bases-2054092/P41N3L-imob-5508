@@ -35,6 +35,53 @@
     };
     novo.__lico = true; HTMLAnchorElement.prototype.click = novo;
   }
+  // roda DENTRO da página do app (depois do document.write). Não usa nada de fora desta função.
+  function dentroDoApp(P) {
+    var gerador = typeof buildDataRow === "function";
+    function msg(o) { parent.postMessage(o, "*"); }
+    window.addEventListener("message", function (e) {
+      if (e.source !== parent || !e.data) return;
+      var d = e.data;
+      if (d.tipo === "aviso") { if (typeof mostrarToast === "function") mostrarToast(d.texto); else alert(d.texto); }
+      if (d.tipo !== "acao" || !gerador) return;
+      if (d.acao === "rascunho-json") salvarProgresso();
+      if (d.acao === "limpar") limparTudo();
+      if (d.acao === "word") gerarContratoWord();
+      if (d.acao === "salvar") { if (typeof validarAntesDeGerar === "function" && !validarAntesDeGerar()) return; msg({ tipo: "gerador-salvar", linha: buildDataRow(), form: coletarDadosFormulario(), rascunho: P.rasc }); }
+      if (d.acao === "rascunho-sistema") { var l = null; try { l = buildDataRow(); } catch (x) {} msg({ tipo: "gerador-rascunho", linha: l, form: coletarDadosFormulario(), rascunho: P.rasc, fechar: !!d.fechar }); }
+    });
+    function ir() {
+      if (gerador) {
+        var cid = document.getElementById("contractId");
+        if (P.form && typeof aplicarDadosFormulario === "function") { try { aplicarDadosFormulario(P.form); } catch (x) {} if (cid) cid.value = P.novo || ""; }
+        else if (P.cod && typeof carregarCadastroContratos === "function") {
+          carregarCadastroContratos().then(function (l) {
+            var it = (l || []).find(function (x) { return x.contractId === P.cod; });
+            if (it) { aplicarDadosFormulario(it.campos); if (typeof reformatarCamposImportados === "function") reformatarCamposImportados(it.campos); }
+            if (cid) cid.value = P.rasc ? (P.novo || "") : P.cod;
+          });
+        } else if (P.novo && cid && !cid.value) cid.value = P.novo;
+        // o rodapé do app sai: os botões ficam no cabeçalho do sistema
+        var st = document.createElement("style");
+        st.textContent = ".barra-fixa{display:none!important}.container{padding-bottom:30px!important}" +
+          "@media (min-width:1000px){.sidebar-rapido{display:block!important;position:fixed;left:10px;top:10px;width:210px;max-height:calc(100vh - 20px);overflow-y:auto;background:#fff;border:1px solid #cfdcf0;border-radius:10px;padding:12px;z-index:50}" +
+          ".sidebar-rapido.completo{background:#eaf7ec;border-color:#a8dab1}.container,.main{margin-left:230px!important;max-width:none!important;margin-right:12px!important}}";
+        document.head.appendChild(st);
+        var av = document.getElementById("avisoPendencias");
+        if (av) { var envia = function () { msg({ tipo: "gerador-status", texto: av.textContent.trim().slice(0, 160) }); }; new MutationObserver(envia).observe(av, { childList: true, subtree: true, characterData: true }); envia(); }
+        // qualquer coisa digitada/clicada pela pessoa marca o formulário como "mexido"
+        setTimeout(function () {
+          var marcar = function (e) { if (e.isTrusted) msg({ tipo: "gerador-sujo" }); };
+          document.addEventListener("input", marcar, true); document.addEventListener("change", marcar, true);
+        }, 1500);
+        return;
+      }
+      if (!P.cod || typeof carregarCadastro !== "function") return;
+      carregarCadastro().then(function (l) { var it = (l || []).find(function (x) { return x.codigo === P.cod; }); if (it && typeof selecionarResultadoBusca === "function") selecionarResultadoBusca(it); });
+    }
+    if (document.readyState === "complete") setTimeout(ir, 0); else window.addEventListener("load", function () { setTimeout(ir, 0); });
+  }
+
   window.addEventListener("message", function (ev) {
     if (ev.source !== window.parent || !ev.data) return;
     var d = ev.data;
@@ -51,18 +98,8 @@
       return "";
     });
     html = html.replace(/https?:\/\/[^'"]+\/pdf\.worker\.min\.js/g, "vendor/pdf.worker.min.js");
-    // ao abrir já com um contrato: termos -> busca e preenche; gerador -> carrega a ficha do contrato
-    var auto = "<script>(function(){var COD=" + JSON.stringify(d.codigo || "") + ",NOVO=" + JSON.stringify(d.novoCodigo || "") + ";" +
-      "function ir(){" +
-      "if(typeof buildDataRow==='function'){var cid=document.getElementById('contractId');" +
-      " if(COD&&typeof carregarCadastroContratos==='function'){carregarCadastroContratos().then(function(l){var it=(l||[]).find(function(x){return x.contractId===COD;});" +
-      "  if(it){aplicarDadosFormulario(it.campos);if(typeof reformatarCamposImportados==='function')reformatarCamposImportados(it.campos);}if(cid){cid.value=COD;}});}" +
-      " else if(NOVO&&cid&&!cid.value){cid.value=NOVO;}" +
-      " var bx=document.querySelector('[onclick^=\"gerarExcel\"]');if(bx){var b=document.createElement('button');b.type='button';b.className=bx.className;b.id='btn-salvar-sistema';b.textContent='💾 Salvar no sistema';" +
-      "  b.onclick=function(){if(typeof validarAntesDeGerar==='function'&&!validarAntesDeGerar())return;parent.postMessage({tipo:'gerador-salvar',linha:buildDataRow()},'*');};bx.parentNode.insertBefore(b,bx);bx.style.display='none';}" +
-      " return;}" +
-      "if(!COD||typeof carregarCadastro!=='function')return;carregarCadastro().then(function(l){var it=(l||[]).find(function(x){return x.codigo===COD;});if(it&&typeof selecionarResultadoBusca==='function')selecionarResultadoBusca(it);});}" +
-      "if(document.readyState==='complete')setTimeout(ir,0);else window.addEventListener('load',function(){setTimeout(ir,0);});})();<\/script>";
+    // script que roda dentro do app: preenche o contrato, liga os botões do cabeçalho do sistema etc.
+    var auto = "<script>(" + dentroDoApp.toString() + ")(" + JSON.stringify({ cod: d.codigo || "", novo: d.novoCodigo || "", form: d.form || null, rasc: d.rascunho || "" }).replace(/</g, "\\u003c") + ");<\/script>";
     var aviso = avisos.length ? '<div style="background:#fde8ea;color:#c8192e;padding:8px 14px;font:600 13px system-ui">Aviso: ' + avisos.join(" ") + "</div>" : "";
     // visual igual ao do sistema (sem cabeçalho próprio, letras menores, página mais larga)
     var estilo = "<style>header{display:none!important}.intro{display:none!important}body{font-size:14px;line-height:1.45;background:#f0f4fb}" +
@@ -79,7 +116,7 @@
       ".dropzone,.dropzone-import{padding:12px!important}.preview-card{padding:24px 28px!important}</style>";
     html = html.replace(/<\/head>/i, function (m) { return estilo + m; });
     html = html.replace(/<body[^>]*>/i, function (m) { return m + aviso; });
-    html = html.replace(/<\/body>/i, auto + "</body>");
+    html = html.replace(/<\/body>/i, function () { return auto + "</body>"; });
     instalarFetch(d.xlsx, d.arquivos || {});
     document.open(); document.write(html); document.close();
     instalarFetch(d.xlsx, d.arquivos || {}); // garante a troca também depois da reabertura do documento
