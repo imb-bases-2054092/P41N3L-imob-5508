@@ -285,6 +285,7 @@ window.addEventListener("hashchange", () => { if (S.user && S.membro) ir(); });
 /* ---------------- ações (cliques) ---------------- */
 const ACT = {};
 document.addEventListener("click", ev => {
+  if (ev.target.closest("a[data-pasta],[data-csel]")) return; // link da pasta e caixa de seleção dentro de linhas clicáveis
   const el = ev.target.closest("[data-act]");
   if (!el || !ACT[el.dataset.act]) return;
   ev.preventDefault();
@@ -416,6 +417,36 @@ function baixarArquivo(nome, conteudo, tipo) {
    COBRANÇAS (aluguéis)
    ===================================================================== */
 function devido(c) { return r2(+c.valor + +(c.acrescimos || 0) - +(c.descontos || 0)); }
+// v9: acréscimos e descontos detalhados. "de": quem fica com o acréscimo / quem dá o desconto
+//   acréscimo: imob (multa, juros: receita da imobiliária) · prop (vai para o proprietário) · repassar (IPTU, condomínio: a imobiliária paga o boleto)
+//   desconto:  prop (sai do valor do proprietário) · imob (a imobiliária cobre)
+const AJ_DE = { acr: { imob: "fica com a imobiliária", prop: "vai para o proprietário", repassar: "pago pela imobiliária (IPTU, condomínio…)" }, desc: { prop: "por conta do proprietário", imob: "por conta da imobiliária" } };
+const AJ_SUG = { acr: [["Multa", "imob"], ["Juros", "imob"], ["IPTU", "repassar"], ["Condomínio", "repassar"], ["Água", "repassar"], ["Diferença de aluguel", "prop"]], desc: [["Desconto combinado", "prop"], ["Desconto de pontualidade", "prop"], ["Abono de multa", "imob"]] };
+function ajustesDe(c) {
+  const a = Array.isArray(c.ajustes) ? c.ajustes : [];
+  if (a.length) return a;
+  const l = []; // registros antigos: só os totais
+  if (+c.acrescimos) l.push({ tipo: "acr", desc: "Acréscimos", valor: +c.acrescimos, de: "prop" });
+  if (+c.descontos) l.push({ tipo: "desc", desc: "Descontos", valor: +c.descontos, de: "prop" });
+  return l;
+}
+let DESP = {}; // despesas do proprietário lançadas no caixa (descontam do repasse): imovel_id -> [lançamentos] do mês
+async function carregarDesp(comp) {
+  const ls = await q(sb.from("lancamentos").select("id,imovel_id,valor,descricao,data,competencia").eq("desconta_repasse", true).eq("competencia", comp)).catch(() => []);
+  DESP = {}; ls.forEach(l => (DESP[l.imovel_id] = DESP[l.imovel_id] || []).push(l));
+}
+// quanto é do proprietário neste aluguel (com taxa, acréscimos/descontos e despesas dele)
+function calcCob(c) {
+  const aj = ajustesDe(c), soma = (t, de) => r2(aj.filter(x => x.tipo === t && (x.de || "prop") === de).reduce((a, x) => a + (+x.valor || 0), 0));
+  const r = { acrProp: soma("acr", "prop"), acrImob: soma("acr", "imob"), acrRep: soma("acr", "repassar"), descProp: soma("desc", "prop"), descImob: soma("desc", "imob") };
+  r.recebido = !!c.data_pagamento;
+  r.taxa = c.taxa_valor != null ? +c.taxa_valor : r2((+c.valor - r.descProp) * +c.taxa_adm_pct / 100);
+  r.desp = (DESP[c.imovel_id] || []).filter(l => l.competencia === c.competencia);
+  r.despTot = r2(r.desp.reduce((a, l) => a + +l.valor, 0));
+  r.bruto = r.recebido ? r2(+c.valor_pago - r.acrImob - r.acrRep + r.descImob) : r2(+c.valor + r.acrProp - r.descProp);
+  r.prop = r2(Math.max(0, r.bruto - r.taxa - r.despTot));
+  return r;
+}
 function stCob(c) {
   if (c.devedor_id && !c.data_pagamento) return "devedor";
   if (c.data_pagamento) {
@@ -423,10 +454,12 @@ function stCob(c) {
     if (precisaRepasse(c)) return "pago";
     return "quitado";
   }
+  if (c.repasse_data) return "adiantado";
   return c.vencimento < hoje() ? "atrasado" : "aberto";
 }
-function precisaRepasse(c) { return c.data_pagamento && !c.repasse_data && r2(+c.valor_pago - +(c.taxa_valor || 0)) > 0; }
-const ST_COB = { aberto: ["A vencer", "idle"], atrasado: ["Atrasado", "bad"], parcial: ["Pago parcial", "warn"], pago: ["A repassar", "info"], quitado: ["Concluído", "ok"], devedor: ["Em devedores", "idle"] };
+function precisaRepasse(c) { return c.data_pagamento && !c.repasse_data && calcCob(c).prop > 0; }
+const podeRepassar = c => !c.repasse_data && !c.devedor_id;
+const ST_COB = { aberto: ["A vencer", "idle"], atrasado: ["Atrasado", "bad"], parcial: ["Pago parcial", "warn"], pago: ["A repassar", "info"], quitado: ["Concluído", "ok"], devedor: ["Em devedores", "idle"], adiantado: ["Repassado sem receber", "warn"] };
 function tagCob(c) { const s = stCob(c); const [t, k] = ST_COB[s]; return `<span class="tag ${k}">${t}</span>`; }
 
 /* =====================================================================
@@ -465,7 +498,7 @@ PAGES.painel = async pg => {
   ];
   tarefas.push(pode.ver("devedores") ? q(sb.from("devedores").select("valor_total,valor_pago").in("situacao", ["EM ABERTO", "ACORDO"])) : Promise.resolve([]));
   tarefas.push(rpc("resumo_mapa"), rpc("resumo_cobrancas", {}));
-  tarefas.push(pode.ver("contratos") || pode.ver("imoveis") ? q(sb.from("contratos").select("codigo,locatario,termos").eq("termos->entrega->>estado", "pendente")).catch(() => []) : Promise.resolve([]));
+  tarefas.push(pode.ver("contratos") || pode.ver("imoveis") ? termosPendentes() : Promise.resolve([]));
   tarefas.push(pode.ver("caucao") ? q(sb.from("cauc_mov").select("id,contrato_codigo").is("data_saida", null)).catch(() => []) : Promise.resolve([]));
   const [res, cobMes, atras, saldosTodos, reaj, cfg, vencendo, devs, evol, cobsAll, termosPend, caucVig] = await Promise.all(tarefas);
   const caucBaixa = caucVig.length ? (await q(sb.from("contratos").select("codigo").in("codigo", caucVig.map(m => m.contrato_codigo).filter(Boolean)).neq("situacao", "ATIVO").neq("situacao", "EM ELABORAÇÃO")).catch(() => [])).length : 0;
@@ -510,7 +543,7 @@ PAGES.painel = async pg => {
   const fin = S.papel !== "recepcao";
   pg.innerHTML = `
   <div class="grid">
-    ${termosPend.length ? `<div class="alert bad"><span><b>Termo de entrega de chaves pendente</b>: ${termosPend.map(c => `<button class="btn sm" data-act="termo-pend" data-id="${esc(c.codigo)}">🔑 ${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>` : ""}
+    ${termosPendentesHTML(termosPend)}
     ${caucBaixa ? `<div class="alert warn"><span><b>${caucBaixa}</b> conta(s) caução aguardando baixa (locatário já saiu): devolução e termo de devolução obrigatórios.</span><a class="btn sm" href="#caucao">Abrir Contas caução</a></div>` : ""}
     <div class="kpis" ${fin ? "" : "hidden"}>
       ${kpi("Receita bruta", brl(cur.receita), "taxas, comissões e aluguéis próprios")}
@@ -606,12 +639,12 @@ const COLS_COB = [
   { k: "imovel", t: "Imóvel", v: c => (S.imovelPor[c.imovel_id] || {}).endereco || "?", cls: "trunc" },
   { k: "locatario", t: "Inquilino", cls: "trunc" },
   { k: "locador", t: "Proprietário", cls: "trunc" },
-  { k: "devido", t: "Valor", tipo: "num", v: devido, html: c => `${n2(devido(c))}${+c.acrescimos || +c.descontos ? `<span class="sub">aluguel ${n2(c.valor)}</span>` : ""}` },
-  { k: "taxa", t: "Taxa", tipo: "num", v: c => c.taxa_valor, html: c => c.taxa_valor != null ? n2(c.taxa_valor) : `<span class="muted">${n2(+c.taxa_adm_pct)}%</span>` },
+  { k: "devido", t: "Valor", tipo: "num", v: devido, html: c => `${n2(devido(c))}${+c.acrescimos || +c.descontos ? `<span class="sub" title="${esc(ajustesDe(c).map(x => (x.tipo === "acr" ? "+ " : "− ") + x.desc + " " + n2(x.valor)).join("\n"))}">aluguel ${n2(c.valor)}${+c.acrescimos ? " +" + n2(c.acrescimos) : ""}${+c.descontos ? " −" + n2(c.descontos) : ""}</span>` : ""}` },
+  { k: "taxa", t: "T. Adm.", tipo: "num", v: c => c.taxa_valor, html: c => c.taxa_valor != null ? n2(c.taxa_valor) : `<span class="muted">${n2(+c.taxa_adm_pct)}%</span>` },
   { k: "valor_pago", t: "Recebido", tipo: "num", html: c => c.data_pagamento ? `${n2(c.valor_pago)}<span class="sub" title="${esc(contaPor(c.conta_pgto_id).nome || "")}">${dt(c.data_pagamento)}</span>` : "" },
   { k: "data_pagamento", t: "Data receb.", tipo: "data", oculta: true },
   { k: "conta", t: "Conta receb.", v: c => contaPor(c.conta_pgto_id).nome || "", oculta: true },
-  { k: "repasse_valor", t: "Repasse", tipo: "num", html: c => c.repasse_data ? `${n2(c.repasse_valor)}<span class="sub">${dt(c.repasse_data)}</span>` : "" },
+  { k: "repasse_valor", t: "Repasse", tipo: "num", html: c => c.repasse_data ? `${n2(c.repasse_valor)}<span class="sub">${dt(c.repasse_data)}${!c.data_pagamento ? ' <b class="neg" title="Repassado sem o locatário ter pago">sem receber</b>' : ""}</span>` : (c.devedor_id ? "" : `<span class="muted" title="Valor do proprietário (previsto)">${n2(calcCob(c).prop)}</span>`) },
   { k: "repasse_data", t: "Data repasse", tipo: "data", oculta: true },
   { k: "situacao", t: "Situação", f: c => ST_COB[stCob(c)][0], html: tagCob },
   { k: "carteira", t: "Carteira", f: c => CARTEIRAS[(S.imovelPor[c.imovel_id] || {}).carteira] || "", oculta: true },
@@ -619,13 +652,13 @@ const COLS_COB = [
   { k: "acoes", t: "Ações", nf: true, fixo: true, html: c => {
     let a = "";
     if (!c.data_pagamento && !c.devedor_id && pode.receber()) a += `<button class="btn sm pri" data-act="receber" data-id="${c.id}">Receber</button> `;
-    if (precisaRepasse(c) && pode.editar()) a += `<button class="btn sm" data-act="repassar" data-id="${c.id}">Repassar</button> `;
+    if (podeRepassar(c) && pode.editar()) a += `<button class="btn sm${c.data_pagamento ? "" : " ghost"}" data-act="repassar" data-id="${c.id}" ${c.data_pagamento ? "" : 'title="Repassar sem o locatário ter pago (a imobiliária adianta)"'}>Repassar</button> `;
     return `<span class="acts">${a}<button class="btn sm" data-act="cob-det" data-id="${c.id}" aria-label="Detalhes">⋯</button></span>`;
   } }
 ];
 let COB_REAJ = [];
 PAGES.alugueis = async pg => {
-  COB = await fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("vencimento").order("id"));
+  [COB] = await Promise.all([fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("vencimento").order("id")), carregarDesp(S.mes)]);
   COB_REAJ = pode.editar() ? await q(sb.from("reajustes").select("id").is("aplicado_em", null).lte("competencia", S.mes)) : [];
   setRd(pg, () => desenharAlugueis());
   desenharAlugueis(pg);
@@ -633,7 +666,7 @@ PAGES.alugueis = async pg => {
 function desenharAlugueis(pg) {
   pg = pg || $("#page");
   const f = S.f.cob || "todos", busca = S.f.cobBusca || "";
-  const conta = { todos: COB.length, aberto: 0, atrasado: 0, pago: 0, quitado: 0, parcial: 0, devedor: 0 };
+  const conta = { todos: COB.length, aberto: 0, atrasado: 0, pago: 0, quitado: 0, parcial: 0, devedor: 0, adiantado: 0 };
   COB.forEach(c => conta[stCob(c)]++);
   let lista = COB.filter(c => f === "todos" || stCob(c) === f || (f === "aberto" && stCob(c) === "atrasado"));
   if (busca) { const b = norm(busca); lista = lista.filter(c => norm((S.imovelPor[c.imovel_id] || {}).endereco + " " + c.locatario + " " + c.locador).includes(b)); }
@@ -642,7 +675,7 @@ function desenharAlugueis(pg) {
     rodape: fl => `${fl.length} aluguéis · valor ${brl(fl.reduce((a, c) => a + devido(c), 0))} · recebido ${brl(fl.reduce((a, c) => a + (+c.valor_pago || 0), 0))} · taxa ${brl(fl.reduce((a, c) => a + (+c.taxa_valor || 0), 0))} · repassado ${brl(fl.reduce((a, c) => a + (+c.repasse_valor || 0), 0))}`
   });
   g.redesenhar = () => desenharAlugueis();
-  const chips = [["todos", "Todos"], ["aberto", "Em aberto"], ["atrasado", "Atrasados"], ["parcial", "Parcial"], ["pago", "Repasse pendente"], ["quitado", "Concluídos"]];
+  const chips = [["todos", "Todos"], ["aberto", "Em aberto"], ["atrasado", "Atrasados"], ["parcial", "Parcial"], ["pago", "Repasse pendente"], ["adiantado", "Repassados sem receber"], ["quitado", "Concluídos"]];
   pg.innerHTML = `<div class="grid">
     ${!COB.length ? `<div class="card empty"><p>Os aluguéis de <b>${esc(mesTxt(S.mes))}</b> ainda não foram gerados.</p>
       ${pode.editar() ? `<p class="hint">O sistema cria uma cobrança para cada imóvel <b>alugado</b> no mapa, com o valor e o dia de vencimento cadastrados${COB_REAJ.length ? `, depois de aplicar <b>${COB_REAJ.length} reajuste(s) programado(s)</b>` : ""}.</p><button class="btn pri" data-act="gerar-cob">Gerar aluguéis de ${esc(mesTxt(S.mes))}</button>
@@ -712,49 +745,115 @@ async function confirmarReajustes(ate) {
   proximo();
 }
 ACT["reaj-conf"] = () => confirmarReajustes();
+// editor de acréscimos / descontos (cada item com descrição e de quem é)
+function ajustesHTML(c, ed) {
+  const lin = (x, i) => `<div class="aj-l" data-aj="${i}">
+    <select data-k="tipo" ${ed ? "" : "disabled"}>${opt("acr", "+ Acréscimo", x.tipo === "acr")}${opt("desc", "− Desconto", x.tipo === "desc")}</select>
+    <input data-k="desc" list="dl-aj-${x.tipo}" value="${esc(x.desc || "")}" placeholder="O que é (ex.: Multa, IPTU, Desconto combinado)" ${ed ? "" : "disabled"}>
+    <input data-k="valor" inputmode="decimal" value="${x.valor != null && x.valor !== "" ? n2(x.valor) : ""}" placeholder="0,00" ${ed ? "" : "disabled"}>
+    <select data-k="de" ${ed ? "" : "disabled"}>${Object.entries(AJ_DE[x.tipo]).map(([k, t]) => opt(k, t, (x.de || (x.tipo === "acr" ? "imob" : "prop")) === k)).join("")}</select>
+    ${ed ? `<button type="button" class="btn sm ghost" data-aj-del title="Remover">✕</button>` : ""}</div>`;
+  const ls = ajustesDe(c);
+  return `<div class="aj" data-ajustes><div class="aj-h"><b>Acréscimos e descontos</b>${ed ? `<button type="button" class="btn sm" data-aj-add="acr">+ Acréscimo</button><button type="button" class="btn sm" data-aj-add="desc">− Desconto</button>` : ""}</div>
+    <div data-aj-ls>${ls.map(lin).join("") || `<p class="hint" data-aj-vazio>Nenhum.</p>`}</div>
+    <datalist id="dl-aj-acr">${AJ_SUG.acr.map(([t]) => `<option value="${t}">`).join("")}</datalist><datalist id="dl-aj-desc">${AJ_SUG.desc.map(([t]) => `<option value="${t}">`).join("")}</datalist>
+    <p class="hint">Multa e juros normalmente ficam com a imobiliária; IPTU e condomínio a imobiliária recebe e paga o boleto. Desconto "por conta do proprietário" sai do repasse dele.</p></div>`;
+}
+function ligarAjustes(d, aoMudar) {
+  const box = $("[data-ajustes]", d); if (!box) return () => [];
+  const ls = $("[data-aj-ls]", box);
+  const ler = () => $$("[data-aj]", ls).map(l => ({ tipo: $("[data-k=tipo]", l).value, desc: $("[data-k=desc]", l).value.trim(), valor: parseMoney($("[data-k=valor]", l).value) || 0, de: $("[data-k=de]", l).value })).filter(x => x.desc || x.valor);
+  const ligar = l => {
+    const tipo = $("[data-k=tipo]", l), desc = $("[data-k=desc]", l), de = $("[data-k=de]", l);
+    tipo.addEventListener("change", () => { de.innerHTML = Object.entries(AJ_DE[tipo.value]).map(([k, t]) => opt(k, t, false)).join(""); desc.setAttribute("list", "dl-aj-" + tipo.value); aoMudar && aoMudar(); });
+    desc.addEventListener("change", () => { const sg = AJ_SUG[tipo.value].find(([t]) => norm(t) === norm(desc.value)); if (sg) de.value = sg[1]; aoMudar && aoMudar(); });
+    $$("input,select", l).forEach(x => x.addEventListener("input", () => aoMudar && aoMudar()));
+    const del = $("[data-aj-del]", l); if (del) del.addEventListener("click", () => { l.remove(); aoMudar && aoMudar(); });
+  };
+  $$("[data-aj]", ls).forEach(ligar);
+  $$("[data-aj-add]", box).forEach(b => b.addEventListener("click", () => {
+    const v = $("[data-aj-vazio]", ls); if (v) v.remove();
+    const t = document.createElement("div"); t.innerHTML = ajustesHTML({ ajustes: [{ tipo: b.dataset.ajAdd, desc: "", valor: "" }] }, true);
+    const l = $("[data-aj]", t); l.dataset.aj = Date.now(); ls.appendChild(l); ligar(l); $("[data-k=desc]", l).focus();
+  }));
+  return ler;
+}
+const totaisAjustes = aj => ({ acrescimos: r2(aj.filter(x => x.tipo === "acr").reduce((a, x) => a + x.valor, 0)), descontos: r2(aj.filter(x => x.tipo === "desc").reduce((a, x) => a + x.valor, 0)) });
+async function salvarAjustes(c, aj) {
+  const t = totaisAjustes(aj);
+  await q(sb.from("cobrancas").update(Object.assign({ ajustes: aj }, t)).eq("id", c.id));
+  Object.assign(c, { ajustes: aj }, t);
+}
 ACT.receber = el => {
   const c = COB.find(x => x.id === el.dataset.id); const im = S.imovelPor[c.imovel_id] || {};
   const soCaixa = S.papel === "recepcao";
-  const taxaSug = r2(Math.min(devido(c), +c.valor - +c.descontos) * +c.taxa_adm_pct / 100);
+  let lerAj = () => ajustesDe(c);
+  const atualiza = d => {
+    const aj = lerAj(), t = totaisAjustes(aj), dev = r2(+c.valor + t.acrescimos - t.descontos);
+    const descProp = aj.filter(x => x.tipo === "desc" && x.de === "prop").reduce((a, x) => a + x.valor, 0);
+    $("[data-devido]", d).textContent = brl(dev);
+    const f = $("form", d); if (!f.valor.dataset.mexeu) f.valor.value = n2(dev);
+    if (f.taxa && !f.taxa.dataset.mexeu) f.taxa.value = n2(r2((+c.valor - descProp) * +c.taxa_adm_pct / 100));
+  };
   modal({
-    titulo: "Registrar recebimento",
-    corpo: `<div class="box"><b>${esc(im.endereco)}</b><br>${esc(c.locatario)} · venc. ${dt(c.vencimento)} · valor devido <b>${brl(devido(c))}</b></div>
+    titulo: "Registrar recebimento", largo: true,
+    corpo: `<div class="box"><b>${esc(im.endereco)}</b><br>${esc(c.locatario)} · venc. ${dt(c.vencimento)} · aluguel ${brl(c.valor)} · total devido <b data-devido>${brl(devido(c))}</b>${c.repasse_data ? `<br><span class="neg">Já repassado ao proprietário em ${dt(c.repasse_data)} (sem ter recebido).</span>` : ""}</div>
+      ${ajustesHTML(c, pode.editar())}
       <div class="row">
         <label class="fl"><span>Data do recebimento</span><input type="date" name="data" value="${hoje()}" required></label>
         <label class="fl"><span>Valor recebido</span><input name="valor" inputmode="decimal" value="${n2(devido(c))}" required></label>
-      </div>
-      <div class="row">
         <label class="fl"><span>Entrou na conta</span><select name="conta" required>${contasOpts(null, soCaixa)}</select></label>
-        ${soCaixa ? "" : `<label class="fl"><span>Taxa de administração</span><input name="taxa" inputmode="decimal" value="${n2(taxaSug)}"></label>`}
+        ${soCaixa ? "" : `<label class="fl"><span>T. Adm.</span><input name="taxa" inputmode="decimal" value=""></label>`}
       </div>
-      <p class="hint">A taxa (${n2(+c.taxa_adm_pct)}%) vira receita da imobiliária; o restante fica registrado como dinheiro do proprietário, a repassar.</p>`,
+      <p class="hint">A T. Adm. (${n2(+c.taxa_adm_pct)}%) vira receita da imobiliária; multa/juros "da imobiliária" também. O restante fica como dinheiro do proprietário, a repassar.</p>`,
     ok: "Registrar",
+    aoAbrir: (f, d) => { lerAj = ligarAjustes(d, () => atualiza(d)); f.valor.addEventListener("input", () => (f.valor.dataset.mexeu = 1)); if (f.taxa) f.taxa.addEventListener("input", () => (f.taxa.dataset.mexeu = 1)); atualiza(d); },
     salvar: async f => {
       const v = parseMoney(f.valor.value); if (!v || v <= 0) throw new Error("Valor inválido.");
+      const aj = lerAj(); if (aj.some(x => !x.desc || !(x.valor > 0))) throw new Error("Cada acréscimo/desconto precisa de descrição e valor.");
+      if (pode.editar() && JSON.stringify(aj) !== JSON.stringify(ajustesDe(c))) await salvarAjustes(c, aj);
       const args = { p_id: c.id, p_data: f.data.value, p_valor: v, p_conta: f.conta.value };
-      if (f.taxa) { const t = parseMoney(f.taxa.value); if (t == null || t < 0 || t > v) throw new Error("Taxa inválida."); args.p_taxa = t; }
+      if (f.taxa) { const t = parseMoney(f.taxa.value); if (t == null || t < 0 || t > v) throw new Error("T. Adm. inválida."); args.p_taxa = t; }
       await rpc("registrar_pagamento", args);
       toast("Recebimento registrado."); render();
     }
   });
 };
-ACT.repassar = el => {
+// forma de pagamento ao proprietário
+const FORMAS = { pix: "PIX", ted: "Transferência (TED)", deposito: "Depósito bancário", dinheiro: "Dinheiro (na imobiliária)", boleto: "Boleto", cheque: "Cheque" };
+const favDoLocador = loc => (DEP.favs || []).find(f => f.ativo && (f.locadores || []).includes(loc));
+function repasseResumoHTML(c, k) {
+  const lin = (t, v, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td>${t}</td><td class="num">${v}</td></tr>`;
+  return `<table class="compacta rep-res"><tbody>
+    ${lin(k.recebido ? `Recebido em ${dt(c.data_pagamento)}` : "Aluguel (ainda não recebido)", n2(k.recebido ? c.valor_pago : c.valor))}
+    ${!k.recebido && k.acrProp ? lin("+ acréscimos do proprietário", n2(k.acrProp)) : ""}${!k.recebido && k.descProp ? lin("− descontos do proprietário", n2(k.descProp)) : ""}
+    ${k.recebido && (k.acrImob || k.acrRep) ? lin("− multa/juros e IPTU/condomínio (não são do proprietário)", n2(k.acrImob + k.acrRep)) : ""}${k.recebido && k.descImob ? lin("+ desconto coberto pela imobiliária", n2(k.descImob)) : ""}
+    ${lin(`− T. Adm. ${c.taxa_valor == null ? `(${n2(+c.taxa_adm_pct)}%)` : ""}`, n2(k.taxa))}
+    ${k.desp.map(l => lin("− " + esc(l.descricao || "despesa do proprietário") + ` <small class="muted">${dt(l.data)}</small>`, n2(l.valor))).join("")}
+    ${lin("<b>= Valor do proprietário</b>", `<b>${n2(k.prop)}</b>`, "tot")}</tbody></table>`;
+}
+ACT.repassar = async el => {
   const c = COB.find(x => x.id === el.dataset.id); const im = S.imovelPor[c.imovel_id] || {};
-  const sug = r2(+c.valor_pago - +(c.taxa_valor || 0));
+  if (!DEP.favs || !DEP.favs.length) DEP.favs = await q(sb.from("depositos_fav").select("*")).catch(() => []);
+  const k = calcCob(c), fav = favDoLocador(c.locador);
   modal({
-    titulo: "Registrar repasse ao proprietário",
-    corpo: `<div class="box"><b>${esc(c.locador)}</b><br>${esc(im.endereco)}<br>Recebido ${brl(c.valor_pago)} − taxa ${brl(c.taxa_valor)} = <b>${brl(sug)}</b></div>
+    titulo: "Registrar repasse ao proprietário", largo: true,
+    corpo: `<div class="box"><b>${esc(c.locador)}</b><br>${esc(im.endereco)} · ${esc(c.locatario)}${fav ? `<br>Depósito: <b>${esc(fav.nome)}</b> · ${esc(FORMAS[fav.forma] || "")} ${esc(fav.conta_bancaria || "")}` : ""}</div>
+      ${!k.recebido ? `<div class="box warn">⚠️ <b>Repasse sem recebimento:</b> o locatário ainda não pagou. A imobiliária adianta o valor ao proprietário (aviso só interno; não aparece no relatório do cliente).</div>` : ""}
+      ${repasseResumoHTML(c, k)}
       <div class="row">
         <label class="fl"><span>Data do repasse</span><input type="date" name="data" value="${hoje()}" required></label>
-        <label class="fl"><span>Valor repassado</span><input name="valor" inputmode="decimal" value="${n2(sug)}" required></label>
+        <label class="fl"><span>Valor repassado</span><input name="valor" inputmode="decimal" value="${n2(k.prop)}" required></label>
+        <label class="fl"><span>Forma</span><select name="forma">${Object.entries(FORMAS).map(([kk, t]) => opt(kk, t, kk === ((fav && fav.forma) || "pix"))).join("")}</select></label>
+        <label class="fl"><span>Saiu da conta</span><select name="conta" required>${contasOpts(c.conta_pgto_id)}</select></label>
       </div>
-      <label class="fl"><span>Saiu da conta</span><select name="conta" required>${contasOpts(c.conta_pgto_id)}</select></label>
-      <p class="hint">Se descontou alguma despesa do proprietário (reparo, IPTU…), informe o valor líquido e lance a despesa no caixa como "Proprietários (saída)".</p>`,
+      <p class="hint">Despesas do proprietário (reparo, material…) lançadas no Caixa com este imóvel e "Descontar do repasse" já aparecem acima. O repasse também fica registrado em Depósitos.</p>`,
     ok: "Registrar repasse",
     salvar: async f => {
       const v = parseMoney(f.valor.value); if (!v || v <= 0) throw new Error("Valor inválido.");
-      await rpc("registrar_repasse", { p_id: c.id, p_data: f.data.value, p_valor: v, p_conta: f.conta.value });
-      toast("Repasse registrado."); render();
+      if (!k.recebido && !pedeConfirmacao(f, `Confirma o repasse de <b>${brl(v)}</b> <b>sem</b> o locatário ter pago?`, "Sim, repassar mesmo assim")) return false;
+      await rpc("registrar_repasse", { p_id: c.id, p_data: f.data.value, p_valor: v, p_conta: f.conta.value, p_forma: f.forma.value });
+      toast("Repasse registrado (também aparece em Depósitos)."); render();
     }
   });
 };
@@ -781,18 +880,20 @@ ACT["receber-lote"] = () => {
   });
 };
 ACT["repassar-lote"] = () => {
-  const sel = selecionados().filter(precisaRepasse);
-  if (!sel.length) return toast("Marque na lista os aluguéis recebidos com repasse pendente.", true);
+  const sel = selecionados().filter(podeRepassar);
+  if (!sel.length) return toast("Marque na lista os aluguéis com repasse pendente.", true);
+  const semRec = sel.filter(c => !c.data_pagamento).length;
   modal({
     titulo: `Repassar ${sel.length} aluguel(éis)`,
-    corpo: `<div class="box">Total a repassar: <b>${brl(sel.reduce((a, c) => a + +c.valor_pago - +(c.taxa_valor || 0), 0))}</b> (recebido − taxa, para cada um).</div>
+    corpo: `<div class="box">Total a repassar: <b>${brl(sel.reduce((a, c) => a + calcCob(c).prop, 0))}</b> (valor do proprietário de cada um: aluguel − T. Adm. − descontos e despesas dele).</div>
+      ${semRec ? `<div class="box warn">⚠️ ${semRec} deles ainda <b>não foram recebidos</b>: o repasse será adiantado pela imobiliária.</div>` : ""}
       <div class="row"><label class="fl"><span>Data</span><input type="date" name="data" value="${hoje()}" required></label>
       <label class="fl"><span>Conta</span><select name="conta">${contasOpts()}</select></label></div>`,
     ok: "Registrar repasses",
     salvar: async f => {
       let ok = 0, err = 0;
       for (const c of sel) {
-        try { await rpc("registrar_repasse", { p_id: c.id, p_data: f.data.value, p_valor: r2(+c.valor_pago - +(c.taxa_valor || 0)), p_conta: f.conta.value }); ok++; }
+        try { const v = calcCob(c).prop; if (v > 0) { await rpc("registrar_repasse", { p_id: c.id, p_data: f.data.value, p_valor: v, p_conta: f.conta.value }); ok++; } }
         catch (e) { err++; console.warn(e); }
       }
       toast(`${ok} repasse(s) registrado(s).` + (err ? ` ${err} com erro.` : ""), !!err);
@@ -815,21 +916,19 @@ ACT["cob-det"] = el => {
         <label class="fl"><span>Aluguel</span><input name="valor" inputmode="decimal" value="${n2(c.valor)}" ${ed ? "" : "disabled"}></label>
         <label class="fl"><span>Taxa adm. %</span><input name="taxa" inputmode="decimal" value="${n2(c.taxa_adm_pct)}" ${ed ? "" : "disabled"}></label>
       </div>
-      <div class="row">
-        <label class="fl"><span>Acréscimos (multa, juros, IPTU…)</span><input name="acrescimos" inputmode="decimal" value="${n2(c.acrescimos)}" ${ed ? "" : "disabled"}></label>
-        <label class="fl"><span>Descontos</span><input name="descontos" inputmode="decimal" value="${n2(c.descontos)}" ${ed ? "" : "disabled"}></label>
-      </div>
+      ${ajustesHTML(c, ed)}
       <label class="fl"><span>Observações</span><textarea name="obs" ${pode.editar() ? "" : "disabled"}>${esc(c.obs)}</textarea></label>
-      ${c.data_pagamento ? `<div class="box">Recebido ${brl(c.valor_pago)} em ${dt(c.data_pagamento)} (${esc(contaPor(c.conta_pgto_id).nome || "")}) · taxa ${brl(c.taxa_valor)}${c.repasse_data ? `<br>Repassado ${brl(c.repasse_valor)} em ${dt(c.repasse_data)}` : ""}</div>` : ""}`,
+      ${c.data_pagamento || c.repasse_data ? `<div class="box">${c.data_pagamento ? `Recebido ${brl(c.valor_pago)} em ${dt(c.data_pagamento)} (${esc(contaPor(c.conta_pgto_id).nome || "")}) · T. Adm. ${brl(c.taxa_valor)}` : "Ainda não recebido."}${c.repasse_data ? `<br>Repassado ${brl(c.repasse_valor)} em ${dt(c.repasse_data)}${c.data_pagamento ? "" : " <b class=\"neg\">(sem receber)</b>"}` : ""}</div>` : ""}
+      <h3 style="margin-top:10px">Valor do proprietário</h3>${repasseResumoHTML(c, calcCob(c))}`,
     extra, ok: "Salvar", semOk: !pode.editar(),
     salvar: async f => {
       const upd = { obs: f.obs.value };
-      if (ed) Object.assign(upd, { vencimento: f.vencimento.value, valor: parseMoney(f.valor.value), taxa_adm_pct: parseMoney(f.taxa.value), acrescimos: parseMoney(f.acrescimos.value) || 0, descontos: parseMoney(f.descontos.value) || 0 });
+      if (ed) { const aj = lerAjDet(); if (aj.some(x => !x.desc || !(x.valor > 0))) throw new Error("Cada acréscimo/desconto precisa de descrição e valor."); Object.assign(upd, { vencimento: f.vencimento.value, valor: parseMoney(f.valor.value), taxa_adm_pct: parseMoney(f.taxa.value), ajustes: aj }, totaisAjustes(aj)); }
       if (ed && (upd.valor == null || upd.valor < 0)) throw new Error("Valor inválido.");
       await q(sb.from("cobrancas").update(upd).eq("id", c.id));
       toast("Salvo."); render();
     },
-    aoAbrir: (f, d) => $$("[data-x2]", d).forEach(b => b.addEventListener("click", async () => {
+    aoAbrir: (f, d) => { lerAjDet = ligarAjustes(d); $$("[data-x2]", d).forEach(b => b.addEventListener("click", async () => {
       const a = b.dataset.x2;
       d.close();
       const txt = { estornar_pagamento: "Desfazer o recebimento? Os lançamentos no caixa serão apagados.", estornar_repasse: "Desfazer o repasse? O lançamento de saída será apagado.", excluir: "Excluir esta cobrança do mês?" }[a];
@@ -839,9 +938,10 @@ ACT["cob-det"] = el => {
         else await rpc(a, { p_id: c.id });
         toast("Feito."); render();
       } catch (e) { falha(e); }
-    }))
+    })); }
   });
 };
+let lerAjDet = () => [];
 ACT["xls-cob"] = () => exportarGrade("alugueis", `alugueis-${S.mes.slice(0, 7)}.xlsx`, mesCurto(S.mes).replace("/", "-"));
 
 
@@ -940,7 +1040,7 @@ PAGES.caixa = async pg => {
   CAIXA_SALDOS = { fim: soMinhasContas(saldosFimT) };
   // despesas/receitas fixas do plano de contas que ainda não viraram previsão neste mês
   const ja = new Set(lanc.filter(l => l.previsao_de).map(l => l.previsao_de));
-  CAIXA_PREV = S.categorias.filter(c => c.ativa && c.recorrente && +c.valor_previsto > 0 && !ja.has(c.id)).length;
+  CAIXA_PREV = S.categorias.filter(c => c.ativa && c.recorrente && +c.valor_previsto > 0 && !ja.has(c.id) && (c.periodicidade !== "anual" || c.mes_previsto === +S.mes.slice(5, 7))).length;
   setRd(pg, () => desenharCaixa());
   desenharCaixa(pg);
 };
@@ -1020,8 +1120,20 @@ function formLanc(l, tipo) {
       <label class="fl"><span>Documento / nota</span><input name="documento" value="${esc(l ? l.documento : "")}" maxlength="100" ${dis}></label>
       <label class="fl"><span>Imóvel (opcional)</span><input name="imovel" list="dl-imv" value="${esc(im ? im.endereco : "")}" ${dis}></label>
     </div>${imovelDatalist()}
+    ${tipo === "saida" ? `<label class="chk" data-desc-rep ${im ? "" : "hidden"}><input type="checkbox" name="descrep" ${l && l.desconta_repasse ? "checked" : ""} ${dis}> <span><b>Descontar do repasse do proprietário</b> deste imóvel (despesa dele paga pela imobiliária: reparo, material, conta…). Aparece no repasse, em Depósitos e no relatório do proprietário, no mês da competência.</span></label>` : ""}
     ${soCaixa ? "" : `<label class="chk"><input type="checkbox" name="pago" ${!l || l.pago ? "checked" : ""} ${dis}> Já foi ${tipo === "entrada" ? "recebido" : "pago"} (desmarque para deixar como previsto / conta a pagar)</label>`}
     ${!l && !soCaixa ? `<label class="fl"><span>Repetir nos meses seguintes (como previsto)</span><input type="number" name="repetir" min="0" max="36" value="0"></label>` : ""}`;
+}
+// "Descontar do repasse" só aparece com imóvel; vem marcado para categorias de dinheiro do proprietário
+function ligarLanc(f, d) {
+  const box = $("[data-desc-rep]", d); if (!box || !f.imovel) return;
+  const upd = () => {
+    const tem = !!imovelPorEndereco(f.imovel.value); box.hidden = !tem;
+    const cat = S.categorias.find(c => c.id === f.categoria.value);
+    if (tem && cat && cat.grupo === "terceiros_saida" && !f.descrep.dataset.mexeu && !/repasse|caução|caucao/i.test(cat.nome)) f.descrep.checked = true;
+  };
+  f.descrep.addEventListener("change", () => (f.descrep.dataset.mexeu = 1));
+  f.imovel.addEventListener("input", upd); f.categoria.addEventListener("change", upd); upd();
 }
 function lerLanc(f, tipo) {
   const v = parseMoney(f.valor.value); if (!v || v <= 0) throw new Error("Valor inválido.");
@@ -1029,12 +1141,12 @@ function lerLanc(f, tipo) {
   let imovel_id = null;
   if (f.imovel.value.trim()) { const im = imovelPorEndereco(f.imovel.value); if (!im) throw new Error("Imóvel não encontrado: escolha um endereço da lista."); imovel_id = im.id; }
   return { data: f.data.value, valor: v, tipo, categoria_id: f.categoria.value, conta_id: f.conta.value, competencia: (f.comp.value || f.data.value.slice(0, 7)) + "-01",
-    descricao: f.descricao.value.trim(), documento: f.documento.value.trim(), imovel_id, pago: f.pago ? f.pago.checked : true };
+    descricao: f.descricao.value.trim(), documento: f.documento.value.trim(), imovel_id, pago: f.pago ? f.pago.checked : true, desconta_repasse: !!(imovel_id && f.descrep && f.descrep.checked) };
 }
 ACT["lanc-novo"] = el => {
   const tipo = el.dataset.tipo;
   modal({
-    titulo: tipo === "entrada" ? "Nova entrada" : "Nova saída", corpo: formLanc(null, tipo), ok: "Lançar",
+    titulo: tipo === "entrada" ? "Nova entrada" : "Nova saída", corpo: formLanc(null, tipo), ok: "Lançar", aoAbrir: (f, d) => ligarLanc(f, d),
     salvar: async f => {
       const base = lerLanc(f, tipo); const rep = f.repetir ? Math.max(0, Math.min(36, +f.repetir.value || 0)) : 0;
       const linhas = [base];
@@ -1060,6 +1172,7 @@ ACT["lanc-ed"] = el => {
     titulo: l.tipo === "entrada" ? "Entrada" : "Saída", corpo: formLanc(l, l.tipo), semOk: !editavel, extra,
     salvar: async f => { const u = lerLanc(f, l.tipo); delete u.tipo; await q(sb.from("lancamentos").update(u).eq("id", l.id)); toast("Salvo."); render(); },
     aoAbrir: (f, d) => {
+      ligarLanc(f, d);
       const b = $("[data-del]", d); if (b) b.addEventListener("click", async () => {
         d.close();
         if (!(await confirmar("Excluir lançamento", l.origem === "transferencia" ? "Excluir a transferência (as duas pontas)?" : "Excluir este lançamento?", "Excluir"))) return;
@@ -1220,13 +1333,16 @@ function gradeHTML(id) {
   const vis = g.ordem.filter(k => !g.ocultas.includes(k)).map(k => gCol(g, k)).filter(Boolean);
   const filtradas = gOrdenar(g, gFiltrar(g));
   g.filtradas = filtradas;
+  const ini = new Set(vis.filter((c, i) => i > 0 && c.grp && c.grp !== vis[i - 1].grp).map(c => c.k));
+  const wst = c => c.w ? ` style="width:${c.w}px;max-width:${c.w}px;min-width:${c.w}px"` : "";
   const th = c => {
-    if (c.nf) return `<th draggable="true" data-gk="${c.k}" data-g="${id}" class="${c.tipo === "num" ? "num" : ""} ${c.thcls || ""}">${c.th || esc(c.t)}</th>`;
+    const gi = ini.has(c.k) ? " g-ini" : "";
+    if (c.nf) return `<th draggable="true" data-gk="${c.k}" data-g="${id}" class="${c.tipo === "num" ? "num" : ""} ${c.thcls || ""}${gi}"${wst(c)}>${c.th || esc(c.t)}</th>`;
     const s = g.sort && g.sort.k === c.k ? (g.sort.dir === "asc" ? " ▲" : " ▼") : "";
-    return `<th draggable="true" data-gk="${c.k}" data-g="${id}" class="${c.tipo === "num" ? "num" : ""} ${c.thcls || ""}" title="${esc(c.dica || "Clique para ordenar · arraste para mudar a ordem")}">
+    return `<th draggable="true" data-gk="${c.k}" data-g="${id}" class="${c.tipo === "num" ? "num" : ""} ${c.thcls || ""}${gi}"${wst(c)} title="${esc(c.dica || "Clique para ordenar · arraste para mudar a ordem")}">
       <span class="gh" data-act="g-sort" data-g="${id}" data-k="${c.k}">${esc(c.t)}${s}</span><button type="button" class="gf${g.filtros[c.k] ? " on" : ""}" data-act="g-filtro" data-g="${id}" data-k="${c.k}" aria-label="Filtrar ${esc(c.t)}">▾</button></th>`;
   };
-  const td = (c, r) => `<td class="${c.tipo === "num" ? "num " : ""}${c.cls || ""}">${c.html ? c.html(r) : esc(gTxt(c, r))}</td>`;
+  const td = (c, r) => `<td class="${c.tipo === "num" ? "num " : ""}${c.cls || ""}${ini.has(c.k) ? " g-ini" : ""}"${wst(c)}${c.tip ? ` title="${esc(gTxt(c, r))}"` : ""}>${c.html ? c.html(r) : esc(gTxt(c, r))}</td>`;
   // divisória discreta quando a lista está ordenada pela coluna de data indicada (ex.: um dia para o outro)
   // divisor: nome da coluna, ou {k, g: linha => grupo} (ex.: contratos separados por ano)
   const dv = typeof g.opts.divisor === "string" ? { k: g.opts.divisor } : g.opts.divisor;
@@ -1485,12 +1601,14 @@ const COLS_IMV = [
 ];
 PAGES.imoveis = async pg => {
   const mesAtual = inicioMes(hoje()), passado = S.mes < mesAtual;
-  const [reaj, grupos, hist, cobs] = await Promise.all([
+  const [reaj, grupos, hist, cobs, tpend] = await Promise.all([
     q(sb.from("reajustes").select("imovel_id,competencia,valor_novo").is("aplicado_em", null).order("competencia")),
     q(sb.from("grupos_locador").select("*").order("ordem")),
     passado ? fetchAll("mapa_mensal", b => b.eq("competencia", S.mes).order("imovel_id")) : Promise.resolve(null),
-    pode.editar() || S.papel === "leitura" ? rpc("resumo_cobrancas", { p_ini: S.mes, p_fim: S.mes }) : Promise.resolve([])
+    pode.editar() || S.papel === "leitura" ? rpc("resumo_cobrancas", { p_ini: S.mes, p_fim: S.mes }) : Promise.resolve([]),
+    termosPendentes()
   ]);
+  IMV.termos = tpend;
   IMV.reajPor = {}; reaj.forEach(r => { (IMV.reajPor[r.imovel_id] = IMV.reajPor[r.imovel_id] || []).push(r); });
   IMV.grupos = grupos; IMV.cobs = cobs;
   IMV.hist = hist ? hist.map(h => Object.assign({}, S.imovelPor[h.imovel_id] || { endereco: "?" }, {
@@ -1538,7 +1656,7 @@ function desenharImoveis(pg) {
       <div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="imv" data-v="${k}">${t}<span class="c">${cont[k] || 0}</span></button>`).join("")}</div>
       <input type="search" placeholder="Buscar endereço, locador, locatário…" value="${esc(busca)}" data-busca="imvBusca">
       <span class="spacer"></span>
-      ${gradeBarra("imoveis")}
+      ${(IMV.termos || []).length ? `<button class="btn danger" data-act="termos-imv" title="Imóveis com termo obrigatório pendente">⚠ ${IMV.termos.length} termo(s) pendente(s)</button>` : ""}${gradeBarra("imoveis")}
       ${podeLib ? (lib ? `<button class="btn" data-act="imv-trava" title="${passado ? "Alterações mudam só o histórico deste mês" : "Alterações valem para o cadastro atual"}">🔓 Edição liberada · bloquear</button>` : `<button class="btn" data-act="imv-libera">🔒 Liberar edição deste mês</button>`) : ""}
       ${pode.editar() && !passado ? `<button class="btn pri" data-act="imv-novo">+ Imóvel</button>` : ""}
       <button class="btn" data-act="xls-imv">Excel</button>
@@ -1748,12 +1866,38 @@ function mascaraTel(inp) {
 const contatosTxt = cs => (cs || []).map(c => `${c.papel}: ${c.nome}${c.tel ? " · " + fmtTel(c.tel) : ""}${c.email ? " · " + c.email : ""}`).join("\n");
 // termos obrigatórios pendentes (entrega de chaves depois da saída)
 const termoEst = (c, t) => ((c.termos || {})[t] || {}).estado || "";
-function termosPendentesHTML() {
-  const ls = CTT.filter(c => termoEst(c, "entrega") === "pendente");
-  if (!ls.length) return "";
-  return `<div class="alert bad"><span><b>Termo de entrega de chaves pendente</b> (obrigatório depois da saída): ${ls.map(c => `<button class="btn sm" data-act="termo-pend" data-id="${esc(c.codigo)}">🔑 ${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>`;
+// contratos com termo obrigatório pendente (entrega de chaves e devolução de caução)
+async function termosPendentes() {
+  const [e, c] = await Promise.all([
+    q(sb.from("contratos").select("codigo,locatario,endereco,termos").eq("termos->entrega->>estado", "pendente")).catch(() => []),
+    q(sb.from("contratos").select("codigo,locatario,endereco,termos").eq("termos->caucao->>estado", "pendente")).catch(() => [])
+  ]);
+  return e.map(x => Object.assign({ tipo: "entrega" }, x)).concat(c.map(x => Object.assign({ tipo: "caucao" }, x)));
 }
-ACT["termo-pend"] = el => abrirTermoObrig(el.dataset.id);
+const termoBtn = t => `<button class="btn sm" data-act="termo-pend" data-id="${esc(t.codigo)}" data-t="${t.tipo}">${t.tipo === "entrega" ? "🔑" : "💰"} ${esc(t.codigo)} · ${esc(curtoTxt(t.locatario, 34))}</button>`;
+function termosPendentesHTML(lista) {
+  const ls = lista || CTT.filter(c => termoEst(c, "entrega") === "pendente").map(c => Object.assign({ tipo: "entrega" }, c))
+    .concat(CTT.filter(c => termoEst(c, "caucao") === "pendente").map(c => Object.assign({ tipo: "caucao" }, c)));
+  if (!ls.length) return "";
+  const en = ls.filter(t => t.tipo === "entrega"), ca = ls.filter(t => t.tipo === "caucao");
+  return `<div class="alert bad"><span>${en.length ? `<b>Termo de entrega de chaves pendente</b> (obrigatório depois da saída): ${en.map(termoBtn).join(" ")}` : ""}${en.length && ca.length ? "<br>" : ""}${ca.length ? `<b>Termo de devolução de caução pendente</b>: ${ca.map(termoBtn).join(" ")}` : ""}</span></div>`;
+}
+ACT["termos-imv"] = el => {
+  const ls = IMV.termos || [];
+  const p = pop(el, `<div class="gp-h">Termos obrigatórios pendentes</div><div class="gp-cols">${ls.map(t => termoBtn(t)).join("")}</div><p class="hint">🔑 entrega de chaves · 💰 devolução de caução. O termo fica feito quando o PDF é baixado.</p>`, 360);
+  void p;
+};
+ACT["termo-pend"] = async el => {
+  fecharPop();
+  if (el.dataset.t !== "caucao") return abrirTermoObrig(el.dataset.id);
+  // caução: se ainda tem conta caução vigente, a baixa (com o termo) é feita em Contas caução
+  await carregarCauc();
+  const m = CAUC.vigPorCtt[el.dataset.id];
+  if (m) return darBaixaCauc(m);
+  const mv = CAUC.movs.find(x => x.contrato_codigo === el.dataset.id && x.termo === "pendente");
+  if (mv) return abrirTermoCauc(mv.id, el.dataset.id);
+  abrirTermo("caucao", el.dataset.id, "", { aoBaixar: async () => { try { await rpc("marcar_termo", { p_codigo: el.dataset.id, p_tipo: "caucao", p_estado: "feito", p_motivo: "" }); toast("Termo de devolução registrado como feito."); $("#dlg").dataset.mudou = "1"; } catch (e) { falha(e); } } });
+};
 // abre o termo de entrega; ao baixar o PDF ele fica "feito"
 function abrirTermoObrig(codigo) {
   abrirTermo("entrega", codigo, "", { aoBaixar: () => marcarEntregaFeita(codigo) });
@@ -1799,12 +1943,16 @@ async function abrirSaida(i) {
         ${i.contrato_codigo ? `<div class="obrig" data-obrig><b>🔑 Termo de entrega de chaves: OBRIGATÓRIO.</b> Ao registrar a saída, o termo abre já preenchido; ele só conta como feito quando o PDF for gerado/baixado. Enquanto isso, o contrato fica com aviso de <b>termo pendente</b>.
           <label class="chk" style="margin-top:6px"><input type="checkbox" name="semtermo"> Neste caso específico o termo <b>não é necessário</b></label>
           <label class="fl" data-motivo hidden><span>Motivo (fica registrado na auditoria)</span><input name="motivo" placeholder="Ex.: chaves devolvidas em cartório, termo feito em papel…"></label>
-          ${/CAU/i.test(norm((ctt && ctt.garantia) || "")) ? `<p class="hint" style="margin:6px 0 0">Contrato com <b>caução</b>: a devolução (baixa da conta caução e termo de devolução) é feita em <b>Cadastro locação → Contas caução</b>.</p>` : ""}</div>`
+          </div>
+          ${/CAU/i.test(norm((ctt && ctt.garantia) || "")) ? `<div class="obrig" data-obrig-c style="margin-top:8px"><b>💰 Termo de devolução de caução: OBRIGATÓRIO.</b> Contrato com caução: depois da saída, faça a baixa da caução (valor devolvido) em <b>Contas caução</b>; o termo de devolução abre junto. Até lá fica o aviso de <b>termo pendente</b>.
+            <label class="chk" style="margin-top:6px"><input type="checkbox" name="semcauc"> Neste caso o termo de devolução de caução <b>não é necessário</b></label>
+            <label class="fl" data-motivo-c hidden><span>Motivo (fica registrado)</span><input name="motivoc" placeholder="Ex.: caução usada para quitar débitos, paga direto ao proprietário…"></label></div>` : ""}`
           : `<p class="hint">Imóvel sem contrato ligado: não há termo de entrega para gerar pelo sistema.</p>`}
         <p class="hint">Ao registrar: o imóvel muda para a situação escolhida (o valor do aluguel fica como previsto), o contrato fica <b>Encerrado</b> — ou <b>Débito em aberto</b> se ficou devendo — e o devedor entra na lista de <b>Devedores</b> com os dados e contatos do contrato.</p>`,
       aoAbrir: (f, d) => {
         lerItens = ligarItens(d, [], () => total(d));
         if (f.semtermo) f.semtermo.addEventListener("change", () => { $("[data-motivo]", d).hidden = !f.semtermo.checked; $("[data-obrig]", d).classList.toggle("ok", f.semtermo.checked); });
+        if (f.semcauc) f.semcauc.addEventListener("change", () => { $("[data-motivo-c]", d).hidden = !f.semcauc.checked; $("[data-obrig-c]", d).classList.toggle("ok", f.semcauc.checked); });
         $$("[name=deve]", d).forEach(r => r.addEventListener("change", () => { $("[data-divida]", d).hidden = f.deve.value !== "sim"; total(d); }));
         $$("[data-cob]", d).forEach(x => x.addEventListener("change", () => total(d)));
         total(d);
@@ -1821,13 +1969,17 @@ async function abrirSaida(i) {
         }
         const semTermo = !!(f.semtermo && f.semtermo.checked), motivo = f.motivo ? f.motivo.value.trim() : "";
         if (semTermo && motivo.length < 5) throw new Error("Explique por que o termo de entrega não é necessário neste caso.");
+        const temCauc = !!f.semcauc, semCauc = temCauc && f.semcauc.checked, motivoC = f.motivoc ? f.motivoc.value.trim() : "";
+        if (semCauc && motivoC.length < 5) throw new Error("Explique por que o termo de devolução de caução não é necessário.");
         const totalTxt = deve ? brl(itens.reduce((a, x) => a + (+x.valor || 0), 0)) : "";
         if (!pedeConfirmacao(f, `<b>Confirma a saída de ${esc(i.locatario || "?")}</b> de ${esc(i.endereco)} em <b>${dt(f.data.value)}</b>?<br>
           O imóvel passa a ficar <b>${esc((STATUS_IMV[f.status.value] || [f.status.value])[0])}</b>${deve ? ` e o devedor entra na lista com <b>${totalTxt}</b>` : " (saiu sem dever)"}.
-          ${i.contrato_codigo ? (semTermo ? `<br>⚠️ Termo de entrega <b>DISPENSADO</b>: “${esc(motivo)}”.` : "<br>Em seguida abre o <b>termo de entrega de chaves</b> (obrigatório).") : ""}`, "Sim, registrar a saída")) return false;
+          ${i.contrato_codigo ? (semTermo ? `<br>⚠️ Termo de entrega <b>DISPENSADO</b>: “${esc(motivo)}”.` : "<br>Em seguida abre o <b>termo de entrega de chaves</b> (obrigatório).") : ""}
+          ${f.semcauc ? (f.semcauc.checked ? `<br>⚠️ Termo de devolução de caução <b>DISPENSADO</b>.` : "<br>Fica pendente a <b>baixa da caução</b> com o termo de devolução.") : ""}`, "Sim, registrar a saída")) return false;
         await rpc("registrar_saida", { p_imovel: i.id, p_data: f.data.value, p_devedor: deve ? f.devedor.value : null, p_itens: itens, p_obs: deve ? f.obs.value : "", p_cobrancas: cobsSel, p_status: f.status.value });
         if (i.contrato_codigo) {
-          try { await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "entrega", p_estado: semTermo ? "dispensado" : "pendente", p_motivo: motivo }); } catch (e) { falha(e); }
+          try { await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "entrega", p_estado: semTermo ? "dispensado" : "pendente", p_motivo: motivo });
+            if (temCauc) await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "caucao", p_estado: semCauc ? "dispensado" : "pendente", p_motivo: motivoC }); } catch (e) { falha(e); }
         }
         await recarregarImoveis();
         CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
@@ -2046,7 +2198,7 @@ const SIT_DEP = { depositado: ["Depositado", "ok"], imob: ["Pago na imobiliária
 let DEP = { favs: [], mes: [], cobs: [] };
 // aluguéis do mês que entram no depósito deste favorecido (pelos nomes de locadores ligados a ele)
 const cobsDoFav = f => DEP.cobs.filter(c => (f.locadores || []).includes(c.locador));
-const liquidoCob = c => r2(+c.valor_pago - +(c.taxa_valor || 0));
+const liquidoCob = c => calcCob(c).prop;
 function infoDep(f) {
   const m = DEP.mes.find(x => x.favorecido_id === f.id);
   const cs = cobsDoFav(f), pend = cs.filter(precisaRepasse), naoPagos = cs.filter(c => !c.data_pagamento && !c.devedor_id);
@@ -2065,14 +2217,16 @@ const COLS_DEP = [
     html: f => { const i = infoDep(f); if (i.m) return `<span class="tag ${SIT_DEP[i.m.situacao][1]}">${esc(SIT_DEP[i.m.situacao][0])}${i.m.data ? " " + dt(i.m.data).slice(0, 5) : ""}</span>`;
       return i.atrasado ? `<span class="tag bad">Atrasado</span>` : `<span class="tag idle">Pendente</span>`; } },
   { k: "valor", t: "Depositado", tipo: "num", v: f => { const i = infoDep(f); return i.m && i.m.valor != null ? +i.m.valor : null; } },
-  { k: "conta_bancaria", t: "Conta bancária", cls: "trunc" },
+  { k: "forma", t: "Forma", v: f => FORMAS[f.forma] || "", dica: "Forma de pagamento padrão" },
+  { k: "conta_bancaria", t: "Conta / PIX", cls: "trunc" },
   { k: "obs", t: "Observações", cls: "trunc", oculta: true }
 ];
 PAGES.depositos = async pg => {
   const [favs, mes, cobs] = await Promise.all([
     q(sb.from("depositos_fav").select("*").order("dia").order("nome")),
     q(sb.from("depositos_mes").select("*").eq("competencia", S.mes)),
-    fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("id"), "id,imovel_id,competencia,locador,locatario,valor,acrescimos,descontos,valor_pago,data_pagamento,taxa_valor,taxa_adm_pct,repasse_data,repasse_valor,devedor_id")
+    fetchAll("cobrancas", b => b.eq("competencia", S.mes).order("id"), "id,imovel_id,competencia,vencimento,locador,locatario,valor,acrescimos,descontos,ajustes,valor_pago,data_pagamento,taxa_valor,taxa_adm_pct,repasse_data,repasse_valor,devedor_id"),
+    carregarDesp(S.mes)
   ]);
   DEP = { favs, mes, cobs };
   setRd(pg, () => desenharDepositos());
@@ -2087,7 +2241,7 @@ function desenharDepositos(pg) {
   if (busca) { const b = norm(busca); lista = lista.filter(x => norm(x.nome + " " + (x.locadores || []).join(" ") + " " + x.conta_bancaria).includes(b)); }
   const tot = base.reduce((a, x) => { const i = infoDep(x); a.rep += i.aRepassar; if (i.m && i.m.valor) a.dep += +i.m.valor; if (i.atrasado) a.atr++; return a; }, { rep: 0, dep: 0, atr: 0 });
   const g = grade("depositos", COLS_DEP, lista, { attr: x => `data-act="dep-ed" data-id="${x.id}" style="cursor:pointer"`, sort: { k: "dia", dir: "asc" }, divisor: "dia",
-    cls: x => x.ativo ? (infoDep(x).atrasado ? "atrasada" : "") : "inativa",
+    cls: x => { if (!x.ativo) return "inativa"; const i = infoDep(x); return i.m ? "ct-ativo" : i.atrasado ? "ct-deb" : "ct-pend"; },
     rodape: fl => `${fl.length} depósitos · a repassar <b>${brl(fl.reduce((a, x) => a + infoDep(x).aRepassar, 0))}</b> · depositado <span class="pos">${brl(fl.reduce((a, x) => { const m = infoDep(x).m; return a + (m && m.valor ? +m.valor : 0); }, 0))}</span>` });
   g.redesenhar = () => desenharDepositos();
   const chips = [["todos", "Todos", ""], ["pend", "Pendentes", "st-OCP"], ["atras", "Atrasados", "st-INTV"], ["feitos", "Feitos", "st-LVR"], ["semloc", "Sem locador ligado", ""]];
@@ -2099,7 +2253,8 @@ function desenharDepositos(pg) {
       <label class="chk"><input type="checkbox" data-inat ${inativos ? "checked" : ""}> mostrar inativos</label>
       <span class="spacer"></span>${gradeBarra("depositos")}
       ${pode.ed("depositos") ? `<button class="btn" data-act="dep-importar">Importar planilha</button><button class="btn" data-act="dep-fav">+ Favorecido</button>` : ""}
-      <button class="btn" data-act="dep-rel-mes">Relatório do mês</button><button class="btn" data-act="xls-dep">Excel</button>
+      <button class="btn" data-act="dep-rel-mes">Relatório do mês</button><button class="btn" data-act="dep-rel-todos" title="Relatório de cada proprietário (para imprimir ou salvar em PDF)">📄 Relatórios dos proprietários</button><button class="btn" data-act="xls-dep">Excel</button>
+      ${pode.admin() && DEP.favs.length ? `<button class="btn danger" data-act="dep-zerar" title="Apaga toda a lista de favorecidos (para importar de novo a planilha ajustada)">Zerar lista</button>` : ""}
     </div>
     ${gradeHTML("depositos")}
   </div>`;
@@ -2118,7 +2273,8 @@ ACT["dep-fav"] = el => {
     extra: fav.id && pode.admin() ? `<button type="button" class="btn danger" data-del>Excluir</button>` : "",
     corpo: `<div class="row"><label class="fl" style="grid-column:span 2"><span>Nome (como na lista de depósitos)</span><input name="nome" value="${esc(fav.nome || "")}" required></label>
         <label class="fl"><span>Dia previsto</span><input type="number" name="dia" min="1" max="31" value="${fav.dia || ""}"></label></div>
-      <label class="fl"><span>Conta bancária / PIX</span><input name="conta" value="${esc(fav.conta_bancaria || "")}"></label>
+      <div class="row"><label class="fl"><span>Forma de pagamento padrão</span><select name="forma">${opt("", "—", !fav.forma)}${Object.entries(FORMAS).map(([k, t]) => opt(k, t, fav.forma === k)).join("")}</select></label>
+        <label class="fl" style="grid-column:span 2"><span data-lconta>${fav.forma === "pix" ? "Chave PIX" : "Conta bancária"} (vazio se for em dinheiro)</span><input name="conta" value="${esc(fav.conta_bancaria || "")}"></label></div>
       <h3>Locadores do mapa que entram neste depósito</h3>
       <p class="hint">Marque um ou mais nomes, como estão no mapa. Os aluguéis desses locadores aparecem no depósito. Nomes já ligados a outro depósito mostram ao lado de qual.</p>
       <input type="search" placeholder="Pesquisar nome…" data-lbusca style="width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 10px">
@@ -2126,11 +2282,12 @@ ACT["dep-fav"] = el => {
       <label class="chk"><input type="checkbox" name="ativo" ${fav.ativo ? "checked" : ""}> Ativo</label>
       <label class="fl"><span>Observações</span><textarea name="obs" rows="2">${esc(fav.obs || "")}</textarea></label>`,
     aoAbrir: (f, d) => {
+      f.forma.addEventListener("change", () => { $("[data-lconta]", d).textContent = (f.forma.value === "pix" ? "Chave PIX" : "Conta bancária") + " (vazio se for em dinheiro)"; f.conta.disabled = f.forma.value === "dinheiro"; });
       $("[data-lbusca]", d).addEventListener("input", e => { const t = norm(e.target.value); $$(".grupo-lista label", d).forEach(l => (l.hidden = !!t && !l.dataset.txt.includes(t))); });
       const del = $("[data-del]", d); if (del) del.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir favorecido", `Excluir <b>${esc(fav.nome)}</b> e o histórico de depósitos dele? Prefira desmarcar "Ativo".`, "Excluir"))) return; try { await q(sb.from("depositos_fav").delete().eq("id", fav.id)); toast("Excluído."); render(); } catch (e) { falha(e); } });
     },
     salvar: async f => {
-      const dd = { nome: f.nome.value.trim(), dia: +f.dia.value || null, conta_bancaria: f.conta.value.trim(), ativo: f.ativo.checked, obs: f.obs.value.trim(),
+      const dd = { nome: f.nome.value.trim(), dia: +f.dia.value || null, conta_bancaria: f.forma.value === "dinheiro" ? "" : f.conta.value.trim(), forma: f.forma.value, ativo: f.ativo.checked, obs: f.obs.value.trim(),
         locadores: $$(".grupo-lista input:checked", $("#dlg")).map(x => x.value) };
       if (!dd.nome) throw new Error("Informe o nome.");
       if (fav.id) await q(sb.from("depositos_fav").update(dd).eq("id", fav.id)); else await q(sb.from("depositos_fav").insert(dd));
@@ -2142,72 +2299,147 @@ ACT["dep-fav"] = el => {
 ACT["dep-ed"] = el => {
   const fav = DEP.favs.find(x => x.id === el.dataset.id); if (!fav) return;
   const i = infoDep(fav), ed = pode.ed("depositos"), soCaixa = S.papel === "recepcao";
-  const podeReg = ed && (!i.m || i.pend.length > 0); // complemento: aluguel pago depois do depósito do mês
-  const linhaCob = c => { const im = S.imovelPor[c.imovel_id] || {}, pend = precisaRepasse(c);
-    return `<tr><td>${pend && podeReg ? `<input type="checkbox" data-cob="${c.id}" checked>` : ""}</td><td class="trunc">${esc(im.endereco || "")}</td><td class="trunc">${esc(c.locatario)}</td>
-      <td class="num">${c.data_pagamento ? n2(c.valor_pago) : "—"}</td><td>${c.data_pagamento ? dt(c.data_pagamento) : '<span class="tag bad">não recebido</span>'}</td>
-      <td class="num">${c.data_pagamento ? n2(c.taxa_valor || 0) : ""}</td><td class="num">${pend ? `<input data-val="${c.id}" inputmode="decimal" value="${n2(liquidoCob(c))}" ${podeReg ? "" : "disabled"}>` : c.repasse_data ? n2(c.repasse_valor) + ` <small class="muted">${dt(c.repasse_data).slice(0, 5)}</small>` : ""}</td></tr>`; };
+  const abertos = i.cs.filter(c => podeRepassar(c));
+  const podeReg = ed && (!i.m || abertos.length > 0); // complemento: aluguel pago depois do depósito do mês
+  const linhaCob = c => { const im = S.imovelPor[c.imovel_id] || {}, k = calcCob(c), aberto = podeRepassar(c);
+    const descs = [].concat(ajustesDe(c).filter(x => x.tipo === "desc" && x.de === "prop").map(x => x.desc + " " + n2(x.valor)), k.desp.map(l => (l.descricao || "despesa") + " " + n2(l.valor)));
+    return `<tr class="${c.repasse_data ? "ct-ativo" : !c.data_pagamento ? "ct-pend" : ""}"><td>${aberto && podeReg ? `<input type="checkbox" data-cob="${c.id}" ${c.data_pagamento ? "checked" : ""}>` : ""}</td><td class="trunc">${esc(im.endereco || "")}</td><td class="trunc">${esc(c.locatario)}</td>
+      <td class="num">${n2(c.valor)}</td>
+      <td class="num">${c.data_pagamento ? `${n2(c.valor_pago)} <small class="muted">${dt(c.data_pagamento).slice(0, 5)}</small>` : `<span class="tag warn" title="Aviso interno: não sai no relatório do proprietário">não recebido</span>`}</td>
+      <td class="num">${n2(k.taxa)}</td><td class="num" title="${esc(descs.join("\n"))}">${k.descProp + k.despTot ? n2(k.descProp + k.despTot) : ""}</td>
+      <td class="num">${aberto ? `<input data-val="${c.id}" inputmode="decimal" value="${n2(k.prop)}" ${podeReg ? "" : "disabled"}>${!c.data_pagamento ? `<div class="sub neg">repasse sem receber</div>` : ""}` : c.repasse_data ? n2(c.repasse_valor) + ` <small class="muted">${dt(c.repasse_data).slice(0, 5)}</small>${!c.data_pagamento ? ` <small class="neg">sem receber</small>` : ""}` : ""}</td></tr>`; };
   modal({ titulo: `Depósito · ${fav.nome}`, xl: true, semOk: !podeReg, ok: i.m ? "Registrar complemento" : "Registrar",
-    extra: `<button type="button" class="btn" data-rel>📄 Demonstrativo</button>${ed ? `<button type="button" class="btn" data-fav>Cadastro do favorecido</button>` : ""}${i.m && ed ? `<span class="spacer"></span><button type="button" class="btn danger" data-est>Desfazer este registro</button>` : ""}`,
-    corpo: `<div class="box"><b>${esc(fav.nome)}</b> · dia previsto <b>${fav.dia || "—"}</b> · ${esc(fav.conta_bancaria || "sem conta cadastrada")}<br>
+    extra: `<button type="button" class="btn" data-rel>📄 Relatório do proprietário</button>${ed ? `<button type="button" class="btn" data-fav>Cadastro do favorecido</button>` : ""}${i.m && ed ? `<span class="spacer"></span><button type="button" class="btn danger" data-est>Desfazer este registro</button>` : ""}`,
+    corpo: `<div class="box"><b>${esc(fav.nome)}</b> · dia previsto <b>${fav.dia || "—"}</b> · ${esc(FORMAS[fav.forma] || "forma não definida")}${fav.conta_bancaria ? " · " + esc(fav.conta_bancaria) : ""}<br>
         <span class="hint">Locadores: ${esc((fav.locadores || []).join(" · ") || "nenhum ligado — abra o cadastro do favorecido")}</span></div>
-      ${i.m ? `<div class="box ${SIT_DEP[i.m.situacao][1] === "ok" ? "" : "warn"}">${esc(mesTxt(S.mes))}: <b>${esc(SIT_DEP[i.m.situacao][0])}</b>${i.m.data ? " em " + dt(i.m.data) : ""}${i.m.valor != null ? " · " + brl(i.m.valor) : ""}${i.m.conta_id ? " · saiu de " + esc(contaPor(i.m.conta_id).nome || "") : ""}${i.m.obs ? "<br>" + esc(i.m.obs) : ""}</div>` : ""}
+      ${i.m ? `<div class="box ${SIT_DEP[i.m.situacao][1] === "ok" ? "" : "warn"}">${esc(mesTxt(S.mes))}: <b>${esc(SIT_DEP[i.m.situacao][0])}</b>${i.m.forma ? " · " + esc(FORMAS[i.m.forma] || i.m.forma) : ""}${i.m.data ? " em " + dt(i.m.data) : ""}${i.m.valor != null ? " · " + brl(i.m.valor) : ""}${i.m.conta_id ? " · saiu de " + esc(contaPor(i.m.conta_id).nome || "") : ""}${i.m.obs ? "<br>" + esc(i.m.obs) : ""}</div>` : ""}
       <h3>Aluguéis de ${esc(mesTxt(S.mes))}</h3>
-      <div class="tw"><table class="compacta dep-t"><thead><tr><th></th><th>Imóvel</th><th>Locatário</th><th class="num">Recebido</th><th>Em</th><th class="num">Taxa</th><th class="num">Repasse</th></tr></thead><tbody>
-        ${i.cs.map(linhaCob).join("") || `<tr><td colspan="7" class="muted">Nenhum aluguel deste mês ligado a este depósito${(fav.locadores || []).length ? "" : " (ligue os locadores no cadastro do favorecido)"}.</td></tr>`}</tbody></table></div>
-      ${podeReg ? `${i.m ? `<div class="box warn">Há aluguéis recebidos depois do registro deste mês. Registre o complemento: o valor soma ao que já foi depositado.</div>` : ""}<div class="row">
-        <label class="fl"><span>Situação</span><select name="sit">${Object.entries(SIT_DEP).map(([k, v]) => opt(k, v[0], k === (i.pend.length ? "depositado" : "nao_houve"))).join("")}</select></label>
+      <div class="tw"><table class="compacta dep-t"><thead><tr><th></th><th>Imóvel</th><th>Locatário</th><th class="num">Aluguel</th><th class="num">Recebido</th><th class="num">T. Adm.</th><th class="num">Descontos</th><th class="num">Repasse</th></tr></thead><tbody>
+        ${i.cs.map(linhaCob).join("") || `<tr><td colspan="8" class="muted">Nenhum aluguel deste mês ligado a este depósito${(fav.locadores || []).length ? "" : " (ligue os locadores no cadastro do favorecido)"}.</td></tr>`}</tbody></table></div>
+      <p class="hint">Descontos = descontos do aluguel por conta do proprietário + despesas dele lançadas no Caixa com "Descontar do repasse". Aluguel não recebido também pode ser repassado (marque a linha): o aviso "sem receber" é só interno.</p>
+      ${podeReg ? `${i.m && i.pend.length ? `<div class="box warn">Há aluguéis ainda não repassados depois do registro deste mês. Registre o complemento: o valor soma ao que já foi depositado.</div>` : ""}<div class="row">
+        <label class="fl"><span>Situação</span><select name="sit">${Object.entries(SIT_DEP).map(([k, v]) => opt(k, v[0], k === (abertos.length ? (fav.forma === "dinheiro" ? "imob" : "depositado") : "nao_houve"))).join("")}</select></label>
+        <label class="fl"><span>Forma</span><select name="forma">${Object.entries(FORMAS).map(([k, t]) => opt(k, t, k === (fav.forma || "pix"))).join("")}</select></label>
         <label class="fl"><span>Data</span><input type="date" name="data" value="${hoje()}"></label>
         <label class="fl"><span>Saiu da conta</span><select name="conta">${contasOpts(null, soCaixa)}</select></label>
-        <label class="fl"><span>Valor depositado</span><input name="valor" inputmode="decimal" value=""></label></div>
-        <label class="fl"><span>Observação</span><input name="obs" placeholder="ex.: descontado reparo de R$ 150"></label>
-        <p class="hint">Os aluguéis marcados recebem o repasse (saída no caixa) com o valor da coluna Repasse. Se descontou alguma despesa, ajuste o valor de cada um.</p>` : ""}`,
+        <label class="fl"><span>Valor</span><input name="valor" inputmode="decimal" value=""></label></div>
+        <label class="fl"><span>Observação</span><input name="obs" placeholder="ex.: descontado reparo de R$ 150"></label>` : ""}`,
     aoAbrir: (f, d) => {
       const soma = () => { if (!f.valor) return; const t = $$("[data-cob]:checked", d).reduce((a, x) => a + (parseMoney($(`[data-val="${x.dataset.cob}"]`, d).value) || 0), 0); f.valor.value = n2(t); };
       $$("[data-cob],[data-val]", d).forEach(x => x.addEventListener("input", soma)); soma();
-      $("[data-rel]", d).addEventListener("click", () => { d.close(); setTimeout(() => demonstrativo(fav), 0); });
+      if (f.forma) f.forma.addEventListener("change", () => { if (f.forma.value === "dinheiro") f.sit.value = "imob"; else if (f.sit.value === "imob") f.sit.value = "depositado"; });
+      $("[data-rel]", d).addEventListener("click", () => { d.close(); setTimeout(() => abrirRelatorio("Relatório · " + fav.nome, relatorioProprietario(fav)), 0); });
       const bf = $("[data-fav]", d); if (bf) bf.addEventListener("click", () => { d.close(); setTimeout(() => ACT["dep-fav"]({ dataset: { id: fav.id } }), 0); });
       const be = $("[data-est]", d); if (be) be.addEventListener("click", async () => { d.close(); if (!(await confirmar("Desfazer depósito", `Desfazer o registro de ${esc(mesTxt(S.mes))} de <b>${esc(fav.nome)}</b>? Os repasses que ele registrou também saem do caixa.`, "Desfazer"))) return; try { await rpc("estornar_deposito", { p_id: i.m.id }); toast("Desfeito."); render(); } catch (e) { falha(e); } });
     },
     salvar: async f => {
       const marc = $$("[data-cob]:checked", $("#dlg")).map(x => x.dataset.cob);
       const vals = marc.map(id => parseMoney($(`[data-val="${id}"]`, $("#dlg")).value) || 0);
-      const sit = f.sit.value, valor = r2((parseMoney(f.valor.value) || 0) + (i.m && i.m.valor ? +i.m.valor : 0)) || null;
-      if (sit === "depositado" && !(valor > 0)) throw new Error("Informe o valor depositado.");
+      const sit = f.sit.value, novoV = parseMoney(f.valor.value) || 0, valor = r2(novoV + (i.m && i.m.valor ? +i.m.valor : 0)) || null;
+      const repassa = ["depositado", "imob"].includes(sit);
+      if (repassa && !(novoV > 0)) throw new Error("Informe o valor.");
+      const semRec = marc.filter(id => { const c = i.cs.find(x => x.id === id); return c && !c.data_pagamento; }).length;
+      if (repassa && semRec && !pedeConfirmacao(f, `<b>${semRec}</b> aluguel(éis) marcado(s) ainda <b>não foram recebidos</b>: o repasse será adiantado pela imobiliária. Confirma?`, "Sim, registrar")) return false;
       await rpc("registrar_deposito", { p_fav: fav.id, p_comp: S.mes, p_situacao: sit, p_data: f.data.value || null, p_conta: f.conta.value || null,
-        p_cobrancas: sit === "depositado" ? marc : [], p_valores: sit === "depositado" ? vals : [], p_valor: valor, p_obs: f.obs.value.trim() });
-      toast("Depósito registrado."); render();
+        p_cobrancas: repassa ? marc : [], p_valores: repassa ? vals : [], p_valor: valor, p_obs: f.obs.value.trim(), p_forma: f.forma.value });
+      toast("Registrado (repasses também em Aluguéis do mês e no Caixa)."); render();
     } });
 };
-
-// ---- demonstrativo (relatório para o proprietário) ----
-function demonstrativo(fav) {
-  const i = infoDep(fav), cs = i.cs.filter(c => c.data_pagamento);
-  const tot = cs.reduce((a, c) => { a.rec += +c.valor_pago; a.tx += +(c.taxa_valor || 0); a.rep += c.repasse_data ? +c.repasse_valor : liquidoCob(c); return a; }, { rec: 0, tx: 0, rep: 0 });
-  const html = `<div class="relatorio">
-    <div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Demonstrativo de repasse de aluguéis</span></div><div class="rel-m">${esc(mesTxt(S.mes))}</div></div>
-    <p><b>Proprietário:</b> ${esc(fav.nome)}<br><b>Conta para depósito:</b> ${esc(fav.conta_bancaria || "—")}</p>
-    <table class="rel-t"><thead><tr><th>Imóvel</th><th>Locatário</th><th>Recebido em</th><th class="num">Aluguel recebido</th><th class="num">Taxa de administração</th><th class="num">Valor repassado</th></tr></thead><tbody>
-      ${cs.map(c => `<tr><td>${esc((S.imovelPor[c.imovel_id] || {}).endereco || "")}</td><td>${esc(c.locatario)}</td><td>${dt(c.data_pagamento)}</td><td class="num">${n2(c.valor_pago)}</td><td class="num">${n2(c.taxa_valor || 0)}</td><td class="num">${n2(c.repasse_data ? c.repasse_valor : liquidoCob(c))}</td></tr>`).join("") || `<tr><td colspan="6">Nenhum aluguel recebido neste mês.</td></tr>`}
-    </tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${n2(tot.rec)}</td><td class="num">${n2(tot.tx)}</td><td class="num">${n2(tot.rep)}</td></tr></tfoot></table>
-    ${i.naoPagos.length ? `<p class="rel-obs">Ainda não recebidos neste mês: ${i.naoPagos.map(c => esc((S.imovelPor[c.imovel_id] || {}).endereco || c.locatario)).join("; ")}.</p>` : ""}
-    <p>${i.m ? `<b>${esc(SIT_DEP[i.m.situacao][0])}</b>${i.m.data ? " em " + dt(i.m.data) : ""}${i.m.valor != null ? ": <b>" + brl(i.m.valor) + "</b>" : ""}${i.m.obs ? " — " + esc(i.m.obs) : ""}` : "Depósito ainda não realizado."}</p>
-    <p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p></div>`;
-  abrirRelatorio("Demonstrativo · " + fav.nome, html);
-}
+ACT["dep-zerar"] = () => modal({ titulo: "Zerar a lista de favorecidos", ok: "Apagar tudo",
+  corpo: `<div class="box bad">Apaga <b>todos os ${DEP.favs.length} favorecidos</b> e o registro mensal dos depósitos (situação e data de cada mês). Os repasses e lançamentos do Caixa <b>não</b> são apagados.</div>
+    <p>Depois, use <b>Importar planilha</b> com a lista ajustada.</p><label class="fl"><span>Para confirmar, digite ZERAR</span><input name="conf" autocomplete="off"></label>`,
+  salvar: async f => {
+    if (f.conf.value.trim().toUpperCase() !== "ZERAR") throw new Error("Digite ZERAR para confirmar.");
+    await q(sb.from("depositos_fav").delete().not("id", "is", null));
+    toast("Lista de favorecidos apagada."); render();
+  } });
+const demonstrativo = fav => abrirRelatorio("Relatório · " + fav.nome, relatorioProprietario(fav));
 ACT["dep-rel-mes"] = () => {
   const ls = DEP.favs.filter(f => f.ativo).sort((a, b) => (a.dia || 99) - (b.dia || 99) || COLL.compare(a.nome, b.nome));
-  const html = `<div class="relatorio"><div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Depósitos aos proprietários</span></div><div class="rel-m">${esc(mesTxt(S.mes))}</div></div>
-    <table class="rel-t"><thead><tr><th>Dia</th><th>Favorecido</th><th>Conta</th><th class="num">A repassar</th><th>Situação</th><th class="num">Depositado</th></tr></thead><tbody>
-    ${ls.map(f => { const i = infoDep(f); return `<tr><td>${f.dia || ""}</td><td>${esc(f.nome)}</td><td>${esc(f.conta_bancaria)}</td><td class="num">${i.aRepassar ? n2(i.aRepassar) : ""}</td><td>${i.m ? esc(SIT_DEP[i.m.situacao][0]) + (i.m.data ? " " + dt(i.m.data) : "") : i.atrasado ? "ATRASADO" : "pendente"}</td><td class="num">${i.m && i.m.valor != null ? n2(i.m.valor) : ""}</td></tr>`; }).join("")}
-    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p></div>`;
-  abrirRelatorio("Depósitos de " + mesTxt(S.mes), html);
+  const html = `<div class="rel-tit"><b>Depósitos aos proprietários</b><span>${esc(mesTxt(S.mes))}</span></div>
+    <p style="font-size:11px"><span style="background:#e3f2e4;padding:1px 6px">feito</span> <span style="background:#fff3cf;padding:1px 6px">pendente</span> <span style="background:#fde8ea;padding:1px 6px">atrasado (dia previsto já passou)</span></p>
+    <table class="rel-t"><thead><tr><th>Dia</th><th>Favorecido</th><th>Forma</th><th>Conta / PIX</th><th class="num">A repassar</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+    ${ls.map(f => { const i = infoDep(f), cls = i.m ? "r-ok" : i.atrasado ? "r-bad" : "r-pend";
+      return `<tr class="${cls}"><td>${f.dia || ""}</td><td>${esc(f.nome)}</td><td>${esc(FORMAS[(i.m && i.m.forma) || f.forma] || "")}</td><td>${esc(f.conta_bancaria)}</td><td class="num">${i.aRepassar ? n2(i.aRepassar) : ""}</td><td>${i.m ? esc(SIT_DEP[i.m.situacao][0]) + (i.m.data ? " " + dt(i.m.data) : "") : i.atrasado ? "ATRASADO" : "pendente"}</td><td class="num">${i.m && i.m.valor != null ? n2(i.m.valor) : ""}</td></tr>`; }).join("")}
+    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p>`;
+  abrirRelatorio("Depósitos de " + mesTxt(S.mes), html, { paisagem: true });
 };
-function abrirRelatorio(titulo, html) {
-  modal({ titulo, largo: true, semOk: true, extra: `<button type="button" class="btn pri" data-imp>🖨 Imprimir / salvar PDF</button>`, corpo: html,
-    aoAbrir: (f, d) => $("[data-imp]", d).addEventListener("click", () => { document.body.classList.add("imprimindo"); window.print(); setTimeout(() => document.body.classList.remove("imprimindo"), 500); }) });
+// ---- papel timbrado (igual ao dos termos) e impressão em várias páginas ----
+const TIMBRE = Object.assign({
+  razao: "FICA ADMINISTRAÇÃO DE IMÓVEIS LTDA — CRECI 4419-J", nome: "IMOBILIÁRIA BANDEIRANTES", cidade: "Monte Mor",
+  rodape: ["Av. Jânio Quadros, 444 – Centro – Monte Mor/SP – CEP 13190-101", "Fone: (19) 3879-1945 / (19) 3879-2949 – WhatsApp (19) 9.8783-5485",
+    "email: imob-bandeirantes@interall.com.br / contato@imobiliariabandeirantes.com.br"]
+}, CFG.TIMBRE || {});
+function timbrado(conteudo) {
+  return `<div class="relatorio"><img class="tb-wm" src="img/logo.png" alt=""><table class="tb-pg">
+    <thead><tr><td><div class="tb-h"><img src="img/logo.png" alt=""><div><small>${esc(TIMBRE.razao)}</small><b>${esc(TIMBRE.nome)}</b></div></div></td></tr></thead>
+    <tbody><tr><td>${conteudo}</td></tr></tbody>
+    <tfoot><tr><td><div class="tb-f">${TIMBRE.rodape.map(esc).join("<br>")}</div></td></tr></tfoot></table></div>`;
 }
-
+function imprimir(html, paisagem) {
+  const area = $("#print-area"); area.innerHTML = html;
+  let pg = $("#print-page"); if (!pg) { pg = document.createElement("style"); pg.id = "print-page"; document.head.appendChild(pg); }
+  pg.textContent = `@media print{@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:9mm}}`;
+  document.body.classList.add("imprimindo");
+  const fim = () => { document.body.classList.remove("imprimindo"); area.innerHTML = ""; window.removeEventListener("afterprint", fim); };
+  window.addEventListener("afterprint", fim);
+  setTimeout(() => window.print(), 50);
+}
+// conteudo: um bloco, ou uma lista de blocos (cada um vira páginas próprias, com o timbre)
+function abrirRelatorio(titulo, conteudo, opts) {
+  opts = opts || {};
+  const blocos = Array.isArray(conteudo) ? conteudo : [conteudo];
+  const html = blocos.map((b, i) => `<div class="${i ? "rel-quebra" : ""}">${timbrado(b)}</div>`).join("");
+  modal({ titulo, xl: !!opts.paisagem, largo: !opts.paisagem, semOk: true, extra: `<button type="button" class="btn pri" data-imp>🖨 Imprimir / salvar PDF</button>`, corpo: `<div class="rel-prev">${html}</div>`,
+    aoAbrir: (f, d) => $("[data-imp]", d).addEventListener("click", () => imprimir(html, opts.paisagem)) });
+}
+// ---- relatório do proprietário (como o modelo do Excel: aluguéis, descontos e total a receber) ----
+function relatorioProprietario(fav) {
+  const i = infoDep(fav);
+  const itens = i.cs.filter(c => c.data_pagamento || c.repasse_data).sort((a, b) => (a.data_pagamento || a.repasse_data || "").localeCompare(b.data_pagamento || b.repasse_data || ""));
+  const pend = i.cs.filter(c => !c.data_pagamento && !c.repasse_data && !c.devedor_id);
+  const end = c => (S.imovelPor[c.imovel_id] || {}).endereco || "";
+  let sub = 0, tx = 0; const descs = [], pcts = new Set();
+  const linhas = itens.map((c, n) => {
+    const k = calcCob(c), aj = ajustesDe(c);
+    sub += +c.valor + k.acrProp; tx += k.taxa; pcts.add(+c.taxa_adm_pct);
+    aj.filter(x => x.tipo === "desc" && x.de === "prop").forEach(x => descs.push([`${x.desc} — ${end(c)}`, x.valor]));
+    k.desp.forEach(l => descs.push([`${l.descricao || "Despesa"} — ${end(c)}${l.data ? " (" + dt(l.data) + ")" : ""}`, +l.valor]));
+    return `<tr class="lct"><td class="n">${pad(n + 1)}</td><td>${esc(c.locatario)}</td><td class="d"></td><td class="v"></td></tr>
+      <tr class="imv"><td></td><td>${esc(end(c))}</td><td class="d">${c.data_pagamento ? dt(c.data_pagamento) : ""}</td><td class="v">${n2(c.valor)}</td></tr>
+      ${aj.filter(x => x.tipo === "acr" && x.de === "prop").map(x => `<tr class="imv"><td></td><td>+ ${esc(x.desc)}</td><td class="d"></td><td class="v">${n2(x.valor)}</td></tr>`).join("")}`;
+  }).join("");
+  const totDesc = r2(tx + descs.reduce((a, x) => a + x[1], 0)), total = r2(sub - totDesc);
+  const m = i.m, dinheiro = (m && (m.forma === "dinheiro" || m.situacao === "imob")) || (!m && fav.forma === "dinheiro");
+  const pctTxt = pcts.size === 1 ? ` ${n2([...pcts][0]).replace(",00", "")}%` : "";
+  return `<div class="rel-tit"><b>Relatório dos aluguéis · ${esc(fav.nome)}</b><span>Aluguéis recebidos em ${esc(mesTxt(S.mes))}</span></div>
+    <table class="rp"><tbody>
+      ${linhas || `<tr><td colspan="4">Nenhum aluguel recebido neste mês.</td></tr>`}
+      <tr class="rp-sub"><td></td><td>SUBTOTAL</td><td></td><td class="v">${n2(sub)}</td></tr>
+      <tr class="rp-sec"><td></td><td colspan="3">DESCONTOS</td></tr>
+      <tr><td></td><td>Comissão (taxa de administração)${pctTxt}</td><td></td><td class="v">-${n2(tx)}</td></tr>
+      ${descs.map(([t, v]) => `<tr><td></td><td>${esc(t)}</td><td></td><td class="v">-${n2(v)}</td></tr>`).join("")}
+      <tr class="rp-sub"><td></td><td>TOTAL DOS DESCONTOS</td><td></td><td class="v">-${n2(totDesc)}</td></tr>
+      <tr class="rp-tot"><td></td><td>TOTAL A RECEBER</td><td></td><td class="v">${n2(total)}</td></tr>
+    </tbody></table>
+    ${pend.length ? `<p class="rel-obs">Aluguéis deste mês ainda não recebidos: ${pend.map(c => esc(end(c))).join("; ")}.</p>` : ""}
+    ${dinheiro ? `<div class="rel-ass"><p>Recebi os valores acima mencionados:</p><p>${esc(TIMBRE.cidade)}, ______ de ____________________ de ${S.mes.slice(0, 4)}.</p><div class="linha">${esc(fav.nome)}</div></div>`
+      : `<p style="margin-top:14px">${m && m.data && m.valor ? `Valor depositado em <b>${dt(m.data)}</b>${m.forma ? " via " + esc(FORMAS[m.forma] || m.forma) : ""}: <b>${brl(m.valor)}</b>` : "Depósito ainda não realizado"}${fav.conta_bancaria ? ` · ${fav.forma === "pix" ? "chave PIX" : "conta"}: ${esc(fav.conta_bancaria)}` : ""}.</p>`}
+    <p class="rel-rod">Emitido em ${new Date().toLocaleDateString("pt-BR")}</p>`;
+}
+ACT["dep-rel-todos"] = () => {
+  const ativos = DEP.favs.filter(f => f.ativo && infoDep(f).cs.some(c => c.data_pagamento || c.repasse_data));
+  modal({ titulo: "Relatórios dos proprietários", ok: "Gerar",
+    corpo: `<p>Gera o relatório de cada proprietário de <b>${esc(mesTxt(S.mes))}</b> (com aluguel recebido ou repassado), um por página, com o papel timbrado.</p>
+      <label class="fl"><span>Quais</span><select name="q">${opt("todos", `Todos com movimento (${ativos.length})`, true)}${opt("feitos", "Só os já depositados/pagos", false)}${opt("dinheiro", "Só os pagos em dinheiro (com assinatura)", false)}${opt("deposito", "Só os por depósito/PIX", false)}</select></label>`,
+    salvar: async f => {
+      const qv = f.q.value;
+      const ls = ativos.filter(x => { const i = infoDep(x), din = (i.m && (i.m.forma === "dinheiro" || i.m.situacao === "imob")) || (!i.m && x.forma === "dinheiro");
+        return qv === "todos" || (qv === "feitos" && i.m) || (qv === "dinheiro" && din) || (qv === "deposito" && !din); }).sort((a, b) => (a.dia || 99) - (b.dia || 99) || COLL.compare(a.nome, b.nome));
+      if (!ls.length) throw new Error("Nenhum proprietário nesse filtro.");
+      setTimeout(() => abrirRelatorio(`Relatórios dos proprietários · ${mesTxt(S.mes)} (${ls.length})`, ls.map(relatorioProprietario)), 0);
+    } });
+};
 // ---- importação da planilha de depósitos (aba do semestre, ex.: "Jul26") ----
 const nzN = s => norm(s).toUpperCase();
 const STOP_N = new Set(["DE", "DA", "DO", "DOS", "DAS", "E", "FB", "SQ", "PFC", "IMOB", "CF", "OUTROS"]);
@@ -2282,9 +2514,10 @@ ACT["dep-importar"] = () => {
       const exist = new Map(DEP.favs.map(x => [norm(x.nome) + "|" + (x.dia || ""), x]));
       for (let k = 0; k < lidos.length; k++) {
         const x = lidos[k], loc = ($(`[data-loc="${k}"]`, dlg).value || "").trim();
-        const dd = { nome: x.nome, dia: x.dia, conta_bancaria: x.conta, locadores: loc ? [loc] : [], ativo: true };
+        const forma = /pix/i.test(x.conta) ? "pix" : /dinheiro|imob/i.test(x.conta) || !x.conta ? "dinheiro" : "deposito";
+        const dd = { nome: x.nome, dia: x.dia, conta_bancaria: forma === "dinheiro" ? "" : x.conta, forma, locadores: loc ? [loc] : [], ativo: true };
         let fav = exist.get(norm(x.nome) + "|" + (x.dia || "")) || null;
-        if (fav) { await q(sb.from("depositos_fav").update({ dia: dd.dia, conta_bancaria: dd.conta_bancaria, locadores: Array.from(new Set((fav.locadores || []).concat(dd.locadores))) }).eq("id", fav.id)); }
+        if (fav) { await q(sb.from("depositos_fav").update({ dia: dd.dia, conta_bancaria: dd.conta_bancaria, forma: fav.forma || dd.forma, locadores: Array.from(new Set((fav.locadores || []).concat(dd.locadores))) }).eq("id", fav.id)); }
         else { fav = await q(sb.from("depositos_fav").insert(dd).select().single()); exist.set(norm(x.nome) + "|" + (x.dia || ""), fav); }
         if (x.hist.length) await q(sb.from("depositos_mes").upsert(x.hist.map(h => ({ favorecido_id: fav.id, competencia: h.comp, situacao: h.situacao, data: h.data || null, obs: "importado da planilha" })), { onConflict: "favorecido_id,competencia", ignoreDuplicates: true }));
         n++;
@@ -2589,9 +2822,11 @@ function fichaDe(c) {
 const fv = (c, k) => k === "codigo" ? c.codigo : (c._f || (c._f = fichaDe(c)))[k] || "";
 
 function stPill(c, k) {
-  const v = String(fv(c, k) || "").trim(), u = v.toUpperCase();
-  const cls = !v || v === "---" ? "idle" : u === "OK" ? "ok" : u === "N/A" ? "idle" : u === "NÃO" || u === "NAO" || u === "CANCELADO" ? "bad" : "warn";
-  const txt = !v || v === "---" ? "—" : v.length > 16 ? v.slice(0, 15) + "…" : v;
+  let v = String(fv(c, k) || "").trim(); const u = v.toUpperCase();
+  if (c.situacao === "CANCELADO" && u === "CANCELADO") v = ""; // nos cancelados, "CANCELADO" fica só na situação
+  const cls = !v || v === "---" ? (pendAtiva(c, k) ? "warn" : "idle") : u === "OK" || u === "SIM" ? "ok" : u === "N/A" ? "idle" : u === "NÃO" || u === "NAO" ? "bad" : "warn";
+  // na tabela: só SIM/OK, NÃO ou N/A; qualquer outro texto vira "…" (clique para ler)
+  const txt = !v || v === "---" ? "—" : ["OK", "SIM", "NÃO", "NAO", "N/A"].includes(u) ? u : "…";
   const ed = pode.editar() ? ` data-act="ctt-st" data-id="${esc(c.codigo)}" data-k="${k}" role="button" tabindex="0"` : "";
   return `<span class="tag ${cls} st-ed"${ed} title="${esc(v || "vazio")}${pode.editar() ? " · clique para alterar" : ""}">${esc(txt)}</span>`;
 }
@@ -2612,12 +2847,17 @@ function tituloCurto(c) {
   return t;
 }
 const COLS_CTT = CP.map(c => {
-  const col = { k: c.k, t: tituloCurto(c), dica: c.t + " · clique para ordenar, arraste para mover", v: r => fv(r, c.k), cls: /_nome$|^obs$|_rua$|^ig_|_ext$|^enc_|_email$|_prof$|_bairro$|_cidade$/.test(c.k) ? "trunc" : "" };
-  col.thcls = "sec-" + c.sec;
-  if (c.k === "codigo") Object.assign(col, { t: "Contrato", cls: "mono", fixo: true });
+  const col = { k: c.k, t: tituloCurto(c), dica: c.t + " · clique para ordenar, arraste para mover", v: r => fv(r, c.k), cls: "trunc", tip: true };
+  col.grp = c.k === "obs" ? "obs" : c.k === "redacao" || c.k === "correcao" ? "red" : c.sec === "st" ? "st" : c.sec;
+  if (c.tipo === "st") col.w = 66;
+  if (c.k === "codigo") Object.assign(col, { t: "Contrato", cls: "mono", fixo: true, w: 112, tip: false, html: r => `${esc(r.codigo)}<a class="pasta" href="${esc(pastaUrl(r))}" target="_blank" rel="noopener" data-pasta title="${r.pasta_url ? "Abrir a pasta do contrato (Google Drive)" : "Procurar a pasta deste contrato no Google Drive"}">📁</a>` });
+  if (c.k === "obs") Object.assign(col, { w: 150, cls: "trunc obs-col" });
+  if (c.k === "redacao" || c.k === "correcao") col.w = 72;
+  if (c.k === "situacao") col.w = 120;
   if (c.k === "end_rua") col.t = "Imóvel";
   if (c.tipo === "st") Object.assign(col, { html: r => stPill(r, c.k) });
-  if (c.k === "situacao") Object.assign(col, { t: "Situação", html: sitPill });
+  if (c.k === "situacao") Object.assign(col, { t: "Situação", html: sitPill, tip: false });
+  if (c.tipo === "st") col.tip = false;
   if (c.tipo === "dext") Object.assign(col, { tipo: "data", v: r => dataDeTexto(fv(r, c.k)) || null, f: r => dt(dataDeTexto(fv(r, c.k))) || fv(r, c.k) });
   if (c.tipo === "moeda") Object.assign(col, { tipo: "num", v: r => parseMoney(fv(r, c.k)), f: r => { const n = parseMoney(fv(r, c.k)); return n == null ? fv(r, c.k) : n2(n); } });
   if (c.tipo === "tel") col.f = r => fmtTel(fv(r, c.k));
@@ -2633,49 +2873,65 @@ PAGES.contratos = async pg => {
   desenharContratos(pg);
 };
 let CTT = [];
-// pendências (só contam para contratos ATIVOS)
-const PEND_CTT = [["st_ass_lcd", "Falta ass. LCD"], ["st_ass_lct", "Falta ass. LCT/FDR"], ["st_scan", "Falta scan"], ["st_cpfl", "Falta CPFL"], ["st_condominio", "Falta condomínio"], ["st_brimob", "Falta BRIMOB"]];
-const pendsDe = c => c.situacao === "ATIVO" ? PEND_CTT.filter(([k]) => ehPend(fv(c, k))) : [];
-const garDe = c => { const g = norm(fv(c, "garantia") || c.garantia || "").toUpperCase(); return /FIAD/.test(g) ? "fiador" : /CAU/.test(g) ? "caucao" : /SEGURO/.test(g) ? "seguro" : /TITULO|CAPITALIZ/.test(g) ? "titulo" : g ? "outra" : "sem"; };
-const GAR_CTT = [["", "Todas as garantias"], ["fiador", "Fiador"], ["caucao", "Caução"], ["seguro", "Seguro fiança"], ["titulo", "Título de capitalização"], ["sem", "Sem garantia / não informado"]];
+// pendências (pintam a linha só nos contratos ATIVOS)
+const PEND_CTT = [["st_ass_lcd", "Falta ass. LCD"], ["st_ass_lct", "Falta ass. LCT/FDR"], ["st_scan", "Falta scan"], ["st_cpfl", "Falta CPFL"], ["st_condominio", "Falta condomínio"], ["st_brimob", "Falta BRIMOB"], ["redcor", "Falta redação/correção"]];
+const vazioSt = v => { const t = String(v || "").trim(); return !t || /^-+$/.test(t); };
+function pendAtiva(c, k) {
+  if (k === "redcor") return vazioSt(fv(c, "redacao")) || vazioSt(fv(c, "correcao"));
+  const v = fv(c, k);
+  if (k === "st_brimob" && vazioSt(v)) return true; // BRIMOB em branco também conta como falta
+  return ehPend(v);
+}
+const pendsDe = c => c.situacao === "ATIVO" ? PEND_CTT.filter(([k]) => k !== "redcor" && pendAtiva(c, k)) : [];
+const curtoTxt = (t, n) => { t = String(t || ""); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+// pasta do contrato: link do Google Drive gravado no contrato, ou busca pelo número no Drive
+const pastaUrl = c => c.pasta_url || (CFG.DRIVE_BUSCA || "https://drive.google.com/drive/search?q=") + encodeURIComponent(c.codigo);
+const garDe = c => { const g = norm(fv(c, "garantia") || c.garantia || "").toUpperCase(); return /FIAD/.test(g) ? "fiador" : /CAU/.test(g) ? "caucao" : /SEGURO/.test(g) ? "seguro" : /TITULO|CAPITALIZ/.test(g) ? "titulo" : "sem"; };
 function corCtt(c) {
   return { "ATIVO": pendsDe(c).length ? "ct-pend" : "ct-ativo", "EM ELABORAÇÃO": "ct-elab", "ENCERRADO": "ct-enc", "DÉBITO EM ABERTO": "ct-deb", "CANCELADO": "ct-canc" }[c.situacao] || "";
 }
 const NAO_ATIVOS = ["ENCERRADO", "DÉBITO EM ABERTO", "CANCELADO"];
+const CTT_SEL = new Set();
+const COL_SEL_CTT = { k: "sel", t: "Seleção", nf: true, fixo: true, w: 30, th: `<input type="checkbox" data-csel="todos" aria-label="Selecionar todos">`, html: c => `<input type="checkbox" data-csel="${esc(c.codigo)}" ${CTT_SEL.has(c.codigo) ? "checked" : ""} aria-label="Selecionar">` };
 function desenharContratos(pg) {
   pg = pg || $("#page");
   let f = S.f.ctt || "todos"; if (!["todos", "ATIVO", "EM ELABORAÇÃO", "naoativos"].includes(f)) f = S.f.ctt = "todos";
   const sub = S.f.cttSub || "", pend = S.f.cttPend || "", gar = S.f.cttGar || "", busca = S.f.cttBusca || "";
   const lim60 = iso(new Date(Date.now() + 60 * 86400000));
   const grupo = { todos: () => true, ATIVO: c => c.situacao === "ATIVO", "EM ELABORAÇÃO": c => c.situacao === "EM ELABORAÇÃO", naoativos: c => NAO_ATIVOS.includes(c.situacao) };
-  const subT = { pend: c => pendsDe(c).length > 0, sempend: c => !pendsDe(c).length, vencendo: c => c.termino && c.termino >= hoje() && c.termino <= lim60,
-    ENCERRADO: c => c.situacao === "ENCERRADO", "DÉBITO EM ABERTO": c => c.situacao === "DÉBITO EM ABERTO", CANCELADO: c => c.situacao === "CANCELADO" };
+  const subT = { pend: c => pendsDe(c).length > 0, sempend: c => !pendsDe(c).length, vencendo: c => c.termino && c.termino >= hoje() && c.termino <= lim60, redcor: c => pendAtiva(c, "redcor"),
+    ENCERRADO: c => c.situacao === "ENCERRADO", "DÉBITO EM ABERTO": c => c.situacao === "DÉBITO EM ABERTO", CANCELADO: c => c.situacao === "CANCELADO", rascunho: c => ehRascunho(c.codigo) };
   const base = CTT.filter(c => !gar || garDe(c) === gar);
   const nG = k => base.filter(grupo[k]).length;
   let lista = base.filter(grupo[f]);
-  const subs = f === "ATIVO" ? [["", "Todos os ativos", ""], ["sempend", "Sem pendência", "st-LVR"], ["pend", "Com pendências", "st-OCP"], ["vencendo", "Terminam em 60 dias", ""]]
-    : f === "naoativos" ? [["", "Todos não ativos", ""], ["ENCERRADO", "Encerrados sem pendência", "st-ALG"], ["DÉBITO EM ABERTO", "Encerrados com débito", "st-INTV"], ["CANCELADO", "Cancelados", "st-CANC"]] : [];
+  const subs = f === "ATIVO" ? [["", "Todos os ativos", ""], ["sempend", "Sem pendência", "st-LVR"], ["pend", "Com pendências", "st-OCP"], ["redcor", "Falta redação/correção", ""], ["vencendo", "Terminam em 60 dias", ""]]
+    : f === "naoativos" ? [["", "Todos não ativos", ""], ["ENCERRADO", "Encerrados sem débitos", "st-ALG"], ["DÉBITO EM ABERTO", "Encerrados com débito", "st-INTV"], ["CANCELADO", "Cancelados", "st-CANC"]]
+    : f === "EM ELABORAÇÃO" ? [["", "Todos em elaboração", ""], ["rascunho", "Rascunhos do gerador", ""]] : [];
   const subOk = subs.some(x => x[0] === sub) ? sub : "";
   const listaG = lista, nS = k => k ? listaG.filter(subT[k]).length : listaG.length;
   if (subOk) lista = lista.filter(subT[subOk]);
-  const verPend = f === "ATIVO" && subOk === "pend";
-  const listaP = lista, nP = k => listaP.filter(c => ehPend(fv(c, k))).length;
-  if (verPend && pend) lista = lista.filter(c => ehPend(fv(c, pend)));
+  // pendências por tipo: nos ativos (dentro de "Com pendências") e em elaboração
+  const verPend = (f === "ATIVO" && subOk === "pend") || f === "EM ELABORAÇÃO";
+  const listaP = lista, nP = k => listaP.filter(c => pendAtiva(c, k)).length;
+  if (verPend && pend) lista = lista.filter(c => pendAtiva(c, pend));
   if (busca) { const b = norm(busca); lista = lista.filter(c => norm([c.codigo, c.endereco, c.locador, c.locatario, c.fiador, fv(c, "lct1_cpf"), fv(c, "lct2_cpf")].join(" ")).includes(b)); }
-  const g = grade("contratos5", COLS_CTT, lista, { attr: c => `data-act="ctt-ed" data-id="${esc(c.codigo)}" style="cursor:pointer"`, sort: { k: "codigo", dir: "desc" }, rodape: fl => `${fl.length} contratos`,
+  const cols = pode.editar() ? [COL_SEL_CTT].concat(COLS_CTT) : COLS_CTT;
+  const g = grade("contratos5", cols, lista, { attr: c => `data-act="ctt-ed" data-id="${esc(c.codigo)}" style="cursor:pointer"`, sort: { k: "codigo", dir: "desc" }, rodape: fl => `${fl.length} contratos`,
     divisor: { k: "codigo", g: c => c.codigo.slice(2, 4) }, cls: corCtt, tcls: "ctt" });
+  if (pode.editar() && !g.ordem.includes("sel")) g.ordem.unshift("sel");
   g.redesenhar = () => desenharContratos();
   const chip = (k, t, cls, n, on, key) => `<button class="chip ${cls || ""}${on ? " on" : ""}" data-act="chip" data-k="${key}" data-v="${esc(k)}">${t}<span class="c">${n}</span></button>`;
   const semFicha = CTT.filter(c => !c.ficha || !Object.keys(c.ficha).length).length;
   const sabado = new Date().getDay() === 6, nPendAtivos = CTT.filter(c => pendsDe(c).length).length;
+  const selN = [...CTT_SEL].filter(k => CTT.some(c => c.codigo === k)).length;
   pg.innerHTML = `<div class="grid">
     ${semFicha && pode.editar() ? `<div class="alert warn"><span><b>${semFicha}</b> contratos ainda sem a ficha completa (RG, CPF, UC, matrícula…). Use <b>Importar planilha</b> com o arquivo "Gerador de Contratos" para trazer todos os dados do Excel.</span></div>` : ""}
     ${sabado && nPendAtivos ? `<div class="alert warn"><span>Hoje é sábado: dia de emitir o <b>relatório de pendências</b> (${nPendAtivos} contratos ativos com pendência).</span><button class="btn" data-act="ctt-rel-pend">📋 Emitir agora</button></div>` : ""}
     ${termosPendentesHTML()}
     ${(() => { if (!CAUC.contas.length) return ""; const sc = caucSemConta(); return sc.length ? `<div class="alert warn"><span><b>Contratos com caução sem conta caução vinculada</b> (obrigatório): ${sc.map(c => `<button class="btn sm" data-act="cauc-vinc-ctt" data-id="${esc(c.codigo)}">${esc(c.codigo)} · ${esc(c.locatario || "")}</button>`).join(" ")}</span></div>` : ""; })()}
     <div class="filters">
-      <div class="chips">${chip("todos", "Todos", "", nG("todos"), f === "todos", "ctt")}${chip("ATIVO", "Ativos", "st-LVR", nG("ATIVO"), f === "ATIVO", "ctt")}${chip("EM ELABORAÇÃO", "Em elaboração", "st-OCP", nG("EM ELABORAÇÃO"), f === "EM ELABORAÇÃO", "ctt")}${chip("naoativos", "Não ativos", "st-ALG", nG("naoativos"), f === "naoativos", "ctt")}</div>
-      <select data-act="ctt-gar" title="Filtrar pela garantia" style="width:170px">${GAR_CTT.map(([k, t]) => opt(k, t, k === gar)).join("")}</select>
+      <div class="fgrupo"><span>Situação</span>${chip("todos", "Todos", "", nG("todos"), f === "todos", "ctt")}${chip("ATIVO", "Ativos", "st-LVR", nG("ATIVO"), f === "ATIVO", "ctt")}${chip("EM ELABORAÇÃO", "Em elaboração", "st-OCP", nG("EM ELABORAÇÃO"), f === "EM ELABORAÇÃO", "ctt")}${chip("naoativos", "Não ativos", "st-ALG", nG("naoativos"), f === "naoativos", "ctt")}</div>
+      <div class="fgrupo"><span>Garantia</span>${[["", "Todas"], ["fiador", "Fiador"], ["caucao", "Caução"], ["sem", "Sem garantia"]].map(([k, t]) => chip(k, t, "", (k ? CTT.filter(c => garDe(c) === k) : CTT).filter(grupo[f]).length, gar === k, "cttGar")).join("")}</div>
       <input type="search" placeholder="Buscar código, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca" style="width:180px">
       <span class="spacer"></span>${gradeBarra("contratos5")}
       <button class="btn" data-act="ctt-termo">🔑 Termos</button>
@@ -2688,22 +2944,59 @@ function desenharContratos(pg) {
       ${pode.editar() ? `<button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha</button><button class="btn pri" data-act="ctt-gerar">📄 Novo contrato</button>` : ""}<button class="btn" data-act="xls-ctt">Excel</button>
     </div>
     ${verPend ? `<div class="filters"><div class="chips sub">${chip("", "Todas as pendências", "", listaP.length, !pend, "cttPend")}${PEND_CTT.map(([k, t]) => chip(k, t, "", nP(k), pend === k, "cttPend")).join("")}</div></div>` : ""}
+    ${selN ? `<div class="filters lote-bar"><b>${selN} selecionado(s)</b> · alterar <select data-lote-k>${opt("situacao", "Situação", true)}${PEND_CTT.filter(([k]) => k !== "redcor").map(([k]) => opt(k, CPK[k].t, false)).join("")}${opt("redacao", "Redação", false)}${opt("correcao", "Correção", false)}</select>
+      para <input data-lote-v list="dl-lote" placeholder="valor (vazio = limpar)" style="width:200px"><datalist id="dl-lote">${Object.keys(SIT_CTT).concat(OPC.st, OPC.quem).map(o => `<option value="${esc(o)}">`).join("")}</datalist>
+      <button class="btn pri" data-act="ctt-lote">Aplicar aos selecionados</button><button class="btn" data-act="ctt-lote-limpar">Limpar seleção</button></div>` : ""}
+    ${CTT.some(c => c.situacao === "CANCELADO" && ST_K.some(k => String(fv(c, k)).trim().toUpperCase() === "CANCELADO")) && pode.editar() ? `<p class="hint">Há contratos cancelados com "CANCELADO" escrito nos status. <button class="btn sm" data-act="ctt-limpa-canc">Apagar esse texto dos status (fica só na Situação)</button></p>` : ""}
     <div class="resumos"><span class="hint">Colunas:</span>${Object.entries(RESUMOS).map(([id, [t]]) => `<button class="chip${S.f.cttResumo === id ? " on" : ""}" data-act="ctt-resumo" data-r="${id}">${esc(t)}</button>`).join("")}</div>
     ${gradeHTML("contratos5")}</div>`;
   ligarBusca(pg);
-  const sel = $("[data-act=ctt-gar]", pg); sel.addEventListener("change", () => { S.f.cttGar = sel.value; desenharContratos(); requestAnimationFrame(ajustarAlturas); });
+  $$("[data-csel]", pg).forEach(x => x.addEventListener("change", () => {
+    if (x.dataset.csel === "todos") { g.filtradas.forEach(c => x.checked ? CTT_SEL.add(c.codigo) : CTT_SEL.delete(c.codigo)); }
+    else if (x.checked) CTT_SEL.add(x.dataset.csel); else CTT_SEL.delete(x.dataset.csel);
+    desenharContratos(); requestAnimationFrame(ajustarAlturas);
+  }));
 }
+// alterar vários contratos de uma vez
+async function alterarFichas(cods, k, v) {
+  let ok = 0;
+  for (const cod of cods) {
+    const c = CTT.find(x => x.codigo === cod); if (!c) continue;
+    const ficha = Object.assign({}, fichaDe(c), { [k]: v });
+    if (k === "situacao" && !v) continue;
+    const r = await q(sb.from("contratos").update({ ficha }).eq("codigo", c.codigo).select().single());
+    Object.assign(c, r); delete c._f; ok++;
+  }
+  return ok;
+}
+ACT["ctt-lote"] = async () => {
+  const k = $("[data-lote-k]").value, v = $("[data-lote-v]").value.trim(), cods = [...CTT_SEL];
+  if (k === "situacao" && !Object.keys(SIT_CTT).includes(v.toUpperCase())) return toast("Escolha uma situação válida (ATIVO, ENCERRADO…).", true);
+  if (!(await confirmar("Alterar vários contratos", `Alterar <b>${esc(CPK[k].t)}</b> para <b>${esc(v || "(vazio)")}</b> em <b>${cods.length}</b> contrato(s)?`, "Alterar"))) return;
+  const n = await alterarFichas(cods, k, k === "situacao" ? v.toUpperCase() : v);
+  CTT_SEL.clear(); toast(`${n} contrato(s) alterado(s).`); desenharContratos(); requestAnimationFrame(ajustarAlturas);
+};
+ACT["ctt-lote-limpar"] = () => { CTT_SEL.clear(); desenharContratos(); requestAnimationFrame(ajustarAlturas); };
+ACT["ctt-limpa-canc"] = async () => {
+  const ls = CTT.filter(c => c.situacao === "CANCELADO" && ST_K.some(k => String(fv(c, k)).trim().toUpperCase() === "CANCELADO"));
+  if (!(await confirmar("Limpar status dos cancelados", `Apagar o texto "CANCELADO" dos campos de status (assinaturas, scan, CPFL…) de <b>${ls.length}</b> contrato(s) cancelado(s)? A Situação continua CANCELADO.`, "Apagar"))) return;
+  for (const c of ls) {
+    const ficha = Object.assign({}, fichaDe(c)); ST_K.forEach(k => { if (String(ficha[k] || "").trim().toUpperCase() === "CANCELADO") ficha[k] = ""; });
+    const r = await q(sb.from("contratos").update({ ficha }).eq("codigo", c.codigo).select().single()); Object.assign(c, r); delete c._f;
+  }
+  toast(`${ls.length} contrato(s) limpos.`); desenharContratos();
+};
 ACT["ctt-gar"] = () => {};
 ACT["aud-limpar"] = () => { S.f.aud = { dia: "", user: "", sec: "" }; render(); };
 ACT["ctt-rel-pend"] = () => {
   const ls = CTT.filter(c => pendsDe(c).length).sort((a, b) => COLL.compare(a.codigo, b.codigo));
-  const porTipo = PEND_CTT.map(([k, t]) => [t, ls.filter(c => ehPend(fv(c, k))).length]).filter(x => x[1]);
-  const html = `<div class="relatorio"><div class="rel-h"><div><b>${esc(CFG.NOME_EMPRESA || "Imobiliária")}</b><br><span>Contratos ativos com pendências</span></div><div class="rel-m">${new Date().toLocaleDateString("pt-BR")}</div></div>
-    <p>${ls.length} contratos · ${porTipo.map(([t, n]) => `${esc(t)}: <b>${n}</b>`).join(" · ")}</p>
-    <table class="rel-t"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locatário</th><th>Início</th>${PEND_CTT.map(([, t]) => `<th>${esc(t.replace("Falta ", ""))}</th>`).join("")}<th>Obs.</th></tr></thead><tbody>
-    ${ls.map(c => `<tr><td>${esc(c.codigo)}</td><td>${esc(c.endereco || fv(c, "end_rua"))}</td><td>${esc(c.locatario || fv(c, "lct1_nome"))}</td><td>${dt(c.inicio)}</td>${PEND_CTT.map(([k]) => { const v = String(fv(c, k) || "").trim(); return `<td>${ehPend(v) ? "<b>" + esc(v) + "</b>" : esc(v === "---" ? "" : v)}</td>`; }).join("")}<td>${esc(String(fv(c, "obs") || "").slice(0, 80))}</td></tr>`).join("")}
-    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleString("pt-BR")} por ${esc(S.membro.nome || S.membro.email)}</p></div>`;
-  abrirRelatorio("Relatório de pendências", html);
+  const porTipo = PEND_CTT.map(([k, t]) => [t, ls.filter(c => pendAtiva(c, k)).length]).filter(x => x[1]);
+  const html = `<div class="rel-tit"><b>Contratos ativos com pendências</b><span>${new Date().toLocaleDateString("pt-BR")} · ${ls.length} contratos</span></div>
+    <p style="font-size:11px">${porTipo.map(([t, n]) => `${esc(t)}: <b>${n}</b>`).join(" · ")}</p>
+    <table class="rel-t"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locatário</th><th>Início</th>${PEND_CTT.map(([, t]) => `<th>${esc(t.replace("Falta ", ""))}</th>`).join("")}</tr></thead><tbody>
+    ${ls.map(c => `<tr><td>${esc(c.codigo)}</td><td>${esc(curtoTxt(c.endereco || fv(c, "end_rua"), 42))}</td><td>${esc(curtoTxt(c.locatario || fv(c, "lct1_nome"), 34))}</td><td>${dt(c.inicio)}</td>${PEND_CTT.map(([k]) => { const v = String(fv(c, k) || "").trim(); return `<td${pendAtiva(c, k) ? ' style="background:#fff3cf"' : ""}>${pendAtiva(c, k) ? "<b>" + esc(curtoTxt(v || "falta", 20)) + "</b>" : esc(curtoTxt(v === "---" ? "" : v, 20))}</td>`; }).join("")}</tr>`).join("")}
+    </tbody></table><p class="rel-rod">Emitido em ${new Date().toLocaleString("pt-BR")} por ${esc(S.membro.nome || S.membro.email)}</p>`;
+  abrirRelatorio("Relatório de pendências", html, { paisagem: true });
 };
 ACT["ctt-resumo"] = el => {
   const g = G.contratos5, vis = new Set(resumoKs(el.dataset.r));
@@ -2715,7 +3008,7 @@ ACT["ctt-st"] = el => {
   if (!c || !pode.editar()) return;
   const atual = String(fv(c, k) || "");
   const ops = sit ? Object.keys(SIT_CTT) : OPC.st;
-  const p = pop(el, `<div class="gp-h">${esc(CPK[k].t)} · ${esc(c.codigo)}</div>
+  const p = pop(el, `<div class="gp-h">${esc(CPK[k].t)} · ${esc(c.codigo)}</div>${atual && !sit ? `<p class="st-atual">${esc(atual)}</p>` : ""}
     <div class="st-ops">${ops.map(o => `<button type="button" class="btn sm${atual.toUpperCase() === o ? " pri" : ""}" data-o="${esc(o)}">${esc(o)}</button>`).join("")}</div>
     ${sit ? "" : `<label class="fl"><span>Outro / anotação</span><input data-livre value="${esc(ops.includes(atual.toUpperCase()) ? "" : atual)}" placeholder="ex.: falta reconhecer firma"></label>
     <div class="gp-f"><button type="button" class="btn sm" data-o="">Deixar vazio</button><button type="button" class="btn sm pri" data-ok>Salvar anotação</button></div>`}`, 320);
@@ -2765,7 +3058,8 @@ function formContrato(c) {
         ${["end_rua", "end_bairro", "end_cidade", "end_cep", "matricula", "insc_cad", "uc", "rgi"].map(k => campoHTML(CPK[k], f[k] || "", dis)).join("")}</div>${imovelDatalist()}`,
     ctt: `<div class="ficha-g">
         <label class="fl"><span>Código</span><input name="codigo" value="${esc(c ? c.codigo : proximoCodigo())}" placeholder="L.26.001" ${novo ? "" : "disabled"}></label>
-        ${["situacao", "fins", "data_contrato", "inicio", "termino", "prazo", "dia_venc", "valor", "valor_ext"].map(k => campoHTML(CPK[k], f[k] || "", dis)).join("")}</div>
+        ${["situacao", "fins", "data_contrato", "inicio", "termino", "prazo", "dia_venc", "valor", "valor_ext"].map(k => campoHTML(CPK[k], f[k] || "", dis)).join("")}
+        <label class="fl largo"><span>Pasta do contrato no Google Drive (link)</span><input name="pasta" value="${esc(c ? c.pasta_url || "" : "")}" placeholder="https://drive.google.com/drive/folders/…  (copie o link da pasta no Drive)" ${dis}></label></div>
         ${bloco("Encargos", ["enc_agua_energia", "enc_gas", "enc_condominio", "enc_iptu"])}`,
     gar: `<div class="ficha-g">${["garantia", "caucao_valor", "caucao_ext", "caucao_conta"].map(k => campoHTML(CPK[k], f[k] || "", dis)).join("")}</div>
         ${bloco("Imóvel em garantia", ["ig_descricao", "ig_rua", "ig_bairro_cidade", "ig_matricula"])}`,
@@ -2825,9 +3119,12 @@ function ligarFicha(form, d, c) {
     const box = document.createElement("div");
     box.className = "fl largo";
     box.innerHTML = vig ? `<span>Conta da caução</span><div class="box">✔ Vinculada: <b>${esc(contaCaucTxt(conta))}</b> · ${brl(vig.valor_entrada)} desde ${dt(vig.data_entrada)}<br><span class="hint">Para devolver ou trocar, use Cadastro locação → Contas caução.</span></div>`
-      : `<span>Conta da caução (escolha uma conta livre)</span><select data-cauc-sel ${pode.editar() ? "" : "disabled"}>${opt("", "— não vinculada —", true)}${CAUC.contas.filter(x => estadoCauc(x) === "livre").map(x => opt(x.id, contaCaucTxt(x), false)).join("")}</select>`;
+      : `<span>Conta da caução (escolha uma conta livre)</span><select data-cauc-sel ${pode.editar() ? "" : "disabled"}>${opt("", "— não vinculada —", !(c && caucDireto(c)))}
+          <optgroup label="Conta caução livre">${CAUC.contas.filter(x => estadoCauc(x) === "livre").map(x => opt(x.id, contaCaucTxt(x), false)).join("")}</optgroup>
+          <optgroup label="Somada a uma conta já ocupada (mesmo locatário)">${CAUC.contas.filter(x => ["ocup", "baixa"].includes(estadoCauc(x))).map(x => opt("s:" + x.id, contaCaucTxt(x) + " — hoje: " + ((CAUC.vig[x.id] || {}).locatario || ""), false)).join("")}</optgroup>
+          <optgroup label="Sem conta">${opt("direto", "Paga direto ao proprietário", !!(c && caucDireto(c)))}</optgroup></select>`;
     cc.closest("label").after(box); cc.closest("label").hidden = true; cc.closest("label").dataset.sempreOculto = "1";
-    const sel = $("[data-cauc-sel]", box); if (sel) sel.addEventListener("change", () => { const x = CAUC.contas.find(y => y.id === sel.value); cc.value = x ? contaCaucTxt(x) : ""; });
+    const sel = $("[data-cauc-sel]", box); if (sel) sel.addEventListener("change", () => { const x = CAUC.contas.find(y => y.id === sel.value.replace(/^s:/, "")); cc.value = sel.value === "direto" ? "Paga diretamente ao proprietário" : x ? contaCaucTxt(x) : ""; });
     box.dataset.caucBox = "1";
   }
   if (gar) { gar.addEventListener("input", aplicarGarantia); aplicarGarantia(); }
@@ -2871,21 +3168,25 @@ async function salvarContrato(form, d, c) {
   let imovel_id = null;
   if (form.imovel.value.trim()) { const im = imovelPorEndereco(form.imovel.value); if (!im) throw new Error("Imóvel não encontrado no mapa: escolha da lista (aba Imóvel) ou cadastre o imóvel antes."); imovel_id = im.id; }
   const codigo = novo ? form.codigo.value.trim() : c.codigo;
-  if (!/^L\.\d{2}\.\d{3}$/.test(codigo)) throw new Error("Código no formato L.26.001 (digite só os números: 26001).");
+  if (!/^L\.\d{2}\.\d{3}$/.test(codigo) && !(c && ehRascunho(codigo))) throw new Error("Código no formato L.26.001 (digite só os números: 26001).");
   const ficha = lerFicha(d, c ? fichaDe(c) : {});
   if (!ficha.end_rua && imovel_id) ficha.end_rua = S.imovelPor[imovel_id].endereco;
   const atualizarMapa = $("[data-mapa=sim]", d) && $("[data-mapa=sim]", d).classList.contains("on");
   // caução: contrato ativo com caução precisa de conta caução vinculada
-  const selC = $("[data-cauc-sel]", d), contaSel = selC && selC.value ? CAUC.contas.find(x => x.id === selC.value) : null;
+  const selC = $("[data-cauc-sel]", d), selV = selC ? selC.value : "", somada = selV.startsWith("s:");
+  const contaSel = selV && selV !== "direto" ? CAUC.contas.find(x => x.id === selV.replace(/^s:/, "")) : null;
   const ehCau = /CAU/i.test(norm(ficha.garantia || "")), jaVinc = !novo && CAUC.vigPorCtt[codigo];
+  if (selC) { if (selV === "direto") ficha.caucao_modo = "proprietario"; else if (ficha.caucao_modo === "proprietario") delete ficha.caucao_modo; }
   if (ehCau && CAUC.contas.length && !jaVinc) {
-    if (!contaSel && (ficha.situacao || "") === "ATIVO") throw new Error("Contrato ativo com caução: escolha uma conta caução livre (aba Garantia).");
+    if (!contaSel && selV !== "direto" && (ficha.situacao || "") === "ATIVO") throw new Error("Contrato ativo com caução: escolha uma conta caução livre, somada a outra conta, ou 'Paga direto ao proprietário' (aba Garantia).");
     if (contaSel && !(parseMoney(ficha.caucao_valor) > 0)) throw new Error("Informe o valor da caução (aba Garantia).");
   }
   let salvo;
-  if (novo) salvo = await q(sb.from("contratos").insert({ codigo, imovel_id, ficha }).select().single());
-  else salvo = await q(sb.from("contratos").update({ imovel_id, ficha }).eq("codigo", codigo).select().single());
-  if (ehCau && contaSel && !jaVinc) { await gravarVinculoCauc(contaSel, salvo, parseMoney(ficha.caucao_valor), dataDeTexto(ficha.inicio) || salvo.inicio || hoje()); await carregarCauc(); }
+  const pasta_url = form.pasta ? form.pasta.value.trim() : (c && c.pasta_url) || "";
+  if (pasta_url && !/^https:\/\//.test(pasta_url)) throw new Error("O link da pasta precisa começar com https:// (copie o link da pasta no Google Drive).");
+  if (novo) salvo = await q(sb.from("contratos").insert({ codigo, imovel_id, ficha, pasta_url }).select().single());
+  else salvo = await q(sb.from("contratos").update({ imovel_id, ficha, pasta_url }).eq("codigo", codigo).select().single());
+  if (ehCau && contaSel && !jaVinc) { await gravarVinculoCauc(contaSel, salvo, parseMoney(ficha.caucao_valor), dataDeTexto(ficha.inicio) || salvo.inicio || hoje(), somada); await carregarCauc(); }
   if (atualizarMapa) {
     if (!imovel_id) throw new Error("Contrato salvo. Para ligar ao mapa, escolha o imóvel na aba Imóvel.");
     const im = S.imovelPor[imovel_id];
@@ -2927,6 +3228,12 @@ async function cadastroXLSX() {
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas), "Contratos Locação");
   return XLSX.write(wb, { type: "array", bookType: "xlsx" });
 }
+const ehRascunho = cod => /^L\.\d{2}\.R\d+$/.test(cod || "");
+function proximoRascunho() {
+  const yy = hoje().slice(2, 4);
+  const n = CTT.filter(c => c.codigo.startsWith("L." + yy + ".R")).map(c => +c.codigo.slice(6)).filter(x => x > 0);
+  return "L." + yy + ".R" + String((n.length ? Math.max(...n) : 0) + 1).padStart(2, "0");
+}
 async function abrirTermo(tipo, codigo, novoCodigo, opts) {
   opts = opts || {};
   if (!opts.aoBaixar && tipo === "entrega" && codigo && termoEst(CTT.find(c => c.codigo === codigo) || {}, "entrega") === "pendente") opts.aoBaixar = () => marcarEntregaFeita(codigo);
@@ -2936,48 +3243,114 @@ async function abrirTermo(tipo, codigo, novoCodigo, opts) {
     const resp = await fetch(arq, { cache: "no-cache" });
     if (!resp.ok) throw new Error("Arquivo não encontrado no site: " + arq);
     const html = await resp.text(), xlsx = await cadastroXLSX(), arquivos = {};
-    if (tipo === "gerador") {
+    const ger = tipo === "gerador";
+    let rascunho = "", form = null;
+    if (ger) {
       const m = await fetch("termos/contrato_padrao.docx", { cache: "no-cache" }).catch(() => null);
       if (m && m.ok) arquivos["contrato_padrao.docx"] = await m.arrayBuffer();
       else toast('O modelo "contrato_padrao.docx" não está na pasta termos do site: o botão "Gerar Contrato (Word)" não vai funcionar até ele ser enviado.', true);
+      if (ehRascunho(codigo)) { rascunho = codigo; const c = CTT.find(x => x.codigo === codigo); form = c && c.ficha && c.ficha._form || null; novoCodigo = proximoCodigo(); }
     }
     const d = $("#dlg");
-    modal({ titulo, semOk: true, corpo: `<iframe title="${esc(titulo)}" sandbox="allow-scripts allow-downloads allow-modals allow-popups" referrerpolicy="no-referrer"></iframe>` });
-    d.classList.add("termo-dlg");
+    modal({ titulo: ger && rascunho ? `Gerador de contratos · rascunho ${rascunho}` : titulo, semOk: true, corpo: `<iframe title="${esc(titulo)}" sandbox="allow-scripts allow-downloads allow-modals allow-popups" referrerpolicy="no-referrer"></iframe><div class="ger-sair" data-sair hidden></div>` });
+    d.classList.add("termo-dlg"); if (ger) d.classList.add("ger");
     const fr = $("iframe", d);
+    const st = { sujo: false, rascunho };
+    if (ger) {
+      const bar = document.createElement("div"); bar.className = "ger-bar";
+      bar.innerHTML = `<span class="hint" data-gst></span><button type="button" class="btn sm" data-ga="rascunho-json" title="Baixa o rascunho no computador (.json)">⬇ Rascunho .json</button><button type="button" class="btn sm" data-ga="limpar">🗑 Limpar</button>
+        <button type="button" class="btn sm" data-ga="rascunho-sistema" title="Guarda no sistema como Em elaboração, com número de rascunho (não usa número de contrato)">📝 Salvar rascunho</button>
+        <button type="button" class="btn sm pri" data-ga="salvar" title="Contrato completo: grava no sistema com o número definitivo">💾 Salvar no sistema</button><button type="button" class="btn sm pri" data-ga="word">📄 Gerar contrato (Word)</button>`;
+      $(".dlg-h", d).insertBefore(bar, $(".dlg-h .x", d));
+      $$("[data-ga]", bar).forEach(b => b.addEventListener("click", () => fr.contentWindow.postMessage({ tipo: "acao", acao: b.dataset.ga }, "*")));
+      // fechar com algo digitado: pergunta antes (X ou Esc)
+      const perguntar = ev => {
+        if (!st.sujo) return;
+        ev.preventDefault(); ev.stopImmediatePropagation();
+        const box = $("[data-sair]", d); box.hidden = false;
+        box.innerHTML = `<div class="ger-sair-c"><h3>Fechar o gerador?</h3><p>Você começou a preencher este contrato. O que fazer com ele?</p>
+          <button type="button" class="btn pri" data-s="sistema">📝 Salvar rascunho no sistema (Em elaboração)</button>
+          <button type="button" class="btn" data-s="json">⬇ Baixar rascunho .json e fechar</button>
+          <button type="button" class="btn danger" data-s="fechar">Fechar sem salvar</button>
+          <button type="button" class="btn" data-s="voltar">Continuar editando</button></div>`;
+        $$("[data-s]", box).forEach(b => b.addEventListener("click", () => {
+          const o = b.dataset.s; box.hidden = true;
+          if (o === "sistema") fr.contentWindow.postMessage({ tipo: "acao", acao: "rascunho-sistema", fechar: true }, "*");
+          if (o === "json") { fr.contentWindow.postMessage({ tipo: "acao", acao: "rascunho-json" }, "*"); st.sujo = false; setTimeout(() => d.close(), 600); }
+          if (o === "fechar") { st.sujo = false; d.close(); }
+        }));
+      };
+      d.addEventListener("click", ev => { if (ev.target.closest("[data-x]")) perguntar(ev); }, true);
+      d.addEventListener("cancel", perguntar);
+      d.addEventListener("close", () => d.removeEventListener("cancel", perguntar), { once: true });
+    }
     const ouvir = ev => {
       if (ev.source !== fr.contentWindow || !ev.data) return;
-      if (ev.data.tipo === "termo-pronto") fr.contentWindow.postMessage({ tipo: "termo", html, xlsx, arquivos, codigo: codigo || "", novoCodigo: novoCodigo || "" }, "*");
-      if (ev.data.tipo === "gerador-salvar") salvarDoGerador(ev.data.linha, fr);
-      if (ev.data.tipo === "termo-baixado" && opts.aoBaixar) opts.aoBaixar(ev.data.arquivo);
+      const m = ev.data;
+      if (m.tipo === "termo-pronto") fr.contentWindow.postMessage({ tipo: "termo", html, xlsx, arquivos, codigo: codigo || "", novoCodigo: novoCodigo || "", form, rascunho: st.rascunho }, "*");
+      if (m.tipo === "gerador-sujo") st.sujo = true;
+      if (m.tipo === "gerador-status") { const g = $("[data-gst]", d); if (g) g.textContent = m.texto; }
+      if (m.tipo === "gerador-salvar") salvarDoGerador(m.linha, fr, st.rascunho).then(ok => { if (ok) { st.sujo = false; st.rascunho = ""; } });
+      if (m.tipo === "gerador-rascunho") salvarRascunhoGerador(m.linha, m.form, st, fr).then(ok => { if (ok && m.fechar) { st.sujo = false; d.close(); } });
+      if (m.tipo === "termo-baixado" && opts.aoBaixar) opts.aoBaixar(m.arquivo);
     };
     window.addEventListener("message", ouvir);
-    d.addEventListener("close", () => { d.classList.remove("termo-dlg"); window.removeEventListener("message", ouvir); if (d.dataset.mudou) { delete d.dataset.mudou; if (["contratos", "painel", "imoveis", "caucao"].includes(S.page)) render(); } }, { once: true });
+    d.addEventListener("close", () => { d.classList.remove("termo-dlg", "ger"); window.removeEventListener("message", ouvir); if (d.dataset.mudou) { delete d.dataset.mudou; if (["contratos", "painel", "imoveis", "caucao"].includes(S.page)) render(); } }, { once: true });
     fr.src = "termos/abrir.html";
   } catch (e) { falha(e); }
 }
+const fichaDaLinha = linha => { const novos = {}; CP.forEach((cp, i) => { if (i && linha && i < linha.length) { const v = String(linha[i] == null ? "" : linha[i]).trim(); novos[cp.k] = v === "---" ? "" : v; } }); return novos; };
 // "Salvar no sistema" do gerador: a linha que ia para o Excel vira a ficha do contrato
-async function salvarDoGerador(linha, fr) {
+async function salvarDoGerador(linha, fr, rascunho) {
   const avisar = t => fr.contentWindow && fr.contentWindow.postMessage({ tipo: "aviso", texto: t }, "*");
   try {
     if (!pode.ed("contratos")) throw new Error("Sem permissão para alterar contratos.");
     const cod = String(linha[0] || "").trim();
-    if (!/^L\.\d{2}\.\d{3}$/.test(cod)) throw new Error("Nº do contrato inválido (formato L.26.001).");
-    const novos = {};
-    CP.forEach((cp, i) => { if (i && i < linha.length) { const v = String(linha[i] == null ? "" : linha[i]).trim(); novos[cp.k] = v === "---" ? "" : v; } });
+    if (!/^L\.\d{2}\.\d{3}$/.test(cod)) throw new Error("Nº do contrato inválido (formato L.26.001). Para guardar sem número, use 'Salvar rascunho'.");
+    const novos = fichaDaLinha(linha);
     const ex = (await q(sb.from("contratos").select("*").eq("codigo", cod).maybeSingle()));
     if (ex) {
-      if (!confirm(`O contrato ${cod} já existe no sistema${ex.locatario ? " (" + ex.locatario + ")" : ""}. Atualizar a ficha com os dados do gerador?\n\nSituação, status (assinaturas, CPFL…) e saldo continuam como estão.`)) return;
-      const f = Object.assign(fichaDe(ex), novos, { situacao: ex.situacao });
+      if (!confirm(`O contrato ${cod} já existe no sistema${ex.locatario ? " (" + ex.locatario + ")" : ""}. Atualizar a ficha com os dados do gerador?\n\nSituação, status (assinaturas, CPFL…) e saldo continuam como estão.`)) return false;
+      const f = Object.assign(fichaDe(ex), novos, { situacao: ex.situacao }); delete f._form; delete f.rascunho;
       await q(sb.from("contratos").update({ ficha: f }).eq("codigo", cod));
     } else {
       const im = S.imoveis.find(i => norm(i.endereco).trim() === norm(novos.end_rua).trim());
       await q(sb.from("contratos").insert({ codigo: cod, imovel_id: im ? im.id : null, ficha: Object.assign(novos, { situacao: "EM ELABORAÇÃO" }) }));
     }
+    // o rascunho vira o contrato definitivo: o número de rascunho some
+    if (rascunho && rascunho !== cod) await q(sb.from("contratos").delete().eq("codigo", rascunho));
     CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
     $("#dlg").dataset.mudou = "1";
-    avisar(`✅ Contrato ${cod} salvo no sistema${ex ? " (ficha atualizada)" : " como Em elaboração"}.`);
-  } catch (e) { avisar("⚠️ Não foi salvo: " + erroMsg(e)); }
+    avisar(`✅ Contrato ${cod} salvo no sistema${ex ? " (ficha atualizada)" : " como Em elaboração"}${rascunho && rascunho !== cod ? ` (o rascunho ${rascunho} foi substituído)` : ""}.`);
+    return true;
+  } catch (e) { avisar("⚠️ Não foi salvo: " + erroMsg(e)); return false; }
+}
+// rascunho: guarda no sistema sem validar, com número próprio (L.26.R01), para não ocupar número de contrato
+async function salvarRascunhoGerador(linha, form, st, fr) {
+  const avisar = t => fr.contentWindow && fr.contentWindow.postMessage({ tipo: "aviso", texto: t }, "*");
+  try {
+    if (!pode.ed("contratos")) throw new Error("Sem permissão para alterar contratos.");
+    const novos = fichaDaLinha(linha), codForm = String((linha && linha[0]) || "").trim();
+    const real = !st.rascunho && /^L\.\d{2}\.\d{3}$/.test(codForm) && CTT.find(c => c.codigo === codForm);
+    if (real) {
+      if (!confirm(`Gravar as alterações na ficha do contrato ${codForm}${real.locatario ? " (" + real.locatario + ")" : ""}?`)) return false;
+      const f = Object.assign(fichaDe(real), novos, { situacao: real.situacao }); delete f._form;
+      await q(sb.from("contratos").update({ ficha: f }).eq("codigo", codForm));
+      avisar(`✅ Ficha do contrato ${codForm} atualizada.`);
+    } else {
+      const cod = st.rascunho || proximoRascunho();
+      const ficha = Object.assign(novos, { situacao: "EM ELABORAÇÃO", _form: form || {}, obs: novos.obs || "" });
+      const im = novos.end_rua ? S.imoveis.find(i => norm(i.endereco).trim() === norm(novos.end_rua).trim()) : null;
+      if (st.rascunho) await q(sb.from("contratos").update({ ficha, imovel_id: im ? im.id : null }).eq("codigo", cod));
+      else await q(sb.from("contratos").insert({ codigo: cod, imovel_id: im ? im.id : null, ficha }));
+      st.rascunho = cod;
+      avisar(`📝 Rascunho salvo no sistema como ${cod} (Em elaboração). O número definitivo só é usado quando você clicar em "Salvar no sistema".`);
+      toast(`Rascunho salvo como ${cod}.`);
+    }
+    CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+    $("#dlg").dataset.mudou = "1"; st.sujo = false;
+    return true;
+  } catch (e) { avisar("⚠️ Não foi salvo: " + erroMsg(e)); falha(e); return false; }
 }
 ACT["ctt-termo"] = el => {
   const p = pop(el, `<div class="gp-h">Gerar termo</div><div class="gp-cols">${Object.entries(TERMOS).map(([k, [t]]) => `<button type="button" class="btn sm" data-t="${k}" style="justify-content:flex-start">${esc(t)}</button>`).join("")}</div><p class="hint">Dentro do termo, busque pelo endereço ou nome. Para já abrir preenchido, use os botões dentro do contrato.</p>`, 300);
@@ -3056,17 +3429,16 @@ const COLS_CONTAS = [
   { k: "nome", t: "Conta" },
   { k: "tipo", t: "Tipo", f: c => ({ caixa: "Caixa", banco: "Banco", outro: "Outro" }[c.tipo] || c.tipo) },
   { k: "saldo_inicial", t: "Saldo inicial", tipo: "num" },
-  { k: "data_saldo", t: "Em", tipo: "data" },
-  { k: "ativa", t: "Situação", f: c => c.ativa ? "Ativa" : "Inativa", html: c => c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>` }
+  { k: "data_saldo", t: "Em", tipo: "data" }
 ];
 const COLS_CATS = [
   { k: "nome", t: "Categoria" },
   { k: "grupo", t: "Grupo", f: c => GRUPOS[c.grupo] || c.grupo },
-  { k: "recorrente", t: "Fixa do mês", f: c => c.recorrente ? "Sim" : "", html: c => c.recorrente ? `<span class="tag warn">todo mês</span>` : "" },
+  { k: "recorrente", t: "Previsão", f: c => !c.recorrente ? "" : c.periodicidade === "anual" ? "anual" + (c.mes_previsto ? " (" + MES3[c.mes_previsto - 1] + ")" : "") : "todo mês",
+    html: c => !c.recorrente ? "" : `<span class="tag ${c.periodicidade === "anual" ? "info" : "warn"}">${c.periodicidade === "anual" ? "anual" + (c.mes_previsto ? " · " + MES3[c.mes_previsto - 1] : " · falta o mês") : "todo mês"}</span>${!c.valor_previsto ? ' <span class="tag bad" title="Sem valor a previsão não é lançada">sem valor</span>' : ""}` },
   { k: "dia_previsto", t: "Dia", tipo: "num", int: true, v: c => c.recorrente ? c.dia_previsto : null },
   { k: "valor_previsto", t: "Valor previsto", tipo: "num", v: c => c.recorrente ? c.valor_previsto : null },
-  { k: "conta_prevista", t: "Conta", v: c => c.recorrente ? contaPor(c.conta_prevista).nome || "" : "" },
-  { k: "ativa", t: "Situação", f: c => c.ativa ? "Ativa" : "Inativa", html: c => c.ativa ? `<span class="tag ok">Ativa</span>` : `<span class="tag bad">Inativa</span>` }
+  { k: "conta_prevista", t: "Conta", v: c => c.recorrente ? contaPor(c.conta_prevista).nome || "" : "", oculta: true }
 ];
 const COLS_GRUPOS = [
   { k: "ordem_ac", t: "Ordem", nf: true, fixo: true, html: g => `<span class="acts"><button class="btn sm" data-act="grupo-mover" data-id="${esc(g.nome)}" data-d="-1" aria-label="Subir">↑</button><button class="btn sm" data-act="grupo-mover" data-id="${esc(g.nome)}" data-d="1" aria-label="Descer">↓</button></span>` },
@@ -3132,7 +3504,7 @@ const COLS_AUD = [
 ];
 PAGES.config = async pg => {
   if (!pode.admin()) { pg.innerHTML = `<div class="card empty">Somente o administrador.</div>`; return; }
-  const aba = S.f.cfg || "contas";
+  let aba = S.f.cfg || "usuarios"; if (aba === "contas") aba = "usuarios";
   if (aba === "grupos") S.gruposCfg = await q(sb.from("grupos_locador").select("*").order("ordem").order("nome"));
   if (aba === "usuarios") S.membros = await q(sb.from("membros").select("*").order("criado_em"));
   if (aba === "auditoria") {
@@ -3149,9 +3521,16 @@ PAGES.config = async pg => {
 };
 function desenharConfig(pg) {
   pg = pg || $("#page");
-  const aba = S.f.cfg || "contas";
-  const abas = [["contas", "Contas"], ["categorias", "Plano de contas"], ["grupos", "Grupos de locadores"], ["usuarios", "Usuários"], ["fechamento", "Fechamento"], ["auditoria", "Auditoria"]];
+  let aba = S.f.cfg || "usuarios"; if (aba === "contas") aba = "usuarios";
+  const abas = [["usuarios", "Usuários e contas"], ["categorias", "Plano de contas"], ["grupos", "Grupos de locadores"], ["fechamento", "Fechamento"], ["auditoria", "Auditoria"]];
   let html = "";
+  // ativas à esquerda, inativas à direita (cada tabela já é a situação)
+  const ladoALado = (id, cols, lista, act, titAt, titInat) => {
+    const at = lista.filter(x => x.ativa), inat = lista.filter(x => !x.ativa);
+    const g1 = grade(id, cols, at, { attr: x => `data-act="${act}" data-id="${x.id}" style="cursor:pointer"` }); g1.redesenhar = () => desenharConfig();
+    const g2 = grade(id + "-inat", cols, inat, { attr: x => `data-act="${act}" data-id="${x.id}" style="cursor:pointer"`, cls: () => "inativa", vazio: "Nenhuma." }); g2.redesenhar = () => desenharConfig();
+    return `<div class="dois"><div><h3>${esc(titAt)} (${at.length})</h3>${gradeHTML(id)}</div><div><h3 style="color:var(--bad)">${esc(titInat)} (${inat.length})</h3>${gradeHTML(id + "-inat")}</div></div>`;
+  };
   const ativasInativas = (id, cols, lista, act, tituloInat, dica) => {
     const at = lista.filter(x => x.ativa), inat = lista.filter(x => !x.ativa);
     const g1 = grade(id, cols, at, { attr: x => `data-act="${act}" data-id="${x.id}" style="cursor:pointer"` }); g1.redesenhar = () => desenharConfig();
@@ -3160,18 +3539,25 @@ function desenharConfig(pg) {
       h += `<h3 style="margin-top:8px;color:var(--bad)">${esc(tituloInat)} (${inat.length})</h3><p class="hint">${esc(dica)}. Clique para reativar ou excluir.</p><div class="inativas">${gradeHTML(id + "-inat")}</div>`; }
     return h;
   };
-  if (aba === "contas") {
-    html = `<div class="filters"><span class="hint">Onde o dinheiro fica. O saldo inicial é o saldo real da conta na data informada (pegue no extrato). Use ↑ ↓ para mudar a ordem em que as contas aparecem no painel e nos formulários.</span><span class="spacer"></span>${gradeBarra("contas")}<button class="btn pri" data-act="conta-ed">+ Conta</button></div>
-      ${ativasInativas("contas", COLS_CONTAS, S.contas, "conta-ed", "Contas inativas", "não aparecem no painel nem nos formulários; o histórico continua guardado")}`;
-  } else if (aba === "categorias") {
-    html = `<div class="filters"><span class="hint">O grupo decide onde a categoria aparece na DRE.</span><span class="spacer"></span>${gradeBarra("categorias")}<button class="btn pri" data-act="cat-ed">+ Categoria</button></div>
-      ${ativasInativas("categorias", COLS_CATS, S.categorias, "cat-ed", "Categorias inativas", "não aparecem nos formulários; lançamentos antigos continuam na DRE")}`;
+  if (aba === "categorias") {
+    const ent = S.categorias.filter(c => GRUPOS_TIPO.entrada.includes(c.grupo)), sai = S.categorias.filter(c => !GRUPOS_TIPO.entrada.includes(c.grupo) && c.grupo !== "transferencia");
+    const lado = (id, lista, tit) => {
+      const at = lista.filter(x => x.ativa), inat = lista.filter(x => !x.ativa);
+      const g1 = grade(id, COLS_CATS, at, { attr: x => `data-act="cat-ed" data-id="${x.id}" style="cursor:pointer"`, sort: { k: "grupo", dir: "asc" }, divisor: "grupo" }); g1.redesenhar = () => desenharConfig();
+      const g2 = grade(id + "-inat", COLS_CATS, inat, { attr: x => `data-act="cat-ed" data-id="${x.id}" style="cursor:pointer"`, cls: () => "inativa", vazio: "Nenhuma." }); g2.redesenhar = () => desenharConfig();
+      return `<div><h3>${tit} (${at.length})</h3>${gradeHTML(id)}${inat.length ? `<h3 style="margin-top:10px;color:var(--bad)">Inativas (${inat.length})</h3><div class="inativas">${gradeHTML(id + "-inat")}</div>` : ""}</div>`;
+    };
+    html = `<div class="filters"><span class="hint">O grupo decide onde a categoria aparece na DRE. "Previsão": todo mês ou uma vez por ano (IPTU, CRECI…) — o Caixa lança como previsto; sem valor, a previsão não é lançada.</span><span class="spacer"></span><button class="btn pri" data-act="cat-ed">+ Categoria</button></div>
+      <div class="dois">${lado("cat-ent", ent, "ENTRADAS")}${lado("cat-sai", sai, "SAÍDAS")}</div>`;
   } else if (aba === "grupos") {
     const g = grade("grupos", COLS_GRUPOS, S.gruposCfg || [], { attr: x => `data-act="grupo-ed" data-id="${esc(x.nome)}" style="cursor:pointer"` }); g.redesenhar = () => desenharConfig();
     html = `<div class="filters"><span class="hint">Como no Excel: cada grupo junta os <b>nomes de locadores</b> da mesma família ou empresa. O imóvel entra no grupo pelo nome do locador, sozinho. "Destaque" aparece separado nos gráficos (ex.: FB); "Principal locador" entra em "Principais locadores". Imóveis da imobiliária (IMOB) e do sócio (CF) são definidos pela <b>carteira</b> do imóvel.</span><span class="spacer"></span>${gradeBarra("grupos")}<button class="btn pri" data-act="grupo-ed">+ Grupo</button></div>${gradeHTML("grupos")}`;
   } else if (aba === "usuarios") {
     const g = grade("membros", COLS_MEMBROS, S.membros || [], { attr: m => `data-act="membro-ed" data-id="${m.id}" style="cursor:pointer"` }); g.redesenhar = () => desenharConfig();
-    html = `<div class="box">Para criar um usuário: no Supabase, <b>Authentication › Users › Add user</b> (e-mail + senha). Ele aparece aqui <b>inativo</b>; ative e escolha o papel. O cadastro público deve ficar <b>desligado</b>.</div>${gradeHTML("membros")}`;
+    html = `<h2 class="cfg-t">Usuários</h2><div class="box">Para criar um usuário: no Supabase, <b>Authentication › Users › Add user</b> (e-mail + senha). Ele aparece aqui <b>inativo</b>; ative e escolha o papel. O cadastro público deve ficar <b>desligado</b>.</div>${gradeHTML("membros")}
+      <h2 class="cfg-t" style="margin-top:18px">Contas</h2>
+      <div class="filters"><span class="hint">Onde o dinheiro fica. O saldo inicial é o saldo real da conta na data informada (pegue no extrato). Use ↑ ↓ para mudar a ordem em que as contas aparecem no painel e nos formulários.</span><span class="spacer"></span><button class="btn pri" data-act="conta-ed">+ Conta</button></div>
+      ${ladoALado("contas", COLS_CONTAS, S.contas, "conta-ed", "Contas ativas", "Contas inativas")}`;
   } else if (aba === "fechamento") {
     const b = S.cfgBloq && S.cfgBloq.valor;
     html = `<div class="card"><h2>Fechamento de mês</h2><p>Depois de conferir o caixa com o extrato, feche o mês: ninguém mais consegue criar, alterar ou apagar lançamentos com data até o fim desse mês (nem estornos).</p>
@@ -3234,8 +3620,10 @@ ACT["cat-ed"] = el => {
     <label class="fl"><span>Nome</span><input name="nome" value="${esc(c.nome || "")}" required></label>
     <label class="fl"><span>Grupo</span><select name="grupo">${Object.entries(GRUPOS).map(([k, v]) => opt(k, v, c.grupo === k)).join("")}</select></label>
     <label class="chk"><input type="checkbox" name="ativa" ${c.ativa ? "checked" : ""}> Ativa (aparece nos formulários)</label>
-    <fieldset class="ficha-b"><legend>Despesa / receita fixa do mês</legend>
-      <label class="chk"><input type="checkbox" name="recorrente" ${c.recorrente ? "checked" : ""}> Acontece todo mês: lançar como <b>previsto</b> no caixa a cada mês</label>
+    <fieldset class="ficha-b"><legend>Previsão no Caixa (despesa / receita que se repete)</legend>
+      <label class="chk"><input type="checkbox" name="recorrente" ${c.recorrente ? "checked" : ""}> Se repete: lançar como <b>previsto</b> no caixa</label>
+      <div class="row" style="margin-top:8px"><label class="fl"><span>Quando</span><select name="per">${opt("mensal", "Todo mês", c.periodicidade !== "anual")}${opt("anual", "Uma vez por ano", c.periodicidade === "anual")}</select></label>
+        <label class="fl" data-mesp><span>Mês (se anual)</span><select name="mes">${opt("", "—", !c.mes_previsto)}${MES3.map((m, i) => opt(i + 1, m, c.mes_previsto === i + 1)).join("")}</select></label></div>
       <div class="row" style="margin-top:8px"><label class="fl"><span>Dia previsto</span><input type="number" name="dia" min="1" max="31" value="${c.dia_previsto || ""}"></label>
       <label class="fl"><span>Valor previsto (média)</span><input name="valor" inputmode="decimal" value="${c.valor_previsto ? n2(c.valor_previsto) : ""}"></label>
       <label class="fl"><span>Conta</span><select name="conta">${opt("", "(primeira conta)", !c.conta_prevista)}${contasOpts(c.conta_prevista)}</select></label></div>
@@ -3244,9 +3632,10 @@ ACT["cat-ed"] = el => {
     extra: c.id ? `<button type="button" class="btn danger left" data-del>Excluir</button>` : "",
     aoAbrir: (f, d) => { const b = $("[data-del]", d); if (b) b.addEventListener("click", () => { d.close(); excluirCadastro("categorias", c.id, c.nome, recarregarCategorias); }); },
     salvar: async f => {
-      const d = { nome: f.nome.value.trim(), grupo: f.grupo.value, ativa: f.ativa.checked, recorrente: f.recorrente.checked,
+      const d = { nome: f.nome.value.trim(), grupo: f.grupo.value, ativa: f.ativa.checked, recorrente: f.recorrente.checked, periodicidade: f.per.value, mes_previsto: +f.mes.value || null,
         dia_previsto: +f.dia.value || null, valor_previsto: parseMoney(f.valor.value), conta_prevista: f.conta.value || null };
-      if (d.recorrente && (!d.dia_previsto || !d.valor_previsto)) throw new Error("Para lançar todo mês, informe o dia e o valor previsto.");
+      if (d.recorrente && (!d.dia_previsto || !d.valor_previsto)) throw new Error("Para lançar a previsão, informe o dia e o valor previsto.");
+      if (d.recorrente && d.periodicidade === "anual" && !d.mes_previsto) throw new Error("Previsão anual: escolha o mês.");
       if (c.id) await q(sb.from("categorias").update(d).eq("id", c.id)); else await q(sb.from("categorias").insert(d));
       await recarregarCategorias(); toast("Salvo."); render();
     } });
@@ -3341,7 +3730,8 @@ async function carregarCauc() {
     fetchAll("contratos", b => b.order("codigo"), "codigo,situacao,locatario,locador,endereco,garantia,inicio,ficha")
   ]);
   CAUC.contas = contas; CAUC.movs = movs; CAUC.ctt = Object.fromEntries(ctts.map(c => [c.codigo, c]));
-  CAUC.vig = {}; movs.forEach(m => { if (!m.data_saida) CAUC.vig[m.conta_id] = m; });
+  CAUC.vig = {}; CAUC.somadas = {};
+  movs.forEach(m => { if (m.data_saida) return; if (m.somada) (CAUC.somadas[m.conta_id] = CAUC.somadas[m.conta_id] || []).push(m); else CAUC.vig[m.conta_id] = m; });
   CAUC.vigPorCtt = {}; movs.forEach(m => { if (!m.data_saida && m.contrato_codigo) CAUC.vigPorCtt[m.contrato_codigo] = m; });
 }
 const contaCaucTxt = c => c ? `${c.banco || "Banco"} · Ag. ${c.agencia || "?"} · Conta ${c.conta || c.conta_antiga || "?"}${c.numero != null ? ` (nº ${c.numero})` : ""}` : "";
@@ -3369,7 +3759,8 @@ const COLS_CAUC = [
   { k: "locatario", t: "Locatário", v: c => vigDe(c).locatario || "", cls: "trunc" },
   { k: "valor", t: "Caução", tipo: "num", v: c => vigDe(c).valor_entrada ?? null, f: c => vigDe(c).valor_entrada != null ? n2(vigDe(c).valor_entrada) : "" },
   { k: "entrada", t: "Entrada", tipo: "data", v: c => vigDe(c).data_entrada || null, f: c => dt(vigDe(c).data_entrada) },
-  { k: "passagens", t: "Locatários anteriores", tipo: "num", v: c => CAUC.movs.filter(m => m.conta_id === c.id && m.data_saida).length },
+  { k: "passagens", t: "Histórico", tipo: "num", int: true, v: c => CAUC.movs.filter(m => m.conta_id === c.id && m.data_saida).length, dica: "Quantos locatários já passaram pela conta" },
+  { k: "somadas", t: "Somadas", tipo: "num", int: true, v: c => (CAUC.somadas[c.id] || []).length || null, dica: "Cauções de outros contratos somadas nesta conta" },
   { k: "obs", t: "Obs.", v: c => c.obs, cls: "trunc", oculta: true }
 ];
 PAGES.caucao = async pg => {
@@ -3379,7 +3770,8 @@ PAGES.caucao = async pg => {
   desenharCauc(pg);
 };
 // contratos com caução (ativos ou em elaboração) que ainda não têm conta vinculada
-const caucSemConta = () => Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO"].includes(c.situacao) && ehCaucao(c) && !CAUC.vigPorCtt[c.codigo]);
+const caucDireto = c => (c.ficha || {}).caucao_modo === "proprietario";
+const caucSemConta = () => Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO"].includes(c.situacao) && ehCaucao(c) && !CAUC.vigPorCtt[c.codigo] && !caucDireto(c));
 function desenharCauc(pg) {
   pg = pg || $("#page");
   const f = S.f.cauc || "todas", busca = S.f.caucBusca || "";
@@ -3412,7 +3804,7 @@ function histCaucHTML(conta) {
   const ms = CAUC.movs.filter(m => m.conta_id === conta.id).sort((a, b) => (b.data_entrada || "").localeCompare(a.data_entrada || ""));
   if (!ms.length) return `<p class="hint">Nenhum locatário passou por esta conta ainda.</p>`;
   return `<div class="tw"><table class="compacta cx-hist"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locador</th><th>Locatário</th><th class="num">Entrada</th><th>Data E</th><th class="num">Saída</th><th>Data S</th><th>Termo de devolução</th></tr></thead><tbody>
-    ${ms.map(m => `<tr${m.data_saida ? "" : ' class="ct-ativo"'}><td class="mono">${esc(m.contrato_codigo || "—")}</td><td class="trunc">${esc(m.imovel)}</td><td class="trunc">${esc(m.locador)}</td><td class="trunc">${esc(m.locatario)}</td>
+    ${ms.map(m => `<tr${m.data_saida ? "" : ' class="ct-ativo"'}><td class="mono">${esc(m.contrato_codigo || "—")}${m.somada ? ' <span class="tag info" title="Caução somada nesta conta (a conta já tinha outra caução)">somada</span>' : ""}</td><td class="trunc">${esc(m.imovel)}</td><td class="trunc">${esc(m.locador)}</td><td class="trunc">${esc(m.locatario)}</td>
       <td class="num">${m.valor_entrada != null ? n2(m.valor_entrada) : ""}</td><td>${dt(m.data_entrada)}</td><td class="num">${m.valor_saida != null ? n2(m.valor_saida) : ""}</td><td>${m.data_saida ? dt(m.data_saida) : "<b>vigente</b>"}</td>
       <td>${m.data_saida ? (m.termo === "pendente" ? `<span class="tag bad">pendente</span>` : esc(m.termo || "—")) : ""}</td></tr>`).join("")}
     </tbody></table></div>`;
@@ -3420,7 +3812,8 @@ function histCaucHTML(conta) {
 ACT["cauc-ver"] = el => {
   const c = CAUC.contas.find(x => x.id === el.dataset.id); if (!c) return;
   const ed = pode.ed("caucao"), dis = ed ? "" : "disabled", est = estadoCauc(c), m = CAUC.vig[c.id];
-  const acoes = !ed ? "" : m ? `<button type="button" class="btn pri" data-baixa>Dar baixa (devolução)</button>` : !c.bloqueada ? `<button type="button" class="btn pri" data-vinc>Vincular contrato</button>` : "";
+  const vigs = [m].concat(CAUC.somadas[c.id] || []).filter(Boolean);
+  const acoes = !ed ? "" : (vigs.map(v => `<button type="button" class="btn pri" data-baixa="${v.id}">Dar baixa: ${esc(v.contrato_codigo || v.locatario.split(" ")[0])}</button>`).join("") + (!m && !c.bloqueada ? `<button type="button" class="btn pri" data-vinc>Vincular contrato</button>` : m ? `<button type="button" class="btn" data-somar title="Outro contrato do mesmo locatário que somou a caução nesta conta">+ Somar outra caução</button>` : ""));
   modal({ titulo: `Conta caução nº ${c.numero ?? "—"}`, xl: true, semOk: !ed, ok: "Salvar conta",
     corpo: `<div class="row">
         <label class="fl"><span>Nº (referência)</span><input name="numero" type="number" value="${c.numero ?? ""}" ${dis}></label>
@@ -3434,7 +3827,8 @@ ACT["cauc-ver"] = el => {
       <h3 style="margin-top:12px">Histórico de quem passou pela conta</h3>${histCaucHTML(c)}`,
     extra: acoes + (pode.admin() && !CAUC.movs.some(x => x.conta_id === c.id) ? `<span class="spacer"></span><button type="button" class="btn danger" data-del>Excluir</button>` : ""),
     aoAbrir: (f, d) => {
-      const b1 = $("[data-baixa]", d); if (b1) b1.addEventListener("click", () => { d.close(); setTimeout(() => darBaixaCauc(m), 0); });
+      $$("[data-baixa]", d).forEach(b1 => b1.addEventListener("click", () => { const mv = vigs.find(v => v.id === b1.dataset.baixa); d.close(); setTimeout(() => darBaixaCauc(mv), 0); }));
+      const bs = $("[data-somar]", d); if (bs) bs.addEventListener("click", () => { d.close(); setTimeout(() => vincularCauc(c, "", true), 0); });
       const b2 = $("[data-vinc]", d); if (b2) b2.addEventListener("click", () => { d.close(); setTimeout(() => vincularCauc(c, ""), 0); });
       const b3 = $("[data-del]", d); if (b3) b3.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir conta", `Excluir a conta caução nº ${esc(c.numero ?? "")}?`, "Excluir"))) return; try { await q(sb.from("cauc_contas").delete().eq("id", c.id)); toast("Excluída."); render(); } catch (e) { falha(e); } });
     },
@@ -3452,37 +3846,51 @@ ACT["cauc-nova"] = () => modal({ titulo: "Nova conta caução", ok: "Cadastrar",
   salvar: async f => { await q(sb.from("cauc_contas").insert({ numero: f.numero.value === "" ? null : +f.numero.value, banco: f.banco.value.trim(), agencia: f.agencia.value.trim(), conta: f.conta.value.trim() })); toast("Conta cadastrada."); render(); } });
 
 // vincular: conta livre + contrato com caução (ativo ou em elaboração)
-async function gravarVinculoCauc(conta, ctt, valor, data) {
-  if (CAUC.vig[conta.id]) throw new Error("Esta conta já tem um locatário vigente.");
+async function gravarVinculoCauc(conta, ctt, valor, data, somada) {
+  if (CAUC.vig[conta.id] && !somada) throw new Error("Esta conta já tem um locatário vigente.");
   if (conta.bloqueada) throw new Error("Conta bloqueada.");
   if (CAUC.vigPorCtt[ctt.codigo]) throw new Error(`O contrato ${ctt.codigo} já está vinculado a outra conta caução.`);
   const fx = ctt.ficha || {};
-  await q(sb.from("cauc_mov").insert({ conta_id: conta.id, contrato_codigo: ctt.codigo, imovel: ctt.endereco || fx.end_rua || "", locador: ctt.locador || "", locatario: ctt.locatario || "", valor_entrada: valor, data_entrada: data || null }));
+  await q(sb.from("cauc_mov").insert({ conta_id: conta.id, contrato_codigo: ctt.codigo, imovel: ctt.endereco || fx.end_rua || "", locador: ctt.locador || "", locatario: ctt.locatario || "", valor_entrada: valor, data_entrada: data || null, somada: !!(somada && CAUC.vig[conta.id]) }));
   // a ficha do contrato passa a mostrar a conta (texto usado nos documentos)
   if (ctt.ficha && Object.keys(ctt.ficha).length && pode.ed("contratos")) {
     try { await q(sb.from("contratos").update({ ficha: Object.assign({}, ctt.ficha, { caucao_conta: contaCaucTxt(conta), situacao: ctt.situacao }) }).eq("codigo", ctt.codigo)); } catch (e) { console.warn(e); }
   }
 }
-async function vincularCauc(conta, codigo) {
+async function vincularCauc(conta, codigo, somar) {
   if (!CAUC.contas.length) await carregarCauc();
-  const livres = CAUC.contas.filter(c => estadoCauc(c) === "livre");
+  const livres = CAUC.contas.filter(c => estadoCauc(c) === "livre"), ocupadas = CAUC.contas.filter(c => ["ocup", "baixa"].includes(estadoCauc(c)));
   const cands = Object.values(CAUC.ctt).filter(c => ["ATIVO", "EM ELABORAÇÃO"].includes(c.situacao) && !CAUC.vigPorCtt[c.codigo]).sort((a, b) => (ehCaucao(b) - ehCaucao(a)) || COLL.compare(b.codigo, a.codigo));
-  modal({ titulo: "Vincular caução a uma conta", ok: "Vincular",
-    corpo: `<label class="fl"><span>Conta caução (livre)</span><select name="conta" required>${conta ? opt(conta.id, contaCaucTxt(conta), true) : opt("", "Escolha…", true) + livres.map(c => opt(c.id, contaCaucTxt(c), false)).join("")}</select></label>
-      <label class="fl"><span>Contrato</span><select name="ctt" required>${opt("", "Escolha…", !codigo)}${cands.map(c => opt(c.codigo, `${c.codigo} · ${c.locatario || "?"} · ${c.endereco || ""}${ehCaucao(c) ? "" : " (garantia: " + (c.garantia || "?") + ")"}`, c.codigo === codigo)).join("")}</select></label>
-      <div class="row"><label class="fl"><span>Valor da caução</span><input name="valor" inputmode="decimal" required></label><label class="fl"><span>Data do depósito</span><input type="date" name="data" required></label></div>
-      <p class="hint">A caução vai direto para a poupança: não entra no caixa da imobiliária.</p>`,
-    aoAbrir: (f) => {
+  const ocupTxt = c => { const v = CAUC.vig[c.id]; return contaCaucTxt(c) + (v ? " — hoje: " + v.locatario : ""); };
+  modal({ titulo: somar ? "Somar outra caução nesta conta" : "Vincular caução a uma conta", ok: "Gravar", largo: true,
+    corpo: `<label class="fl"><span>Contrato</span><select name="ctt" required>${opt("", "Escolha…", !codigo)}${cands.map(c => opt(c.codigo, `${c.codigo} · ${c.locatario || "?"} · ${c.endereco || ""}${ehCaucao(c) ? "" : " (garantia: " + (c.garantia || "?") + ")"}`, c.codigo === codigo)).join("")}</select></label>
+      <label class="fl"><span>Onde está a caução</span><select name="conta" required>
+        ${conta ? opt(conta.id, somar ? ocupTxt(conta) : contaCaucTxt(conta), true) : opt("", "Escolha…", true) +
+          `<optgroup label="Conta caução livre">${livres.map(c => opt(c.id, contaCaucTxt(c), false)).join("")}</optgroup>` +
+          `<optgroup label="Somada a uma conta já ocupada (mesmo locatário)">${ocupadas.map(c => opt("s:" + c.id, ocupTxt(c), false)).join("")}</optgroup>` +
+          `<optgroup label="Sem conta">${opt("direto", "Paga direto ao proprietário (não fica com a imobiliária)", false)}</optgroup>`}</select></label>
+      <div class="row" data-vals><label class="fl"><span>Valor da caução</span><input name="valor" inputmode="decimal"></label><label class="fl"><span>Data do depósito</span><input type="date" name="data"></label></div>
+      <p class="hint">A caução vai direto para a poupança: não entra no caixa da imobiliária. "Somada": quando o locatário já tinha caução numa conta e a nova foi depositada junto (cada contrato tem sua própria baixa).</p>`,
+    aoAbrir: (f, d) => {
       mascaraMoeda(f.valor);
       const pre = () => { const c = CAUC.ctt[f.ctt.value]; if (!c) return; const fx = c.ficha || {}; const v = parseMoney(fx.caucao_valor); if (v) f.valor.value = moedaFmt(v); if (c.inicio) f.data.value = c.inicio; };
-      f.ctt.addEventListener("change", pre); pre();
+      const vis = () => { $("[data-vals]", d).hidden = f.conta.value === "direto"; };
+      f.ctt.addEventListener("change", pre); f.conta.addEventListener("change", vis); pre(); vis();
     },
     salvar: async f => {
-      const ct = CAUC.contas.find(c => c.id === f.conta.value), cc = CAUC.ctt[f.ctt.value], v = parseMoney(f.valor.value);
-      if (!ct || !cc) throw new Error("Escolha a conta e o contrato.");
+      const cc = CAUC.ctt[f.ctt.value]; if (!cc) throw new Error("Escolha o contrato.");
+      if (f.conta.value === "direto") {
+        if (!pode.ed("contratos")) throw new Error("Sem permissão para alterar o contrato.");
+        const ficha = Object.assign({}, cc.ficha && Object.keys(cc.ficha).length ? cc.ficha : fichaDe(cc), { caucao_modo: "proprietario", caucao_conta: "Paga diretamente ao proprietário", situacao: cc.situacao });
+        await q(sb.from("contratos").update({ ficha }).eq("codigo", cc.codigo));
+        toast(`Contrato ${cc.codigo}: caução paga direto ao proprietário.`); render(); return;
+      }
+      const somada = somar || f.conta.value.startsWith("s:"), id = f.conta.value.replace(/^s:/, "");
+      const ct = CAUC.contas.find(c => c.id === id), v = parseMoney(f.valor.value);
+      if (!ct) throw new Error("Escolha onde está a caução.");
       if (!(v > 0)) throw new Error("Informe o valor da caução.");
-      await gravarVinculoCauc(ct, cc, v, f.data.value);
-      toast(`Caução do contrato ${cc.codigo} vinculada à conta nº ${ct.numero ?? ""}.`); render();
+      await gravarVinculoCauc(ct, cc, v, f.data.value, somada);
+      toast(`Caução do contrato ${cc.codigo} ${somada ? "somada à" : "vinculada à"} conta nº ${ct.numero ?? ""}.`); render();
     } });
 }
 ACT["cauc-vinc-ctt"] = el => vincularCauc(null, el.dataset.id);
@@ -3509,13 +3917,16 @@ function darBaixaCauc(m) {
       if (sem && mot.length < 5) throw new Error("Explique por que o termo de devolução não é necessário.");
       if (!pedeConfirmacao(f, `<b>Confirma a baixa?</b> Devolução de <b>${brl(v)}</b> a ${esc(m.locatario)} em <b>${dt(f.data.value)}</b>. ${sem ? `Termo <b>DISPENSADO</b>: “${esc(mot)}”.` : "Em seguida abre o <b>termo de devolução</b>."}${c.situacao === "ATIVO" ? `<br>⚠️ Atenção: o contrato ainda está <b>ATIVO</b> (a saída do locatário não foi registrada em Imóveis).` : ""}`, "Sim, registrar a baixa")) return false;
       await q(sb.from("cauc_mov").update({ valor_saida: v, data_saida: f.data.value, obs: f.obs.value, termo: sem ? "dispensado: " + mot : "pendente" }).eq("id", m.id));
+      if (m.contrato_codigo) try { await rpc("marcar_termo", { p_codigo: m.contrato_codigo, p_tipo: "caucao", p_estado: sem ? "dispensado" : "pendente", p_motivo: mot }); } catch (e) { console.warn(e); }
       toast("Baixa registrada: a conta está livre."); render();
       if (!sem) setTimeout(() => abrirTermoCauc(m.id, m.contrato_codigo), 300);
     } });
 }
 function abrirTermoCauc(movId, codigo) {
   abrirTermo("caucao", codigo || "", "", { aoBaixar: async () => {
-    try { await q(sb.from("cauc_mov").update({ termo: "feito " + new Date().toLocaleDateString("pt-BR") }).eq("id", movId)); toast("Termo de devolução registrado como feito."); $("#dlg").dataset.mudou = "1"; }
+    try { await q(sb.from("cauc_mov").update({ termo: "feito " + new Date().toLocaleDateString("pt-BR") }).eq("id", movId));
+      if (codigo) await rpc("marcar_termo", { p_codigo: codigo, p_tipo: "caucao", p_estado: "feito", p_motivo: "" }).catch(() => null);
+      toast("Termo de devolução registrado como feito."); $("#dlg").dataset.mudou = "1"; }
     catch (e) { falha(e); }
   } });
 }
