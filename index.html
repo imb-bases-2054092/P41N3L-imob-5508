@@ -7,9 +7,9 @@
 <meta name="referrer" content="no-referrer">
 <!-- Segurança: o navegador só executa scripts deste site e só conversa com o Supabase -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
-<title>Financeiro Imobiliária</title>
+<title>FICA ImobOne</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a2d6b'/%3E%3Cpath d='M7 16l9-8 9 8M10 14v10h12V14' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@500&family=Poppins:wght@400;500;600;700&display=swap">
 <style>
 :root{
   --bg:#f0f4fb; --surface:#fff; --surface-2:#e8eef8; --line:#cfdcf0; --line-2:#e3eaf6;
@@ -66,10 +66,12 @@ h3{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
 .brand{display:flex;align-items:center;gap:10px;padding:0 8px 14px;font-family:var(--font-display);font-size:18px;font-weight:700;color:#fff}
 .brand svg{width:30px;height:30px;flex:none}.brand-logo{background:#fff;border-radius:8px;padding:4px 6px;display:grid;place-items:center;flex:none}.brand-logo img{height:34px;width:auto;display:block}.brand #brand-name{line-height:1.1}
 .nav{display:flex;flex-direction:column;gap:2px}
-.nav a{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:6px;color:var(--side-fg);text-decoration:none;font-weight:600;font-size:15px}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;color:var(--side-fg);text-decoration:none;font-weight:600;font-size:14px}
 .nav a:hover{background:var(--side-active)}
 .nav a.on{background:var(--side-active);box-shadow:inset 3px 0 0 var(--brand-red)}
 .nav svg{width:19px;height:19px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-t{white-space:nowrap}.nav-c{margin-left:auto;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:1px 8px;min-width:22px;text-align:center}.nav-c:empty{display:none}.nav-c.b{background:rgba(255,75,82,.35)}
+.nav-inv{float:right;border:1px solid rgba(255,255,255,.25);background:none;color:var(--side-muted);border-radius:5px;font-size:11px;padding:0 6px;cursor:pointer;margin-top:-2px}
 .nav-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--side-muted);padding:14px 12px 4px}
 .spacer{flex:1}
 .me{border-top:1px solid rgba(255,255,255,.14);padding:12px 4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
@@ -351,7 +353,7 @@ th.sec-lct{background:#dff3f6} th.sec-fdr{background:#fbe6ee} th.sec-out{backgro
 .receita .tw{width:fit-content;max-width:100%}
 table.compacta{width:auto} table.compacta td:first-child{max-width:210px;white-space:normal}
 tr.atrasada td{background:var(--bad-soft)}
-.dep-t{width:100%!important}.dep-t td:first-child,.dep-t th:first-child{width:26px;max-width:26px!important;padding:4px}.dep-t td.trunc{max-width:230px}.dep-t .sub{font-size:11px;white-space:nowrap}
+.dep-t{width:100%!important}.dep-t td:first-child,.dep-t th:first-child{width:34px;min-width:34px;max-width:34px!important;padding:4px 6px!important;text-align:center}.dep-t input[type=checkbox]{width:auto!important;margin:0}.dep-t tr.aj-row>td{text-align:left!important;max-width:none!important;white-space:normal;background:var(--surface)}.dep-t td.trunc{max-width:230px}.dep-t .sub{font-size:11px;white-space:nowrap}
 .dep-t input{width:100px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;text-align:right;font-family:var(--font-mono)}
 .relatorio{background:#fff;color:#111;padding:14px 20px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;position:relative;overflow:hidden}
 .relatorio .tb-pg{width:100%;border-collapse:collapse}.relatorio .tb-pg>thead>tr>td,.relatorio .tb-pg>tfoot>tr>td,.relatorio .tb-pg>tbody>tr>td{padding:0;border:0;background:transparent}
@@ -448,12 +450,68 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
   h1{font-size:22px}
 }
 @media print{.side,.topbar .btn,.filters,.acts,.mes button{display:none!important}.shell{display:block}.tw{overflow:visible;border:0}}
+/* v10 */
+tr.tar-feita td{opacity:.6}tr.tar-feita td b{text-decoration:line-through}
+.cobr-abas{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:fit-content}
+.cobr-abas a{padding:8px 16px;text-decoration:none;color:var(--fg);font-weight:600;background:var(--surface)}.cobr-abas a.on{background:var(--accent);color:var(--accent-ink)}
+.btn.aviso{white-space:nowrap}.btn.aviso.warn{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}.btn.aviso.danger{background:var(--bad-soft)}
+.aviso-lista{display:flex;flex-wrap:wrap;gap:6px}
+td.centro,table.grade td.num.centro{text-align:center!important}
+:root{--logo-red:#e23b3b;--logo-w:3.2}
+.brand-logo svg{width:44px;height:30px;color:#111;display:block}
+.brand-app{font-family:"Poppins",var(--font-body);font-size:17px;white-space:nowrap;font-weight:700;line-height:1.05;color:#fff}.brand-app em{font-style:normal;color:#ff4b52}
+.brand-app small{display:block;font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#b9c6e6;margin-top:3px}
+/* tela de login */
+.auth.login{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px;align-items:center;padding:48px 6vw;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#f4f6fa 0%,#e9edf4 100%);--l-ink:#14306b;--l-red:#e3242b;--l-muted:#4a5878;color:var(--l-ink)}
+.login .login-wm{position:absolute;left:-60px;bottom:-90px;width:620px;height:420px;color:#c9d0dc;opacity:.35;--logo-red:#d5dbe5;pointer-events:none}
+.login-esq{position:relative;z-index:1;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between;gap:60px;min-height:70vh}
+.marca{display:flex;align-items:center;gap:18px}
+.marca-logo{width:118px;height:80px;color:#111;--logo-red:#e23b3b}
+.marca-sep{width:2px;align-self:stretch;background:currentColor;opacity:.75}
+.marca-txt{display:flex;flex-direction:column;font-family:"Poppins",var(--font-body);line-height:1.05}
+.marca-txt small{font-size:19px;font-weight:700;color:var(--l-red);letter-spacing:.02em}
+.marca-txt b{font-size:34px;font-weight:700;letter-spacing:.01em;color:#111}
+.marca-txt span{font-size:13px;letter-spacing:.12em;color:#222;margin-top:4px}
+.app-nome{padding-left:6%;margin-bottom:18vh}
+.app-nome h1{font-family:"Poppins",var(--font-body);font-size:clamp(38px,4.4vw,70px);white-space:nowrap;font-weight:700;letter-spacing:-.02em;color:var(--l-ink);margin:0;line-height:1}
+.app-nome h1 em{font-style:normal;color:var(--l-red)}
+.app-nome p{font-family:"Poppins",var(--font-body);font-size:clamp(18px,1.9vw,28px);color:var(--l-ink);margin:6px 0 22px}
+.app-nome span{font-family:"Poppins",var(--font-body);font-size:16px;color:var(--l-ink);opacity:.85}
+.login-card.auth-card{position:relative;z-index:1;max-width:470px;justify-self:center;padding:38px 40px;border-radius:12px;background:#fff;border:1px solid #e3e8f0;box-shadow:0 18px 50px rgba(20,40,90,.10)}
+.login-card h2{font-family:"Poppins",var(--font-body);font-size:28px;color:var(--l-ink);margin:0 0 6px}
+.login-card p{color:var(--l-muted)}
+.login-card .fl>span:first-child{color:var(--l-ink);font-weight:700}
+.ico-in{position:relative;display:block}.ico-in>i{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-style:normal;color:#5d6b88;font-size:15px}
+.ico-in input{width:100%;padding:13px 44px!important;border-radius:8px!important;font-size:15px!important}
+.olho{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;color:#5d6b88;font-size:16px;padding:6px}
+.btn.entrar{padding:13px;font-size:16px;background:#12357a!important;border-color:#12357a!important;color:#fff!important;justify-content:center;margin-top:6px}
+.login-card .lock{border-top:1px solid #e3e8f0;padding-top:16px;margin-top:18px;color:var(--l-muted)}
+.login-tema{position:absolute;right:18px;top:16px;z-index:2;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.6);border-radius:20px;width:36px;height:36px;cursor:pointer;font-size:17px;color:inherit}
+/* escuro: vermelho mais vivo e traços do logo finos e claros */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .auth.login{background:radial-gradient(1200px 700px at 15% 10%,#173a7a 0%,#0b1d45 45%,#06122e 100%);--l-ink:#f2f5fb;--l-red:#ff3b44;--l-muted:#aab6d3}
+  :root:not([data-theme="light"]) .login .marca-logo{color:#f2f5fb;--logo-w:2.1;--logo-red:#ff3b44}
+  :root:not([data-theme="light"]) .login .marca-txt b,:root:not([data-theme="light"]) .login .marca-txt span{color:#f2f5fb}
+  :root:not([data-theme="light"]) .login .login-wm{color:#2a4a8c;--logo-red:#16316a;opacity:.45}
+  :root:not([data-theme="light"]) .login-card.auth-card{background:#fff}}
+:root[data-theme="dark"] .auth.login{background:radial-gradient(1200px 700px at 15% 10%,#173a7a 0%,#0b1d45 45%,#06122e 100%);--l-ink:#f2f5fb;--l-red:#ff3b44;--l-muted:#aab6d3}
+:root[data-theme="dark"] .login .marca-logo{color:#f2f5fb;--logo-w:2.1;--logo-red:#ff3b44}
+:root[data-theme="dark"] .login .marca-txt b,:root[data-theme="dark"] .login .marca-txt span{color:#f2f5fb}
+:root[data-theme="dark"] .login .login-wm{color:#2a4a8c;--logo-red:#16316a;opacity:.45}
+.login-card input{background:#f5f7fb!important;color:#1d2433!important;border:1px solid #d9e0ec!important}
+.auth.login .login-card{--l-ink:#14306b;--l-muted:#4a5878;color:#1d2433}
+:root[data-theme="dark"] .login .login-tema{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
+@media (max-width:900px){.auth.login{grid-template-columns:1fr;padding:24px 16px}.login-esq{min-height:0;gap:24px}.app-nome{margin:0;padding:0}.marca-logo{width:80px;height:54px}.marca-txt b{font-size:24px}}
+.tag.duas{white-space:normal;line-height:1.05;font-size:10.5px;max-width:92px;text-align:center;display:inline-block;vertical-align:middle;padding:2px 6px}
+.desp-l{display:grid;grid-template-columns:1fr 90px 100px auto;gap:8px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line)}
+.desp-l b{text-align:right;font-family:var(--font-mono)}
+.aj-l.desp-novo{grid-template-columns:1fr 120px 200px auto auto;align-items:center;margin-top:6px}
 /* v9 */
 .dois{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:1000px){.dois{grid-template-columns:1fr}}
 .dois h3{margin:0 0 6px}.cfg-t{font-size:17px;margin:4px 0 8px;color:var(--fg)}
 .aj{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;background:var(--surface-2)}
 .aj-h{display:flex;gap:6px;align-items:center;margin-bottom:6px}.aj-h b{margin-right:auto}
-.aj-l{display:grid;grid-template-columns:130px 1fr 110px 230px auto;gap:6px;margin-bottom:5px}
+.aj-l{display:grid;grid-template-columns:140px minmax(0,1fr) 130px 250px auto;gap:6px;margin-bottom:5px}
 .aj-l input,.aj-l select{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}
 .rep-res{width:auto;min-width:420px;margin:6px 0}.rep-res td{padding:3px 8px}.rep-res tr.tot td{border-top:2px solid var(--line)}
 .btn.ghost{opacity:.75;border-style:dashed}
@@ -493,17 +551,35 @@ table.grade.ctt .tag{padding:1px 6px}a.pasta{margin-left:4px;text-decoration:non
 <body>
 
 <!-- ============ LOGIN ============ -->
-<section class="auth" id="v-login" hidden>
-  <div class="auth-card">
-    <h1>Financeiro</h1>
-    <p id="login-sub">Acesso restrito. Entre com seu e-mail e senha.</p>
+<!-- logo da imobiliária (desenhado em SVG para ficar nítido no claro e no escuro) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="logo-casa" viewBox="0 0 112 76">
+    <path d="M13 38 L55 9 L96 33 L96 70 L75 70 L45 49 L13 68 Z" fill="var(--logo-red,#e04848)"/>
+    <path d="M3 38 L55 3 L108 35" fill="none" stroke="currentColor" stroke-width="var(--logo-w,3.2)" stroke-linejoin="miter"/>
+    <path d="M12 72 L45 51 L78 72" fill="none" stroke="currentColor" stroke-width="var(--logo-w,3.2)"/>
+    <path d="M13 38 L13 68 M96 33 L96 70 L76 70" fill="none" stroke="currentColor" stroke-width="calc(var(--logo-w,3.2) * .45)"/>
+    <rect x="65" y="46" width="9" height="20" fill="#fff" stroke="currentColor" stroke-width="calc(var(--logo-w,3.2) * .45)"/>
+    <path d="M79 18 V8" stroke="currentColor" stroke-width="calc(var(--logo-w,3.2) * .7)"/><path d="M72 9 L79 2 L86 9 Z" fill="currentColor"/>
+  </symbol></defs></svg>
+
+<section class="auth login" id="v-login" hidden>
+  <button type="button" class="login-tema" id="login-tema" title="Tema claro / escuro" aria-label="Trocar tema">◐</button>
+  <svg class="login-wm" aria-hidden="true"><use href="#logo-casa"/></svg>
+  <div class="login-esq">
+    <div class="marca"><svg class="marca-logo" aria-hidden="true"><use href="#logo-casa"/></svg><span class="marca-sep"></span>
+      <div class="marca-txt"><small>IMOBILIÁRIA</small><b>BANDEIRANTES</b><span>FICA ADMINISTRAÇÃO DE IMÓVEIS</span></div></div>
+    <div class="app-nome"><h1>FICA Imob<em>One</em></h1><p>Sistema de Gestão Imobiliária</p><span>Imóveis • Locações • Financeiro • Indicadores</span></div>
+  </div>
+  <div class="auth-card login-card">
+    <h2>Acesso ao sistema</h2>
+    <p id="login-sub">Informe suas credenciais para continuar.</p>
     <form id="f-login" autocomplete="on">
-      <label class="fl"><span>E-mail</span><input type="email" name="email" autocomplete="username" required></label>
-      <label class="fl"><span>Senha</span><input type="password" name="senha" autocomplete="current-password" required minlength="8"></label>
+      <label class="fl"><span>E-mail</span><span class="ico-in"><i aria-hidden="true">✉</i><input type="email" name="email" autocomplete="username" placeholder="seu@email.com" required></span></label>
+      <label class="fl"><span>Senha</span><span class="ico-in"><i aria-hidden="true">🔒︎</i><input type="password" name="senha" autocomplete="current-password" placeholder="••••••••" required minlength="8"><button type="button" class="olho" id="ver-senha" aria-label="Mostrar senha">👁︎</button></span></label>
       <p class="err" id="login-err"></p>
-      <button class="btn pri" type="submit">Entrar</button>
+      <button class="btn pri entrar" type="submit">Entrar →</button>
     </form>
-    <div class="lock"><span aria-hidden="true">🔒</span><span>Conexão criptografada. Depois da senha, será pedido o código de 6 dígitos do seu aplicativo autenticador. A sessão se encerra ao fechar a aba ou após 20 minutos parado.</span></div>
+    <div class="lock"><span aria-hidden="true">🔒</span><span id="login-lock">Conexão criptografada. Depois da senha, será pedido o código de 6 dígitos do seu aplicativo autenticador. A sessão se encerra ao fechar a aba ou após 4 horas parado.</span></div>
   </div>
 </section>
 
@@ -536,18 +612,21 @@ table.grade.ctt .tag{padding:1px 6px}a.pasta{margin-left:4px;text-decoration:non
 <!-- ============ APP ============ -->
 <div class="shell" id="v-app" hidden>
   <aside class="side" id="side">
-    <div class="brand"><span class="brand-logo"><img src="img/logo.png" alt=""></span><span id="brand-name">Financeiro</span></div>
+    <div class="brand"><span class="brand-logo"><svg aria-hidden="true"><use href="#logo-casa"/></svg></span><span class="brand-app">FICA Imob<em>One</em><small id="brand-name">Imobiliária Bandeirantes</small></span></div>
     <nav class="nav" id="nav">
-      <div class="nav-h">Dia a dia</div>
-      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg>Aluguéis do mês</a>
-      <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inadimplência</a>
-      <a href="#devedores" data-p="devedores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2M16 14l5 5M21 14l-5 5"/></svg>Devedores</a>
-      <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Caixa e lançamentos</a>
-      <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg>Depósitos</a>
+      <div class="nav-h">Dia a dia <button type="button" class="nav-inv" data-act="nav-inv" title="Inverter os números do menu (ex.: alugados ⇄ livres)">⇄</button></div>
+      <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
+      <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa e lançamentos</span><span class="nav-c" data-c="caixa"></span></a>
+      <div class="nav-h">Financeiro</div>
+      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
+      <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
+      <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <div class="nav-h">Cadastro locação</div>
-      <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>Imóveis</a>
-      <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Contratos</a>
-      <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Contas caução</a>
+      <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
+      <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
+      <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
+      <div class="nav-h">Vendas</div>
+      <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Vendas</span><span class="nav-c" data-c="vendas"></span></a>
       <div class="nav-h">Gestão</div>
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Painel</a>
       <a href="#indicadores" data-p="indicadores"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Indicadores</a>
