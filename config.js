@@ -9,5 +9,6 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://sqrrhexruokwbuovsoue.supabase.co",
   SUPABASE_KEY: "sb_publishable_d5mYu4pCdcTWQZQKf9pUrg_tmPFex-K",
   NOME_EMPRESA: "Imobiliária Bandeirantes",
-  MINUTOS_INATIVIDADE: 20
+  MINUTOS_INATIVIDADE: 240,
+PASTA_LOCAL: true,
 };
