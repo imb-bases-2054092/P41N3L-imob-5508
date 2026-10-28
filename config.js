@@ -11,5 +11,5 @@ window.APP_CONFIG = {
   NOME_EMPRESA: "Imobiliária Bandeirantes",
   MINUTOS_INATIVIDADE: 240,
   PASTA_LOCAL: true,
-  SITE_IMOVEL_URL: "https://imobiliariabandeirantes.com.br/{codigo}-x.html",
+  SITE_IMOVEL_URL: "https://imobiliariabandeirantes.com.br/{codigo}.html",
 };
