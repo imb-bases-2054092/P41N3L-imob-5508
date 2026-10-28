@@ -1131,6 +1131,7 @@ header p { font-size: 0.75rem; color: #a8bce8; font-weight: 300; margin-top: 2px
         <div class="opcoes-grupo">
           <div class="opcao-btn" data-for="garantia" data-valor="FIADOR" onclick="selecionarOpcao('garantia','FIADOR',toggleGarantia)">Fiador</div>
           <div class="opcao-btn" data-for="garantia" data-valor="CAUÇÃO" onclick="selecionarOpcao('garantia','CAUÇÃO',toggleGarantia)">Caução</div>
+          <div class="opcao-btn" data-for="garantia" data-valor="SEM GARANTIA" onclick="selecionarOpcao('garantia','SEM GARANTIA',toggleGarantia)" title="Casos especiais: o contrato sai sem o item 09 e sem a cláusula de garantia (cláusulas renumeradas)">Sem garantia</div>
         </div>
         <input type="hidden" id="garantia" value="">
       </div>
@@ -4045,6 +4046,12 @@ function removerParagrafoComTexto(xml, marcador) {
 // chaves — e devolve também quais parágrafos precisam ser apagados (só no
 // caso Caução, os 3 parágrafos exclusivos de Fiador)
 function montarDadosGarantia(garantia, contaCaucaoCompleta, caucaoValor, caucaoExtenso, partesQualificacaoFiadores, rotuloFiador, semImovelGarantia) {
+  // SEM GARANTIA (casos especiais): usa o modelo contrato_sem_garantia.docx, que já não tem o item 09
+  // nem a cláusula "DA GARANTIA" (as cláusulas seguintes já estão renumeradas)
+  if (garantia === 'SEM GARANTIA') {
+    return { textoGarantia: '', partesGrt1: [], cau3: null, foroContratantes: 'contratantes.',
+      textoChaves: 'o valor correspondente será cobrado judicial ou extrajudicialmente.', paragrafosParaRemover: [], textosParagrafos: {} };
+  }
   const TEXTO_CAUCAO = '#Lct_maio #Locatário #Lct_deposita a título de caução, a importância mencionada no QUADRO RESUMO (ITEM 9), no banco: #Cau3, sendo vetada sua retirada ou utilização enquanto perdurar o presente instrumento, posto que, #Lct_lhe será restituída na rescisão contratual, após vistoria do bem locado, e, somente quando não confirmado qualquer avaria, prejuízo ou perda patrimonial, hipótese em que, será dito valor restituído com os devidos acréscimos percebidos pela correção da caderneta de poupança, bem como com os descontos de reparação do imóvel se necessários.';
   const TEXTO_FIADOR = 'Como garantia #Fdr_assina também na qualidade de #Fiador e #Fdr_principal #Fdr_pagador, #Fdr_omi #Fdr_qualificado no QUADRO RESUMO (ITEM 9), sendo #Fdr_solidário com #Lct_omi #Locatário em todas as obrigações aqui assumidas.';
 
@@ -5163,6 +5170,7 @@ async function gerarContratoWord() {
     // ---------- Garantia (Cláusula 8ª) ----------
     const dadosGarantia = isFiador
       ? montarDadosGarantia(garantia, null, null, null, dadosFdr.texto, TABELA_CONCORDANCIA_FDR['#Fiador'][dadosFdr.forma], document.getElementById('obs_sem_garantia')?.checked)
+      : garantia === 'SEM GARANTIA' ? montarDadosGarantia('SEM GARANTIA')
       : montarDadosGarantia(garantia, contaCaucaoCompleta(), v('caucao_valor'), v('caucao_extenso'));
 
     if (dadosGarantia.cau3) concordancia['#Cau3'] = dadosGarantia.cau3;
@@ -5269,8 +5277,10 @@ async function gerarContratoWord() {
     // ---------- Cláusulas condicionais (Inundação / Desconto-Carência) ----------
     if (v('obs_area_inundacao') === 'Sim') {
       const partesResto = montarPartesComNegritoEmSubstantivos(TEXTO_CLAUSULA_INUNDACAO.replace('CLÁUSULA 24ª) ', ''), concordancia, ['#Locatário']);
-      insercoes.push({ marcador: 'CLÁUSULA 23ª)', partes: [{ negrito: 'CLÁUSULA 24ª) ' }, ...partesResto] });
-      substituicoes['CLÁUSULA 24ª) Para dirimir'] = 'CLÁUSULA 25ª) Para dirimir';
+      // sem garantia: o modelo tem uma cláusula a menos (a de inundação entra como 23ª e o foro vira 24ª)
+      const sg = garantia === 'SEM GARANTIA', n = sg ? 22 : 23;
+      insercoes.push({ marcador: `CLÁUSULA ${n}ª)`, partes: [{ negrito: `CLÁUSULA ${n + 1}ª) ` }, ...partesResto] });
+      substituicoes[`CLÁUSULA ${n + 1}ª) Para dirimir`] = `CLÁUSULA ${n + 2}ª) Para dirimir`;
     }
     const tipoDesconto = v('tipo_desconto');
     if (tipoDesconto === 'Desconto' || tipoDesconto === 'Carência') {
@@ -5285,7 +5295,7 @@ async function gerarContratoWord() {
     const nomeArquivoSeguro = s => (s || '').replace(/[\\/:*?"<>|]/g, '').trim();
     const nomeArquivo = `${nomeArquivoSeguro(v('lcd1_nome'))} - ${nomeArquivoSeguro(v('lct1_nome'))}.docx`;
     await gerarContratoDocx(
-      URL_TEMPLATE_CONTRATO, substituicoes, nomeArquivo,
+      garantia === 'SEM GARANTIA' ? './contrato_sem_garantia.docx' : URL_TEMPLATE_CONTRATO, substituicoes, nomeArquivo,
       { '#Imv1': 1700 }, paragrafosParaRemover, insercoes, null,
       ajustesRgRnmTotal, ajustesPJTotal
     );
