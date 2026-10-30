@@ -12,4 +12,5 @@ window.APP_CONFIG = {
   MINUTOS_INATIVIDADE: 240,
   PASTA_LOCAL: true,
   SITE_IMOVEL_URL: "https://imobiliariabandeirantes.com.br/{codigo}.html",
+  PROTECAO_MINUTOS: 1,
 };
