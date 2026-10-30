@@ -450,14 +450,42 @@ dialog::backdrop{background:rgba(8,16,42,.55)}
   h1{font-size:22px}
 }
 @media print{.side,.topbar .btn,.filters,.acts,.mes button{display:none!important}.shell{display:block}.tw{overflow:visible;border:0}}
+/* v13 */
+.ven-l1{display:grid;grid-template-columns:130px 150px 1fr 1fr 1.2fr;gap:10px}.ven-l1 .fl{margin:0}.ven-l1 small{font-weight:400;text-transform:none;letter-spacing:0}
+.ven-l2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.ven-l2>div{border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);position:relative}
+.ven-l2 small{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}.ven-l2 b{display:block;font-size:13.5px;padding-right:50px}.ven-l2 .btn{position:absolute;right:6px;top:8px}
+@media (max-width:900px){.ven-l1,.ven-l2{grid-template-columns:1fr 1fr}}
+.box.trava{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
+.cp-t tr.cp-dif td{background:color-mix(in srgb,#e5484d 7%,transparent)}.cp-t tr.cp-novo td{background:color-mix(in srgb,#2e8b57 7%,transparent)}.cp-t td .chk{margin:0 0 3px}.cp-t select{max-width:420px}
+.ficha-g .fl.obs-ficha{grid-column:1/-1}.ficha-g .fl.obs-ficha textarea{min-height:170px;font-size:13.5px;line-height:1.5}
+.imv-tag{display:inline-flex;align-items:center;gap:10px;border:1.5px solid var(--accent);border-radius:999px;padding:6px 8px 6px 14px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));font-weight:700}
+.imv-tag small{font-weight:400;color:var(--muted)}
+.tar-dt{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:44px;height:44px;border:1.5px solid;border-radius:8px;vertical-align:middle;margin-right:8px;line-height:1}
+.tar-dt b{font-size:17px}.tar-dt small{font-size:9.5px;letter-spacing:.06em;margin-top:2px}
+.tar-dt.atr{color:#e5484d;border-color:#e5484d;background:color-mix(in srgb,#e5484d 10%,transparent)}.tar-dt.prox{color:#d6a100;border-color:#d6a100;background:color-mix(in srgb,#f5c400 10%,transparent)}
+.tar-dt.folga{color:#3b82f6;border-color:#3b82f6;background:color-mix(in srgb,#3b82f6 10%,transparent)}.tar-dt.ok{color:#2e8b57;border-color:#2e8b57}
+.tar-dtx{font-size:12px;vertical-align:middle}.tar-dtx.atr{color:#e5484d;font-weight:600}.tar-dtx.prox{color:#b58900}
+.tar-pills{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.tar-pill{border:0;background:var(--surface);color:var(--muted);font:inherit;font-size:11.5px;padding:3px 9px;cursor:pointer}
+.tar-pill+.tar-pill{border-left:1px solid var(--line)}.tar-pill.on.p-a_fazer{background:#3b82f6;color:#fff}.tar-pill.on.p-fazendo{background:#d6a100;color:#fff}.tar-pill.on.p-feito{background:#2e8b57;color:#fff}
+.tm-lista{display:flex;flex-direction:column;gap:6px}
+.tm-item{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 10px;cursor:pointer;color:var(--fg);font:inherit}
+.tm-item:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.tm-ic{font-size:22px;width:36px;height:36px;display:grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));flex:none}
+.tm-item b{display:block;font-size:13.5px}.tm-item small{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
 /* v12 */
 #subabas:empty{display:none}#subabas{margin-bottom:-6px}
-.auth.login.protecao{position:fixed;inset:0;z-index:9999;display:block;overflow:hidden;cursor:none;padding:0}
-.protecao .prot-voa{position:absolute;left:0;top:0;display:flex;align-items:center;gap:18px;will-change:transform}
-.protecao .prot-logo{width:120px;height:82px;color:#fff;--logo-red:#ff3b44;--logo-door:#102b63;--logo-w:3.2}
-.protecao b{display:block;font-family:"Poppins",var(--font-body);font-size:52px;line-height:1;color:#f2f5fb;letter-spacing:-.02em;white-space:nowrap}.protecao b em{font-style:normal;color:#ff4d5a}
-.protecao [data-rel]{display:block;color:#c9d4ec;font-size:16px;margin-top:8px;white-space:nowrap}
-.protecao .prot-dica{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:#8fa0c4;font-size:13px}
+.auth.login.protecao{position:fixed;inset:0;z-index:9999;display:block;overflow:hidden;cursor:pointer;padding:0}
+.protecao .prot-marca{position:absolute;left:clamp(24px,8vw,140px);top:40px}
+.protecao .prot-centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
+.protecao .prot-pulsa{font-family:"Poppins",var(--font-body);font-size:clamp(48px,7vw,104px);font-weight:700;letter-spacing:-.02em;color:#f2f5fb;margin:0;line-height:1;animation:pulsa 4s ease-in-out infinite}
+.protecao .prot-pulsa em{font-style:normal;color:var(--l-red,#ff3b44)}
+@keyframes pulsa{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){.protecao .prot-pulsa{animation:none}}
+.protecao .prot-centro p{font-family:"Poppins",var(--font-body);font-size:clamp(18px,2vw,30px);color:#f2f5fb;margin:14px 0 22px}
+.protecao .prot-centro span{font-family:"Poppins",var(--font-body);font-size:16px;color:#dfe6f5}
+.protecao .prot-hora{margin-top:34px;color:#8fa0c4;font-size:15px}
+.protecao .prot-user{position:absolute;right:28px;bottom:22px;color:#c9d4ec;font-size:14px;font-weight:600}
+.protecao .prot-dica{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:#8fa0c4;font-size:13px;pointer-events:none}
 body.protegido dialog,body.protegido .toasts{visibility:hidden}
 /* v11 */
 .vi-b{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px}.vi-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}.vi-t{width:100%!important}
@@ -668,15 +696,15 @@ table.grade.ctt .tag{padding:1px 6px}a.pasta{margin-left:4px;text-decoration:non
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
-      <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos locatário</span></a>
-      <a href="#recibos_lcd" data-p="recibos_lcd"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M13 15h2"/></svg><span class="nav-t">Recibos locador</span></a>
+      <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos locatário</span><span class="nav-c" data-c="recibos_lct"></span></a>
+      <a href="#recibos_lcd" data-p="recibos_lcd"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M13 15h2"/></svg><span class="nav-t">Recibos locador</span><span class="nav-c" data-c="recibos_lcd"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
       <div class="nav-h">Cadastros</div>
       <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
-      <a href="#fornecedores" data-p="fornecedores"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Prestadores e lojas</span></a>
+      <a href="#fornecedores" data-p="fornecedores"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Prestadores e lojas</span><span class="nav-c" data-c="fornecedores"></span></a>
       <div class="nav-h">Vendas</div>
       <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Vendas</span><span class="nav-c" data-c="vendas"></span></a>
       <div class="nav-h">Gestão</div>
@@ -685,7 +713,7 @@ table.grade.ctt .tag{padding:1px 6px}a.pasta{margin-left:4px;text-decoration:non
       <div class="nav-h">Sistema</div>
       <a href="#backup" data-p="backup"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span class="nav-t">Backup e dados</span></a>
       <a href="#config" data-p="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>Configurações</a>
-      <a href="#tutoriais" data-p="tutoriais"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg><span class="nav-t">Tutoriais</span></a>
+      <a href="#tutoriais" data-p="tutoriais"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg><span class="nav-t">Tutoriais</span><span class="nav-c" data-c="tutoriais"></span></a>
     </nav>
     <div class="spacer"></div>
     <div class="me">
