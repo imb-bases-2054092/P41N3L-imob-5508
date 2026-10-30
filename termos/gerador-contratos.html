@@ -3159,7 +3159,7 @@ function obterCamposObrigatorios() {
     add('caucao_extenso', 'Caução — Valor por Extenso');
     add('caucao_banco', 'Caução — Banco');
     add('caucao_conta', 'Caução — Conta Bancária');
-  } else {
+  } else if (garantia !== 'SEM GARANTIA') {
     add('imgrt_descricao', 'Imóvel Garantia — Descrição');
     add('imgrt_rua', 'Imóvel Garantia — Rua e nº');
     add('imgrt_bairro', 'Imóvel Garantia — Bairro');
