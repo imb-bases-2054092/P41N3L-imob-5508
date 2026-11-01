@@ -502,6 +502,7 @@ body.protegido dialog,body.protegido .toasts{visibility:hidden}
 .rel-t .obs-imp{border-left:1px solid #ccc}
 .dados-t td{vertical-align:middle}.dados-t td:first-child{width:50%}
 .info-cob{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.info-cob>div{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;min-width:120px;flex:1 1 auto}
+.info-cob>div:not([style]){order:5}.info-cob .etq{font-size:12.5px;margin-top:2px}
 .info-cob small{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}.info-cob b{font-size:15px}.info-cob span{display:block;font-size:12px;color:var(--muted)}
 .info-cob .destaque{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.info-cob .destaque b{font-size:17px}
 .info-cob .destaque.ok{border-color:#2e8b57;background:color-mix(in srgb,#2e8b57 11%,var(--surface))}.info-cob .destaque.warn{border-color:#d18b00;background:color-mix(in srgb,#d18b00 12%,var(--surface))}
@@ -639,7 +640,7 @@ a.lnk-site:hover{text-decoration-thickness:2px}
 td .etq{font-size:11.5px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .etq-lcd{border-color:#5b4a99;background:#231d3d;color:#cbbcff} :root:not([data-theme="light"]) .etq-lct{border-color:#3f7a52;background:#16291d;color:#a6e0b6} :root:not([data-theme="light"]) .etq-fdr{border-color:#8a6a2c;background:#2b2412;color:#f0d08c} :root:not([data-theme="light"]) .etq-p{border-color:#4a5873;background:#1b2232;color:#cdd8ee} :root:not([data-theme="light"]) a.lnk-site{color:#8fb4ff}}
 :root[data-theme="dark"] .etq-lcd{border-color:#5b4a99;background:#231d3d;color:#cbbcff} :root[data-theme="dark"] .etq-lct{border-color:#3f7a52;background:#16291d;color:#a6e0b6} :root[data-theme="dark"] .etq-fdr{border-color:#8a6a2c;background:#2b2412;color:#f0d08c} :root[data-theme="dark"] .etq-p{border-color:#4a5873;background:#1b2232;color:#cdd8ee} :root[data-theme="dark"] a.lnk-site{color:#8fb4ff}
-.ctt-res{display:grid;gap:10px;padding:6px 2px}.res-l{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px}
+.ctt-res{display:grid;gap:10px;padding:6px 2px}.res-l{display:grid;grid-template-columns:132px 1fr;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px}
 .res-t{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.res-v{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.res-v .btn{margin-left:auto}
 .res-v .etq{font-size:13px;padding:3px 12px}
 .gl-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface)}.gl-h{display:flex;gap:8px;align-items:center;margin-bottom:6px}
@@ -671,6 +672,19 @@ table.compacta.site-t{width:100%!important;max-width:none!important;margin-top:8
 .aj-t{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 5px;margin-right:3px;white-space:nowrap}
 .aj-t.acr{background:#e7f5ea;color:#1d6b32}.aj-t.desc{background:#fde8e8;color:#9b1c1c}.aj-t.desp{background:#fff3d6;color:#7a5200}
 .lnk-ctt{border:0;background:none;padding:0;color:#1d4ed8;text-decoration:underline;cursor:pointer;font-size:12.5px}
+.res-2col{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,1fr);gap:16px;align-items:start}@media (max-width:950px){.res-2col{grid-template-columns:1fr}}
+.res-dir{border:1px solid color-mix(in srgb,#f5c542 45%,var(--line));background:color-mix(in srgb,#f5c542 10%,var(--surface));border-radius:10px;padding:10px 12px;max-height:420px;overflow:auto}
+.res-dir .res-t{margin-bottom:6px}.obs-lista{margin:0 0 8px;padding-left:18px;font-size:13.5px;line-height:1.45}.obs-lista li{margin:3px 0}
+.etq-lnk{cursor:pointer}.etq-lnk:hover{text-decoration:underline;filter:brightness(.96)}
+.etq-conf{border-style:dashed!important;border-color:#c0392b!important;color:#a12b1d!important;background:#fff5f4!important}
+.ctt-ref{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}.ctt-ref .pasta{text-decoration:none}
+.car-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px 10px}@media (max-width:1000px){.car-g{grid-template-columns:repeat(3,1fr)}}
+.hist-res,table.hist-t{width:100%!important}.hist-res td{padding:3px 6px;font-size:13px}.hist-res tr[data-act]:hover td,.hist-t tr[data-act]:hover td{background:var(--surface-2,#f1f4f9)}
+.esc-lista{max-height:56vh}.esc-it{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 8px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+.esc-it:hover,.esc-it:focus{background:var(--surface-2,#f1f4f9);border-color:var(--line)}.esc-cod{font-weight:700;min-width:70px}
+.tm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:8px}
+.tm-card{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.tm-card:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(0,0,0,.07)}.tm-card .tm-ic{font-size:24px;line-height:1}.tm-card b{display:block;font-size:14px;margin-bottom:2px}.tm-card small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
 .doc-ops{display:flex;flex-wrap:wrap;gap:4px 14px;margin-right:auto;align-items:center;font-size:13px}
 .pdf-prev{display:flex;flex-direction:column;align-items:center;gap:14px;background:#e9edf3;padding:16px;border-radius:8px;max-height:72vh;overflow:auto}
 .pdf-pg{width:min(100%,640px);height:auto;box-shadow:0 2px 10px rgba(0,0,0,.25);background:#fff}
@@ -750,14 +764,17 @@ table.compacta.site-t{width:100%!important;max-width:none!important;margin-top:8
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
-      <div class="nav-h">Cadastros</div>
+      <div class="nav-h">Cadastros · Locação</div>
       <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
       <a href="#fornecedores" data-p="fornecedores"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Prestadores e lojas</span><span class="nav-c" data-c="fornecedores"></span></a>
-      <div class="nav-h">Vendas</div>
-      <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Vendas</span><span class="nav-c" data-c="vendas"></span></a>
+      <a href="#interessados_loc" data-p="interessados_loc"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span></a>
+      <div class="nav-h">Cadastros · Vendas</div>
+      <a href="#imoveis_venda" data-p="imoveis_venda"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis_venda"></span></a>
+      <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="vendas"></span></a>
+      <a href="#interessados_ven" data-p="interessados_ven"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_ven"></span></a>
       <div class="nav-h">Gestão</div>
       <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>
@@ -765,6 +782,7 @@ table.compacta.site-t{width:100%!important;max-width:none!important;margin-top:8
       <a href="#backup" data-p="backup"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span class="nav-t">Backup e dados</span></a>
       <a href="#config" data-p="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>Configurações</a>
       <a href="#tutoriais" data-p="tutoriais"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg><span class="nav-t">Tutoriais</span><span class="nav-c" data-c="tutoriais"></span></a>
+      <a href="#termos" data-p="termos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/><path d="M8 9h2"/></svg><span class="nav-t">Termos</span><span class="nav-c" data-c="termos"></span></a>
     </nav>
     <div class="spacer"></div>
     <div class="me">
