@@ -108,9 +108,14 @@ const pode = {
 };
 const PAPEIS = { admin: "Administrador", financeiro: "Financeiro", recepcao: "Recepção", leitura: "Somente leitura", backup: "Backup automático" };
 const GRUPOS = {
-  receita: "Receitas diretas (da imobiliária)", imposto: "Imposto", custo: "Custo", despesa: "Despesa", retirada: "Retirada dos sócios",
-  terceiros_entrada: "Entradas brutas (parte é do proprietário)", terceiros_saida: "Saídas de dinheiro dos proprietários", transferencia: "Transferência"
+  receita: "Receitas diretas (da imobiliária)", terceiros_entrada: "Entradas brutas (parte é do proprietário)",
+  despesa: "Despesas da imobiliária", retirada_cilas: "Retirada – Cilas", retirada_eliana: "Retirada – Eliana",
+  terceiros_saida: "Saídas de dinheiro dos proprietários", transferencia: "Transferência"
 };
+// v17: grupos antigos (só para mostrar o nome de algo que ainda não foi reclassificado)
+const GRUPOS_ANT = { imposto: "Imposto (antigo)", custo: "Custo (antigo)", retirada: "Retirada sem sócio (reclassifique: Cilas ou Eliana)" };
+Object.keys(GRUPOS_ANT).forEach(k => Object.defineProperty(GRUPOS, k, { value: GRUPOS_ANT[k], enumerable: false }));
+const grupoDRE = g => g === "imposto" || g === "custo" ? "despesa" : g;
 // link do imóvel no site: CFG.SITE_IMOVEL_URL com {codigo} (padrão: busca no Google dentro do site)
 const SITE_PADRAO = "https://imobiliariabandeirantes.com.br/{codigo}-imovel.html";
 const SITE_MODELOS = [
@@ -566,7 +571,7 @@ function devido(c) { return r2(+c.valor + +(c.acrescimos || 0) - +(c.descontos |
 //   acréscimo: imob (multa, juros: receita da imobiliária) · prop (vai para o proprietário) · repassar (IPTU, condomínio: a imobiliária paga o boleto)
 //   desconto:  prop (sai do valor do proprietário) · imob (a imobiliária cobre)
 const AJ_DE = { acr: { imob: "fica com a imobiliária", prop: "vai para o proprietário", repassar: "pago pela imobiliária (IPTU, condomínio…)" }, desc: { prop: "por conta do proprietário", imob: "por conta da imobiliária" } };
-const AJ_SUG = { acr: [["Multa", "imob"], ["Juros", "imob"], ["IPTU", "repassar"], ["Condomínio", "repassar"], ["Água", "repassar"], ["Energia", "repassar"], ["Maj. tributária", "prop"], ["Diferença de aluguel", "prop"], ["Aluguel proporcional", "prop"], ["Taxa de contrato", "imob"], ["Outros", "prop"]],
+const AJ_SUG = { acr: [["Multa", "imob"], ["IPTU", "repassar"], ["Condomínio", "repassar"], ["Água", "repassar"], ["Energia", "repassar"], ["Dif. de aluguel", "prop"], ["Aluguel prop.", "prop"], ["Outros", "prop"]],
   desc: [["Desconto combinado", "prop"], ["Desconto de pontualidade", "prop"], ["Desconto por reparo do locatário", "prop"], ["Aluguel proporcional", "prop"], ["Abono de multa", "imob"], ["Abono de juros", "imob"], ["Outros", "prop"]] };
 const ajRot = x => (x.desc || "") + (x.obs ? " (" + x.obs + ")" : "");
 function ajustesDe(c) {
@@ -665,8 +670,9 @@ PAGES.painel = async pg => {
   const meses = []; for (let i = 0; i < 12; i++) meses.push(addMes(ini, i));
   const porMes = {}; meses.forEach(m => (porMes[m] = { receita: 0, imposto: 0, custo: 0, despesa: 0, retirada: 0 }));
   res.filter(r => r.pago).forEach(r => {
-    const m = porMes[r.competencia]; if (!m || !(r.grupo in m)) return;
-    m[r.grupo] += r.tipo === "entrada" ? +r.total : -+r.total;
+    const g = /^retirada/.test(r.grupo) ? "retirada" : grupoDRE(r.grupo);
+    const m = porMes[r.competencia]; if (!m || !(g in m)) return;
+    m[g] += r.tipo === "entrada" ? +r.total : -+r.total;
   });
   // receita entra positiva; demais grupos são saídas (negativos) -> inverter sinal
   Object.values(porMes).forEach(m => { ["imposto", "custo", "despesa", "retirada"].forEach(k => (m[k] = -m[k])); });
@@ -924,7 +930,7 @@ function ligarAjustes(d, aoMudar, base) {
     const val = $("[data-k=valor]", l); mascaraMoeda(val);
     const obs = $("[data-k=obs]", l);
     desc.addEventListener("change", () => {
-      if (desc.value === "Outros" && !obs.value) obs.focus();
+      if ((desc.value === "Outros" || /^multa/i.test(desc.value)) && !obs.value) { if (/^multa/i.test(desc.value)) obs.placeholder = "atraso ou rescisão antecipada? (ex.: atraso ref. set/26)"; obs.focus(); }
       const sg = AJ_SUG[tipo.value].find(([t]) => norm(t) === norm(desc.value)); if (sg) de.value = sg[1];
       // multa: 10% do aluguel, automático (dá para mudar)
       if (tipo.value === "acr" && /^multa/i.test(desc.value.trim()) && !parseMoney(val.value) && base) val.value = moedaFmt(r2(base * 0.1));
@@ -1017,6 +1023,7 @@ function despPropHTML(c) {
     <div data-desp-ls>${k.desp.map(l => `<div class="desp-l"><span>${esc(l.descricao || "despesa")}</span><span class="muted">${dt(l.data)}</span><b>${n2(l.valor)}</b>${pode.editar() ? `<button type="button" class="btn sm ghost" data-desp-del="${l.id}" title="Excluir do caixa">✕</button>` : ""}</div>`).join("") || `<p class="hint">Nenhuma.</p>`}</div>
     <div class="desp-novo2" data-desp-novo hidden>
       <label class="fl"><span>Natureza</span><select data-dk="nat">${opt("servico", "Serviço (mão de obra)", true)}${opt("material", "Material (compra em loja)", false)}</select></label>
+      <label class="fl"><span>Ramo / serviço</span><select data-dk="ramo"></select></label>
       <label class="fl"><span data-dk-fl>Prestador</span><select data-dk="forn"></select></label>
       <label class="fl"><span>Valor</span><input data-dk="valor" inputmode="numeric" placeholder="R$ 0,00"></label>
       <label class="fl"><span>Pago pela conta</span><select data-dk="conta">${contasOpts(c.conta_pgto_id)}</select></label>
@@ -1028,14 +1035,19 @@ function ligarDespProp(d, c, aoMudar) {
   const box = $("[data-desp-box]", d); if (!box) return;
   const novo = $("[data-desp-novo]", box);
   const nat = $("[data-dk=nat]", novo), forn = $("[data-dk=forn]", novo);
+  const ramo = $("[data-dk=ramo]", novo);
+  const doTipo = () => (S.fornecedores || []).filter(x => x.ativo && x.tipo === (nat.value === "material" ? "loja" : "prestador"));
+  const encherRamo = () => { const v = ramo.value, rs = [...new Set(doTipo().map(x => x.especialidade || "").filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    ramo.innerHTML = `<option value="">— todos —</option>` + rs.map(r => opt(r, r, r === v)).join("") + (doTipo().some(x => !x.especialidade) ? opt("-", "(sem ramo cadastrado)", v === "-") : ""); };
   const encherForn = () => { const t = nat.value === "material" ? "loja" : "prestador"; $("[data-dk-fl]", novo).textContent = t === "loja" ? "Loja" : "Prestador";
-    forn.innerHTML = `<option value="">— escolha —</option>` + (S.fornecedores || []).filter(x => x.ativo && x.tipo === t).map(x => opt(x.id, x.nome + (x.especialidade ? " · " + x.especialidade : ""), false)).join("") + `<option value="+">+ cadastrar novo…</option>`; };
-  nat.addEventListener("change", encherForn); encherForn();
+    const r = ramo.value, ls = doTipo().filter(x => !r || (r === "-" ? !x.especialidade : x.especialidade === r));
+    forn.innerHTML = `<option value="">— escolha —</option>` + ls.map(x => opt(x.id, x.nome, false)).join("") + `<option value="+">+ cadastrar novo…</option>`; };
+  nat.addEventListener("change", () => { ramo.value = ""; encherRamo(); encherForn(); }); ramo.addEventListener("change", encherForn); encherRamo(); encherForn();
   forn.addEventListener("change", async () => {
     if (forn.value !== "+") return;
     const nome = (prompt(`Nome do ${nat.value === "material" ? "loja" : "prestador"} (cadastro completo em Cadastros › Prestadores e lojas):`) || "").trim();
     if (!nome) { forn.value = ""; return; }
-    try { const r = await q(sb.from("fornecedores").insert({ nome, tipo: nat.value === "material" ? "loja" : "prestador" }).select().single()); await recarregarLocadores(); encherForn(); forn.value = r.id; } catch (e) { falha(e); forn.value = ""; }
+    try { const r = await q(sb.from("fornecedores").insert({ nome, tipo: nat.value === "material" ? "loja" : "prestador", especialidade: ramo.value && ramo.value !== "-" ? ramo.value : "" }).select().single()); await recarregarLocadores(); encherRamo(); encherForn(); forn.value = r.id; } catch (e) { falha(e); forn.value = ""; }
   });
   const bAdd = $("[data-desp-add]", box); if (bAdd) bAdd.addEventListener("click", () => { novo.hidden = false; forn.focus(); });
   mascaraMoeda($("[data-dk=valor]", novo));
@@ -1316,7 +1328,7 @@ ACT["gerar-prev"] = async () => {
   const n = await rpc("gerar_previstos", { p_comp: S.mes });
   toast(n ? `${n} lançamento(s) previsto(s) criado(s). Confirme cada um quando pagar.` : "Nada novo para lançar."); render();
 };
-const GRUPOS_TIPO = { entrada: ["receita", "terceiros_entrada"], saida: ["imposto", "custo", "despesa", "retirada", "terceiros_saida"] };
+const GRUPOS_TIPO = { entrada: ["receita", "terceiros_entrada"], saida: ["despesa", "retirada_cilas", "retirada_eliana", "retirada", "imposto", "custo", "terceiros_saida"] };
 function formLanc(l, tipo) {
   const ro = l && (l.origem !== "manual" || !pode.editar());
   const soCaixa = S.papel === "recepcao";
@@ -1346,10 +1358,10 @@ function formLanc(l, tipo) {
         ${temRec && !dis ? `<button type="button" class="lnk-mini" data-cat-todas>mostrar também as previstas mensais/anuais</button>` : ""}</label>
       <div class="fl"><span>${tipo === "entrada" ? "Recebido de *" : "Pago a *"}</span><input type="hidden" name="quem" value="${esc(quem0)}"><input type="hidden" name="quemtipo" value="">
         <button type="button" class="pick" data-pick="quem" ${dis}>${quem0 ? `<span class="etq etq-p">${esc(quem0)}</span>` : `<span class="pick-ph">${tipo === "entrada" ? "de quem…" : "para quem…"}</span>`}</button></div>
-      <label class="fl"><span>Referente a (o quê)</span><input name="ref" value="${esc(ref0)}" maxlength="200" placeholder="ex.: conserto do portão" ${dis}></label>
+      <label class="fl"><span>Documento / nota</span><input name="documento" value="${esc(l ? l.documento : "")}" maxlength="100" ${dis}></label>
     </div>
     <div class="lanc-g4c">
-      <label class="fl"><span>Documento / nota</span><input name="documento" value="${esc(l ? l.documento : "")}" maxlength="100" ${dis}></label>
+      <label class="fl"><span>Referente a (o quê)</span><input name="ref" value="${esc(ref0)}" maxlength="200" placeholder="ex.: conserto do portão da garagem, material elétrico…" ${dis}></label>
       ${!l && !soCaixa ? `<label class="fl"><span>Repetir nos meses seguintes (como previsto)</span><input type="number" name="repetir" min="0" max="36" value="0"></label>` : "<span></span>"}
     </div>
     ${tipo === "saida" ? `<label class="chk" data-desc-rep ${im ? "" : "hidden"}><input type="checkbox" name="descrep" ${l && l.desconta_repasse ? "checked" : ""} ${dis}> <span><b>Descontar do repasse do proprietário</b> deste imóvel (despesa dele paga pela imobiliária). Aparece como desconto no Pgto locador (repasse); se o repasse desse mês já foi feito, vai para o mês seguinte. Ao descontar, o dinheiro volta para a imobiliária. Exige prestador ou loja em "Pago a".</span></label>` : ""}
@@ -1386,8 +1398,12 @@ function pickerLanc(btn, tipoPick, f, d, tipo) {
     const q2 = norm(busca.value.trim());
     if (aba === "outro") { lista.innerHTML = `<div class="pk-outro"><input class="pk-o" placeholder="Nome de quem ${tipo === "entrada" ? "pagou" : "recebeu"}" value="${esc(busca.value)}"><button type="button" class="btn sm pri" data-po>Usar</button></div>`;
       const o = $(".pk-o", lista), go = () => o.value.trim() && escolher(o.value.trim(), "outro"); $("[data-po]", lista).addEventListener("click", go); o.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); go(); } }); o.focus(); return; }
-    const A = abas[aba], ls = A.ls.filter(x => !q2 || norm(x.n + " " + (x.sub || "")).includes(q2)).slice(0, 120);
-    lista.innerHTML = ls.length ? ls.map((x, i) => `<button type="button" class="pk-it" data-i="${i}"><span class="etq ${A.cls || "etq-p"}">${tipoPick === "imv" ? "🏠 " : ""}${esc(x.t || x.n)}</span><small>${esc(x.sub || "")}</small></button>`).join("") : `<p class="hint" style="padding:8px">Nada encontrado.${tipoPick === "imv" ? "" : " Use a aba Outro para digitar."}</p>`;
+    const A = abas[aba], ramos = (aba === "prest" || aba === "loja") ? [...new Set(A.ls.map(x => x.sub).filter(Boolean))].sort((a, b) => a.localeCompare(b)) : [];
+    if (A.ramo && !ramos.includes(A.ramo)) A.ramo = "";
+    const ls = A.ls.filter(x => (!A.ramo || x.sub === A.ramo) && (!q2 || norm(x.n + " " + (x.sub || "")).includes(q2))).slice(0, 120);
+    const chipsR = ramos.length ? `<div class="pk-ramos"><span class="hint">Ramo / serviço:</span>${["", ...ramos].map(r => `<button type="button" class="chip${(A.ramo || "") === r ? " on" : ""}" data-ramo="${esc(r)}">${esc(r || "Todos")}</button>`).join("")}</div>` : "";
+    lista.innerHTML = chipsR + (ls.length ? ls.map((x, i) => `<button type="button" class="pk-it" data-i="${i}"><span class="etq ${A.cls || "etq-p"}">${tipoPick === "imv" ? "🏠 " : ""}${esc(x.t || x.n)}</span><small>${esc(x.sub || "")}</small></button>`).join("") : `<p class="hint" style="padding:8px">Nada encontrado.${tipoPick === "imv" ? "" : " Use a aba Outro para digitar."}</p>`);
+    $$("[data-ramo]", lista).forEach(b => b.addEventListener("click", () => { A.ramo = b.dataset.ramo; desenha(); }));
     $$("[data-i]", lista).forEach(b => b.addEventListener("click", () => { const x = ls[+b.dataset.i]; escolher(x.n, x.tp || aba, x.imv); }));
   };
   $$("[data-pa]", p).forEach(b => b.addEventListener("click", () => { aba = b.dataset.pa; $$("[data-pa]", p).forEach(x => x.classList.toggle("on", x === b)); desenha(); if (aba !== "outro") busca.focus(); }));
@@ -1449,7 +1465,7 @@ ACT["lanc-novo"] = el => {
   modal({
     titulo: tipo === "entrada" ? "Nova entrada" : "Nova saída", corpo: formLanc(null, tipo), xl: true, ok: tipo === "entrada" ? "✔ Lançar como recebido" : "✔ Lançar como pago",
     extra: S.papel === "recepcao" ? "" : `<button type="button" class="btn prev-btn" data-lanc-prev>🕒 Lançar como previsto</button>`,
-    aoAbrir: (f, d) => { ligarLanc(f, d, tipo); f.pago.value = "1"; const bp = $("[data-lanc-prev]", d); if (bp) bp.addEventListener("click", () => { f.pago.value = "0"; f.requestSubmit(); setTimeout(() => { if (d.open) f.pago.value = "1"; }, 50); }); },
+    aoAbrir: (f, d) => { ligarLanc(f, d, tipo); f.pago.value = "1"; const bp = $("[data-lanc-prev]", d); if (bp) { const ft = $(".dlg-f", d); ft.insertBefore(bp, $("button[type=submit]", ft)); } if (bp) bp.addEventListener("click", () => { f.pago.value = "0"; f.requestSubmit(); setTimeout(() => { if (d.open) f.pago.value = "1"; }, 50); }); },
     salvar: async f => {
       const base = await ajustarCompRepasse(lerLanc(f, tipo)); const rep = f.repetir ? Math.max(0, Math.min(36, +f.repetir.value || 0)) : 0;
       const linhas = [base];
@@ -1539,13 +1555,14 @@ PAGES.dre = async pg => {
   const val = {}; // grupo -> categoria -> mes -> valor (positivo)
   res.filter(r => prev || r.pago).forEach(r => {
     const sinal = (r.grupo === "receita" || r.grupo === "terceiros_entrada") ? (r.tipo === "entrada" ? 1 : -1) : (r.tipo === "saida" ? 1 : -1);
-    ((val[r.grupo] = val[r.grupo] || {})[r.categoria] = val[r.grupo][r.categoria] || {});
-    val[r.grupo][r.categoria][r.competencia] = (val[r.grupo][r.categoria][r.competencia] || 0) + sinal * +r.total;
+    const g = grupoDRE(r.grupo);
+    ((val[g] = val[g] || {})[r.categoria] = val[g][r.categoria] || {});
+    val[g][r.categoria][r.competencia] = (val[g][r.categoria][r.competencia] || 0) + sinal * +r.total;
   });
   const somaG = g => meses.map(m => Object.values(val[g] || {}).reduce((a, c) => a + (c[m] || 0), 0));
   const op = (a, b, s) => a.map((v, i) => v + s * b[i]);
-  const rec = somaG("receita"), imp = somaG("imposto"), cus = somaG("custo"), des = somaG("despesa"), ret = somaG("retirada");
-  const liq = op(rec, imp, -1), bruto = op(liq, cus, -1), oper = op(bruto, des, -1), fin = op(oper, ret, -1);
+  const rec = somaG("receita"), des = somaG("despesa"), rC = somaG("retirada_cilas"), rE = somaG("retirada_eliana"), rS = somaG("retirada");
+  const oper = op(rec, des, -1), fin = op(op(op(oper, rC, -1), rE, -1), rS, -1), temRS = rS.some(v => Math.abs(v) > 0.004);
   const te = somaG("terceiros_entrada"), ts = somaG("terceiros_saida");
   DRE_LINHAS = [];
   const cel = (v, suf) => `<td class="num ${v < -0.004 ? "neg" : ""}">${Math.abs(v) < 0.005 ? "–" : n2(v) + (suf || "")}</td>`;
@@ -1561,15 +1578,14 @@ PAGES.dre = async pg => {
       <span class="spacer"></span><button class="btn" data-act="imprimir">Imprimir</button></div>
     <div class="tw"><table class="dre"><thead><tr><th>${ano}</th>${meses.map(m => `<th class="num">${MES3[+m.slice(5, 7) - 1]}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>
       ${L("Receita bruta", rec, "grp")}${cats("receita")}
-      ${L("(−) Impostos sobre a receita", imp, "grp")}${cats("imposto")}
-      ${L("= Receita líquida", liq, "tot t1")}
-      ${L("(−) Custos (comissões etc.)", cus, "grp")}${cats("custo")}
-      ${L("= Lucro bruto", bruto, "tot t2")}
-      ${L("(−) Despesas operacionais", des, "grp")}${cats("despesa")}
-      ${L("= Resultado operacional", oper, "tot t3")}
-      ${L("Margem (% da receita bruta)", pct(oper, rec), "memo", (() => { const r = rec.reduce((a, b) => a + b, 0); return r ? oper.reduce((a, b) => a + b, 0) / r * 100 : 0; })(), "%")}
-      ${L("(−) Retiradas dos sócios", ret, "grp")}${cats("retirada")}
+      ${L("(−) Despesas da imobiliária (inclui impostos e comissões)", des, "grp")}${cats("despesa")}
+      ${L("= Resultado da imobiliária", oper, "tot t3")}
+      ${L("Margem (% da receita)", pct(oper, rec), "memo", (() => { const r = rec.reduce((a, b) => a + b, 0); return r ? oper.reduce((a, b) => a + b, 0) / r * 100 : 0; })(), "%")}
+      ${L("(−) Retirada – Cilas", rC, "grp")}${cats("retirada_cilas")}
+      ${L("(−) Retirada – Eliana", rE, "grp")}${cats("retirada_eliana")}
+      ${temRS ? L("(−) Retirada sem sócio (reclassifique)", rS, "grp") + cats("retirada") : ""}
       ${L("= Resultado após retiradas", fin, "tot t4")}
+      ${L("Balanço das retiradas: Cilas − Eliana (positivo = Cilas retirou mais)", op(rC, rE, -1), "memo")}
       <tr><td colspan="14" class="hint" style="padding-top:16px">Dinheiro de proprietários (não entra no resultado)</td></tr>
       ${L("Recebido de inquilinos p/ proprietários", te, "memo")}
       ${L("Repassado / pago p/ proprietários", ts, "memo")}
@@ -2049,6 +2065,68 @@ function lerImovel(f) {
   if (d.contrato_codigo && !/^L\.\d{2}\.\d{3}$/.test(d.contrato_codigo)) throw new Error("Contrato no formato L.26.100 (digite só os números: 26100).");
   return d;
 }
+// v17: ficha do imóvel existente — só o que se edita; situação no cabeçalho, travas no tipo, código e contrato
+const grupoDoLocador = nome => { const n = norm(nome || ""); const im = n && S.imoveis.find(x => norm(x.locador) === n && x.grupo_locador); return im ? im.grupo_locador : ""; };
+function barraImovel(i) {
+  const st = STATUS_IMV[i.status] || [i.status, "idle"], ed = pode.editar();
+  const dica = { ALG: "Muda só ao registrar a saída do locatário.", LVR: "Vira Alugado ao ligar um contrato novo; pode sair da locação (Ocupado ou Inativo).", OCP: "Fora da locação. Pode voltar para Livre.", INTV: "Fora da locação. Pode voltar para Livre." }[i.status] || "";
+  const b = (s, t, cls, d) => `<button type="button" class="btn sm ${cls || ""}" data-imv-st="${s}" title="${esc(d || "")}">${t}</button>`;
+  const bts = !ed ? "" : i.status === "ALG" ? `<button type="button" class="btn sm" data-saida>🚪 Registrar saída do locatário</button>`
+    : i.status === "LVR" ? `<button type="button" class="btn sm pri" data-act="imv-novoctt" data-id="${i.id}" title="Abre o gerador com os dados do locador e do imóvel">📄 Novo contrato</button>${b("OCP", "Ocupado", "", "O imóvel saiu da locação (ocupado pelo dono, em obra…)")}${b("INTV", "Inativo", "", "O imóvel deixou de ser administrado pela imobiliária")}`
+    : b("LVR", "↺ Voltar para locação (Livre)", "pri");
+  return `<div class="ctt-sit"><span class="ctt-sit-l">Situação</span><span class="tag ${st[1]}">${esc(st[0])}</span><small class="muted">${esc(dica)}</small><span class="spacer"></span>${bts}${pode.admin() ? `<button type="button" class="btn sm" data-imv-endloc title="Só administrador">✎ Endereço / locador</button>` : ""}</div>`;
+}
+function formImovelEd(i) {
+  const dis = pode.editar() ? "" : "disabled", adm = pode.admin() && !dis;
+  const trava = (k, tem) => tem ? (adm ? `<button type="button" class="btn sm lk" data-destrava="${k}" title="Só administrador: liberar a alteração">🔒</button>` : `<span class="lk" title="Travado depois de preenchido">🔒</span>`) : "";
+  const temCod = !!String(i.codigo_site || "").trim();
+  return `<div class="imv-g">
+      <label class="fl"><span>Tipo ${trava("tipo", true)}</span><select name="tipo" disabled>${tiposImovel(i.tipo).map(t => opt(t, t, i.tipo === t)).join("")}</select></label>
+      <label class="fl"><span>Código no site ${trava("codigo_site", temCod)} ${temCod && /^\d+$/.test(String(i.codigo_site).trim()) ? linkSite(i.codigo_site, "ver") : ""}</span><input name="codigo_site" value="${esc(i.codigo_site || "")}" inputmode="numeric" ${temCod ? "disabled" : dis}></label>
+      <label class="fl"><span>Contrato 🔒</span><div class="fl-ro" title="O contrato entra quando um contrato novo é ligado ao imóvel livre e sai na saída do locatário">${i.contrato_codigo ? tagCtt(i.contrato_codigo) : `<span class="muted">—</span>`}</div></label>
+      <label class="fl"><span>Declarar IR?</span><select name="declarar_ir" ${dis}>${opt("", "—", !i.declarar_ir)}${opt("Sim", "Sim", i.declarar_ir === "Sim")}${opt("Não", "Não", i.declarar_ir === "Não")}</select></label>
+      <label class="fl"><span>IR declarado por</span><select name="ir_para" ${dis}>${opt("", "—", !i.ir_para)}${["Locador", "Locatário", "Locador e locatário"].map(x => opt(x, x, i.ir_para === x)).join("")}</select></label>
+      <label class="fl"><span>${i.status === "ALG" ? "Aluguel" : "Aluguel previsto"}</span><input name="valor" inputmode="numeric" value="${i.valor != null ? moedaFmt(i.valor) : ""}" ${dis}></label>
+      <label class="fl"><span>Dia venc.</span><input type="number" name="dia_venc" min="1" max="31" value="${i.dia_venc || ""}" ${dis}></label>
+      <label class="fl"><span>Entrada do locatário</span><input type="date" name="data_entrada" value="${i.data_entrada || ""}" ${dis}></label>
+      <label class="fl"><span>Carteira</span><select name="carteira" ${dis}>${Object.entries(CARTEIRAS).map(([k, v]) => opt(k, v, (i.carteira || "administrado") === k)).join("")}</select></label>
+      <label class="fl"><span>Taxa adm. %</span><input name="taxa_adm" inputmode="decimal" value="${n2(i.taxa_adm)}" ${dis}></label>
+      <label class="fl s5"><span>Observações do imóvel</span><textarea name="obs" rows="2" ${dis}>${esc(i.obs || "")}</textarea></label>
+    </div>`;
+}
+function lerImovelEd(f, i) {
+  const taxa = parseMoney(f.taxa_adm.value);
+  if (taxa == null || taxa < 0 || taxa > 100) throw new Error("Taxa deve estar entre 0 e 100.");
+  const d = { tipo: f.tipo.value || i.tipo, codigo_site: f.codigo_site.value.trim(), valor: f.valor.value.trim() ? parseMoney(f.valor.value) : null, taxa_adm: taxa, carteira: f.carteira.value,
+    declarar_ir: f.declarar_ir.value, ir_para: f.ir_para.value, obs: f.obs.value.trim(), dia_venc: +f.dia_venc.value || null, data_entrada: f.data_entrada.value || null };
+  if (i.status === "ALG" && !d.valor) throw new Error("Imóvel alugado precisa do valor do aluguel.");
+  if (String(i.codigo_site || "").trim() && d.codigo_site !== String(i.codigo_site).trim() && !pode.admin()) throw new Error("O código do site não pode ser trocado (só o administrador).");
+  if (d.tipo !== i.tipo && !pode.admin()) throw new Error("O tipo não pode ser trocado (só o administrador).");
+  return d;
+}
+function ligarImovelEd(f, d, i, reabrir) {
+  mascaraMoeda(f.valor);
+  f.carteira.addEventListener("change", () => { const t = { proprio: "100,00", socio: "0,00", administrado: "10,00" }[f.carteira.value]; if (t) f.taxa_adm.value = t; });
+  if (f.data_entrada) f.data_entrada.addEventListener("change", () => { if (f.data_entrada.value && !f.dia_venc.value) f.dia_venc.value = +f.data_entrada.value.slice(8, 10); });
+  $$("[data-destrava]", d).forEach(b => b.addEventListener("click", e => { e.preventDefault();
+    if (!b.dataset.conf) { b.dataset.conf = "1"; b.textContent = "Liberar? clique de novo"; b.classList.add("danger"); return; }
+    const inp = f[b.dataset.destrava]; inp.disabled = false; inp.focus(); b.textContent = "🔓"; b.classList.remove("danger"); b.disabled = true; }));
+  $$("[data-imv-st]", d).forEach(b => b.addEventListener("click", async () => {
+    const novo = b.dataset.imvSt, txt = STATUS_IMV[novo][0];
+    if (!b.dataset.conf) { b.dataset.conf = "1"; b.dataset.txt = b.textContent; b.textContent = `Confirmar: ${txt}?`; b.classList.add("danger"); return; }
+    try { await q(sb.from("imoveis").update({ status: novo }).eq("id", i.id)); await recarregarImoveis(); toast(`Imóvel agora está ${txt}.`); d.close(); render(); setTimeout(reabrir, 50); } catch (e) { falha(e); }
+  }));
+  const el = $("[data-imv-endloc]", d);
+  if (el) el.addEventListener("click", () => { d.close(); setTimeout(() => modal({ titulo: "Corrigir endereço / locador · " + i.endereco, largo: true,
+    corpo: `<div class="box warn">Use só para corrigir erro de cadastro ou quando o imóvel mudou de dono. O endereço aparece em todos os lançamentos e contratos.</div>
+      <label class="fl"><span>Endereço</span><input name="endereco" value="${esc(i.endereco)}" required></label>
+      <label class="fl"><span>Locador (do cadastro de locadores)</span><input name="locador" value="${esc(i.locador || "")}" list="dl-locadores2"></label>
+      <datalist id="dl-locadores2">${(S.locadores || []).filter(l => l.ativo).map(l => `<option value="${esc(l.nome)}">`).join("")}</datalist>`,
+    aoFechar: () => setTimeout(reabrir, 50),
+    salvar: async f2 => { const e2 = f2.endereco.value.trim(), l2 = f2.locador.value.trim();
+      if (!e2) throw new Error("Informe o endereço."); if (!locadorExiste(l2)) throw new Error(`O locador “${l2}” não está no cadastro de locadores.`);
+      await q(sb.from("imoveis").update({ endereco: e2, locador: l2 }).eq("id", i.id)); await recarregarImoveis(); toast("Salvo."); render(); } }), 50); });
+}
 // grupo do locador escolhido no formulário (vale para todos os imóveis do mesmo locador)
 async function salvarGrupo(f, antes) {
   const g = f.grupo.value.trim(), loc = f.locador.value.trim();
@@ -2174,13 +2252,13 @@ function resumoImovelHTML(i, ctts, hist) {
   const car = carTxt(fi, i.tipo), per = periodosImovel(ctts, hist).slice(0, 8);
   return `<div class="res-2col"><div class="ctt-res">
     ${linha("Imóvel", `${tagImv(i.endereco)} <span class="tag ${st[1]}">${esc(st[0])}</span> <small class="muted">${esc(i.tipo || "")}</small>${/^\d+$/.test(String(i.codigo_site || "").trim()) ? " · " + linkSite(i.codigo_site, "ver no site") : ""}`, "imv")}
-    ${linha("Locador", tagLoc(i.locador), "lcd")}
+    ${linha("Locador", tagLoc(i.locador) + (grupoDoLocador(i.locador) ? ` <small class="muted" title="Grupo do locador (Cadastros › Locadores)">grupo: <b>${esc(grupoDoLocador(i.locador))}</b></small>` : ""), "lcd")}
     ${linha("Locatários", i.status === "ALG" ? tagPes(c ? nomesCtt(c, "lct") : separaNomes(i.locatario), "etq-lct") + (i.data_entrada ? ` <small class="muted">desde ${dt(i.data_entrada)}</small>` : "") : "", "lct")}
     ${linha("Fiadores", i.status === "ALG" ? tagPes(fdr, "etq-fdr") : "", "fdr")}
     ${linha("Contrato", i.contrato_codigo ? `${tagCtt(i.contrato_codigo)} ${c ? `<span class="tag ${SIT_CTT[c.situacao] || "idle"}">${esc(sitTxt(c.situacao))}</span>` : `<small class="muted">(não está no sistema)</small>`} · aluguel <b>${i.valor != null ? brl(i.valor) : "—"}</b>${i.dia_venc ? " · dia " + i.dia_venc : ""}${c ? ` · <a class="btn sm" href="${esc(pastaUrl(c))}"${CFG.PASTA_LOCAL ? "" : ' target="_blank" rel="noopener"'} data-pasta>📁 Abrir pasta</a>` : ""}` : `<span class="muted">sem contrato</span> · aluguel ${i.valor != null ? brl(i.valor) : "—"}`)}
     ${linha("Características", car.length ? car.map(x => `<span class="etq etq-p">${esc(x)}</span>`).join("") : `<span class="muted">não informadas</span>`, "cad")}
     <div class="res-l"><span class="res-t">Histórico</span><div class="res-v" style="display:block">${per.length ? `<table class="compacta hist-res"><tbody>${per.map(p => `<tr${p.ctt ? ` data-act="ir-ctt" data-id="${esc(p.ctt.codigo)}" style="cursor:pointer" title="Abrir o contrato"` : ""}><td>${esc(mesCurto(p.de))} a ${esc(mesCurto(p.ate))} <small class="muted">(${p.n} ${p.n === 1 ? "mês" : "meses"})</small></td><td>${tagPes(separaNomes(p.locatario), "etq-lct", "", 2)}</td><td>${p.ctt ? tagCtt(p.ctt.codigo) : ""}</td><td class="num">${p.valor != null ? n2(p.valor) : ""}</td></tr>`).join("")}</tbody></table>` : `<span class="muted">Sem meses alugados no histórico.</span>`}<button type="button" class="btn sm" ${ir("hist")} style="margin-top:4px">histórico completo ›</button></div></div>
-  </div><div class="res-dir"><div class="res-t">Observações</div>${obsLinhas(i.obs).length ? `<ul class="obs-lista">${obsLinhas(i.obs).map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : `<p class="muted">Sem observações.</p>`}${c && obsLinhas(f.obs).length ? `<div class="res-t" style="margin-top:8px">Do contrato ${esc(c.codigo)}</div><ul class="obs-lista">${obsLinhas(f.obs).map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : ""}</div></div>`;
+  </div><div class="res-dir"><div class="res-t">Observações do imóvel</div>${obsLinhas(i.obs).length ? `<ul class="obs-lista">${obsLinhas(i.obs).map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : `<p class="muted">Sem observações.</p>`}${c && obsLinhas(f.obs).length ? `<div class="res-t" style="margin-top:8px">Do contrato ${esc(c.codigo)}</div><ul class="obs-lista">${obsLinhas(f.obs).map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : ""}</div></div>`;
 }
 function historicoImovelHTML(i, ctts, hist) {
   if (!hist.length) return `<p class="muted">Sem histórico no mapa.</p>`;
@@ -2215,11 +2293,11 @@ ACT["imv-ed"] = async el => {
     q(sb.from("mapa_mensal").select("competencia,valor,locatario").eq("imovel_id", i.id).eq("status", "ALG").order("competencia", { ascending: false }).limit(1)),
     q(sb.from("contratos").select("*").or(`imovel_id.eq.${i.id}${i.contrato_codigo ? `,codigo.eq.${i.contrato_codigo}` : ""}`).order("codigo", { ascending: false })).catch(() => [])
   ]).then(r => { cttsImv = r[4]; return r; });
-  const saida = pode.editar() && i.status === "ALG" ? `<button type="button" class="btn" data-saida>🚪 Registrar saída do locatário</button>` : pode.editar() && i.status === "LVR" ? `<button type="button" class="btn" data-act="imv-novoctt" data-id="${i.id}" title="Abre o gerador com os dados do locador e do imóvel">📄 Novo contrato para este imóvel</button>` : "";
+  const saida = "";
   const excluir = pode.admin() ? `<span class="spacer"></span><button type="button" class="btn danger" data-del>Excluir</button>` : "";
   modal({
     titulo: i.endereco, xl: true, semOk: !pode.editar(), extra: saida + excluir,
-    corpo: abasImovelHTML(i, cttsImv).abas + `<div class="ficha-sec" data-sec="res">${resumoImovelHTML(i, cttsImv, hist)}</div><div class="ficha-sec" data-sec="cad" hidden>` + formImovel(i) + caracteristicasHTML(i) + `
+    corpo: barraImovel(i) + abasImovelHTML(i, cttsImv).abas + `<div class="ficha-sec" data-sec="res">${resumoImovelHTML(i, cttsImv, hist)}</div><div class="ficha-sec" data-sec="cad" hidden>` + formImovelEd(i) + caracteristicasHTML(i) + `
       <h3 style="margin-top:8px">Reajustes programados</h3>
       <div class="tw"><table><thead><tr><th>A partir de</th><th class="num">Novo valor</th><th>Situação</th><th></th></tr></thead><tbody>
         ${reaj.map(r => `<tr><td>${mesTxt(r.competencia)}</td><td class="num">${n2(r.valor_novo)}</td><td>${r.aplicado_em ? `<span class="tag ok">Aplicado</span>` : `<span class="tag warn">Pendente</span>`}</td><td class="acts">${pode.editar() && !r.aplicado_em ? `<button type="button" class="btn sm" data-reaj-del="${r.id}">Remover</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Nenhum.</td></tr>`}
@@ -2236,13 +2314,11 @@ ACT["imv-ed"] = async el => {
         ${!ultAlg.length && hist.length ? `<tr class="ult-alg"><td colspan="4">Nenhum mês alugado registrado no histórico.</td></tr>` : ""}
       </tbody></table></div></div>` + abasImovelHTML(i, cttsImv).secs + `<div class="ficha-sec" data-sec="hist" hidden>${historicoImovelHTML(i, cttsImv, hist)}</div>`,
     salvar: async f => {
-      const d = lerImovel(f);
-      if (i.status === "ALG" && d.status !== "ALG") throw new Error('Para desocupar, use o botão "Registrar saída do locatário": assim ficam guardados a data de saída e se ele ficou devendo.');
+      const d = lerImovelEd(f, i);
       const fi = Object.assign({}, i.ficha || {}); $$("[data-if],[data-car]", $("#dlg")).forEach(x => (fi[x.dataset.if || x.dataset.car] = x.value.trim())); d.ficha = fi;
-      await q(sb.from("imoveis").update(d).eq("id", i.id)); await salvarGrupo(f, i.grupo_locador); await recarregarImoveis(); toast("Salvo."); render();
+      await q(sb.from("imoveis").update(d).eq("id", i.id)); await recarregarImoveis(); toast("Salvo."); render();
     },
-    aoAbrir: (f, d) => { ligarNovoLocador(f, d);
-      ligarCarteira(f);
+    aoAbrir: (f, d) => { ligarImovelEd(f, d, i, () => ACT["imv-ed"]({ dataset: { id: i.id } }));
       $$("[data-hist-f]", d).forEach(b => b.addEventListener("click", () => { $$("[data-hist-f]", d).forEach(x => x.classList.toggle("on", x === b)); $$(".hist-t tbody tr", d).forEach(tr => (tr.hidden = b.dataset.histF === "alg" && !tr.classList.contains("h-alg"))); }));
       $$("[data-ir-aba]", d).forEach(b => b.addEventListener("click", () => { const a = $(`.imv-abas [data-aba="${b.dataset.irAba}"]`, d); if (a) a.click(); }));
       $$(".imv-abas .aba", d).forEach(b => b.addEventListener("click", () => { $$(".imv-abas .aba", d).forEach(x => x.classList.toggle("on", x === b)); $$(".ficha-sec", d).forEach(s => (s.hidden = s.dataset.sec !== b.dataset.aba)); }));
@@ -3645,7 +3721,7 @@ function campoHTML(cp, v, dis) {
 function formContrato(c) {
   const novo = !c;
   const f = c ? fichaDe(c) : { situacao: "RASCUNHO", fins: "RESIDENCIAIS", garantia: "FIADOR", prazo: OPC.prazo[2], end_cidade: "Monte Mor/SP", lcd_qtd: "1", lct_qtd: "1",
-    test1_nome: "Linyston Luiz Cavallaro", test1_rg: "35.116.648-8", test1_cpf: "406.955.348-74", test2_nome: "André Cesar Filietaz", test2_rg: "29.257.256-X", test2_cpf: "380.827.298-80",
+    test1_nome: "Linyston Luiz Cavallaro", test1_rg: "35.116.648-8", test1_cpf: "406.955.348-74", test2_nome: "André Cesar Filietaz", test2_rg: "29.257.356-X", test2_cpf: "380.827.298-80",
     desc_carencia: "Não", inundacao: "Não", redacao: "LINYSTON" };
   const dis = pode.editar() ? "" : "disabled";
   const im = c && c.imovel_id ? S.imovelPor[c.imovel_id] : null;
@@ -5395,8 +5471,8 @@ ACT["loc-ed"] = async el => {
       <div class="ficha-sec" data-sec="banco" hidden><div class="ficha-g">${PG_CAMPOS.map(([k, t]) => `<label class="fl"><span>${t}</span><input name="${k}" value="${esc(f[k] || "")}" ${dis}></label>`).join("")}</div>
         <p class="hint">Usado no cadastro do pagamento (Pgto locador › favorecido › “Copiar do cadastro do locador”).</p></div>
       ${ims.length ? `<div class="ficha-sec" data-sec="imv" hidden><div class="tw"><table class="compacta loc-imv"><thead><tr><th>Imóvel</th><th>Situação</th><th>Locatário</th><th>Entrada</th><th>Contrato</th><th>Venc.</th><th class="num">Aluguel</th><th class="num">T. Adm.</th></tr></thead><tbody>${ims.map(linhaImv).join("")}</tbody></table></div><p class="hint">Clique num imóvel para abrir a ficha dele.</p></div>` : ""}`,
-    extra: (l.id && pode.editar() ? `<button type="button" class="btn" data-novoctt title="Abre o gerador de contratos já com os dados deste locador">📄 Novo contrato com este locador</button>` : "") + (l.id && pode.admin() && !ims.length ? `<button type="button" class="btn danger" data-del>Excluir</button>` : ""),
-    aoAbrir: (fm, d) => {
+    extra: (l.id && pode.editar() ? `<button type="button" class="btn" data-novoctt title="Abre o gerador de contratos já com os dados deste locador">📄 Novo contrato com este locador</button>` : "") + (l.id && pode.editar() && ims.length ? `<button type="button" class="btn" data-int title="Contrato de intermediação e administração com todos os imóveis deste locador">🤝 Contrato de intermediação</button>` : "") + (l.id && pode.admin() && !ims.length ? `<button type="button" class="btn danger" data-del>Excluir</button>` : ""),
+    aoAbrir: (fm, d) => { const bInt = $("[data-int]", d); if (bInt) bInt.addEventListener("click", () => { d.close(); setTimeout(() => gerarIntermediacao(l).catch(falha), 30); });
       $$(".ficha-abas .aba", d).forEach(b => b.addEventListener("click", () => { $$(".ficha-abas .aba", d).forEach(x => x.classList.toggle("on", x === b)); $$(".ficha-sec", d).forEach(s => (s.hidden = s.dataset.sec !== b.dataset.aba)); }));
       $$("[data-f]", d).forEach(x => { const t = CPK[x.dataset.f].tipo; if (t === "tel") mascaraTel(x); if (t === "doc") mascaraDoc(x); });
       ligarLinksCtt(d);
@@ -6243,10 +6319,10 @@ function menuTermos(el, titulo, itens) {
 // v16: escolher clicando numa lista (com filtro para diminuir a lista)
 function escolherNaLista(titulo, itens, dica) {
   let esc0 = null;
-  return new Promise(res => modal({ titulo, largo: true, semOk: true,
+  return new Promise(res => modal({ titulo, xl: true, semOk: true,
     corpo: `${dica ? `<p class="hint">${dica}</p>` : ""}<input type="search" class="pk-busca" placeholder="Filtrar a lista (nome, endereço, contrato)…" autocomplete="off"><div class="pk-lista esc-lista"></div>`,
-    aoFechar: () => res(esc0),
-    aoAbrir: (f, d) => {
+    aoFechar: () => { $("#dlg").classList.remove("esc-dlg"); res(esc0); },
+    aoAbrir: (f, d) => { d.classList.add("esc-dlg");
       const b = $(".pk-busca", d), l = $(".esc-lista", d);
       const des = () => { const q2 = norm(b.value.trim()), vs = itens.filter(x => !q2 || norm(x.busca || "").includes(q2)).slice(0, 300);
         l.innerHTML = vs.length ? vs.map(x => `<div class="esc-it" role="button" tabindex="0" data-k="${itens.indexOf(x)}">${x.html}</div>`).join("") : `<p class="hint">Nada encontrado.</p>`;
@@ -7081,7 +7157,7 @@ function wPar(html, o) {
   o = o || {};
   const jc = o.jc || "both", sp = o.after != null ? o.after : 160;
   const borda = o.borda ? `<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="auto"/><w:left w:val="single" w:sz="4" w:space="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:space="1" w:color="auto"/><w:right w:val="single" w:sz="4" w:space="4" w:color="auto"/></w:pBdr>` : "";
-  return `<w:p><w:pPr>${borda}${o.quebra ? "<w:pageBreakBefore/>" : ""}<w:spacing w:before="${o.before || 0}" w:after="${sp}"/>${o.ind ? `<w:ind w:left="${o.ind}"/>` : ""}${o.recuo ? `<w:ind w:firstLine="709"/>` : ""}<w:jc w:val="${jc}"/></w:pPr>${txtRuns(html).map(r => wRun(r, o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : "")).join("")}</w:p>`;
+  return `<w:p><w:pPr>${borda}${o.quebra ? "<w:pageBreakBefore/>" : ""}<w:spacing w:before="${o.before || 0}" w:after="${sp}"${o.line ? ` w:line="${o.line}" w:lineRule="auto"` : ""}/>${o.ind ? `<w:ind w:left="${o.ind}"/>` : ""}${o.recuo ? `<w:ind w:firstLine="709"/>` : ""}<w:jc w:val="${jc}"/></w:pPr>${txtRuns(html).map(r => wRun(r, (o.under ? '<w:u w:val="single"/>' : "") + (o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : ""))).join("")}</w:p>`;
 }
 function textoContratoVenda(v) {
   const f = v.ficha || {}, vend = nomesParte(f, "vnd"), comp = nomesParte(f, "cmp");
@@ -7156,6 +7232,113 @@ async function gerarContratoVenda(v) {
   toast("Contrato de venda gerado (Word). Confira e complete no Word antes de imprimir.");
 }
 
+/* ---------- v17: contrato de intermediação e administração (locador, com todos os imóveis dele) ---------- */
+const TESTEMUNHAS_INT = [["LINYSTON LUIZ CAVALLARO", "35.116.648-8", "406.955.348-74"], ["ANDRÉ CESAR FILIETAZ", "29.257.356-X", "380.827.298-80"]];
+// dado de cadastro "de verdade": tem pelo menos 2 números e não é xxx / ??? / 000
+const dadoValido = v => { const t = String(v || "").trim(); return t.length >= 3 && (t.match(/\d/g) || []).length >= 2 && !/x{2,}|\?|^0+[.\-/0]*$|n[aã]o (tem|possui|consta)|sem /i.test(t); };
+function imoveisDoLocador(loc) {
+  const n = norm(loc.nome);
+  return S.imoveis.filter(i => norm(i.locador) === n && i.status !== "INTV").sort((a, b) => COLL.compare(a.endereco, b.endereco));
+}
+function dadosImvInt(i) {
+  const c = i.contrato_codigo ? CTT.find(x => x.codigo === i.contrato_codigo) : null, fc = c ? fichaDe(c) : {}, fi = i.ficha || {};
+  const pega = k => [fc[k], fi[k]].find(dadoValido) || "";
+  const rua = fc.end_rua || fi.end_rua || i.endereco, bairro = fc.end_bairro || fi.end_bairro || "", cidade = fc.end_cidade || fi.end_cidade || TIMBRE.cidade + "/SP";
+  return { end: [rua, bairro, cidade].filter(Boolean).join(" – "), cep: pega("end_cep"), mat: pega("matricula"), insc: pega("insc_cad"), taxa: +i.taxa_adm || 0 };
+}
+function conferirIntermediacao(loc, imvs) {
+  const f = loc.ficha || {}, err = [], av = [];
+  if (!f.lcd1_nome) err.push("Locador: falta o nome do proprietário 1 (Cadastros › Locadores › ficha).");
+  if (!imvs.length) err.push("Este locador não tem imóveis (ativos) no cadastro.");
+  ["lcd1", "lcd2"].forEach(p => { if (!f[p + "_nome"]) return; const n = f[p + "_nome"];
+    if (!f[p + "_cpf"]) err.push(`Locador: falta o CPF/CNPJ de ${n}.`);
+    if (!/PJ/i.test(f.lcd_qtd || "")) { if (!f[p + "_rg"]) av.push(`Locador: falta o RG de ${n}.`); if (!f[p + "_est_civil"]) av.push(`Locador: falta o estado civil de ${n}.`); if (!f[p + "_prof"]) av.push(`Locador: falta a profissão de ${n}.`); } });
+  if (!f.lcd_end1_rua) av.push("Locador: falta o endereço de residência.");
+  imvs.forEach(i => { const d = dadosImvInt(i), falta = [!d.mat && "matrícula", !d.insc && "inscrição cadastral"].filter(Boolean);
+    if (falta.length) av.push(`${rotuloImv(i.endereco)}: sem ${falta.join(" e ")} válida — sai só o endereço${d.cep ? " e o CEP" : ""}.`); });
+  const tx = [...new Set(imvs.map(i => +i.taxa_adm || 0))];
+  if (tx.length > 1) av.push(`Os imóveis têm taxas de administração diferentes (${tx.map(t => n2(t) + "%").join(", ")}): o contrato cita a taxa de cada imóvel.`);
+  return { err, av };
+}
+const pctExt = p => { const i = Math.round(p); return Math.abs(p - i) < 0.001 ? `${i}% (${porExtenso(i)} por cento)` : `${n2(p)}%`; };
+function textoIntermediacao(loc, imvs) {
+  const f = loc.ficha || {}, ns = nomesGrupo(f, "lcd"), pl = ns.length > 1, B = [];
+  const CT = "CONTRATANTE" + (pl ? "S" : ""), o = pl ? "Os" : "O", eh = pl ? "são legítimos possuidores" : "é legítimo possuidor";
+  const ds = imvs.map(dadosImvInt), txs = [...new Set(ds.map(d => d.taxa))];
+  B.push({ tit: "INSTRUMENTO PARTICULAR DE CONTRATO DE INTERMEDIAÇÃO E ADMINISTRAÇÃO IMOBILIÁRIA" });
+  B.push({ p: `<b>${CT}:</b> ${qualifGrupo(f, "lcd")}.` });
+  B.push({ p: `<b>CONTRATADA:</b> ${esc(TIMBRE.razao.split(" — ")[0])}, Creci 4419-J, inscrita no CNPJ sob nº ${esc(TIMBRE.cnpj)}, com sede à ${esc(TIMBRE.rodape[0].replace(/\s*–\s*CEP.*$/, ""))}.` });
+  B.push({ p: `<b>OBJETO:</b> ${imvs.length > 1 ? "Os seguintes imóveis:" : "O seguinte imóvel:"}` });
+  ds.forEach((d, k) => {
+    B.push({ p: `${k + 1}) <b>ENDEREÇO:</b> ${esc(d.end)}.`, ind: 360, after: 0, before: k ? 120 : 0 });
+    [["CEP", d.cep], ["MATRÍCULA", d.mat], ["INSC. CAD.", d.insc]].forEach(([t, v]) => { if (v) B.push({ p: `<b>${t}:</b> ${esc(v)}.`, ind: 720, after: 0 }); });
+    if (txs.length > 1) B.push({ p: `<b>TAXA DE ADMINISTRAÇÃO:</b> ${pctExt(d.taxa)}.`, ind: 720, after: 0 });
+  });
+  const im = imvs.length > 1 ? "os imóveis" : "o imóvel", dos = imvs.length > 1 ? "dos imóveis" : "do imóvel", nos = imvs.length > 1 ? "nos imóveis" : "no imóvel";
+  const P = (t, x) => B.push(Object.assign({ p: t, before: 160 }, x || {}));
+  P(`Por este Instrumento Particular de Contrato de Intermediação e Administração Imobiliária AS PARTES supramencionadas resolvem de comum acordo e de livre e espontânea vontade, firmar o presente Instrumento, cujo objeto se encontra declinado no preâmbulo e a reger-se pelas seguintes cláusulas e condições.`);
+  P(`<b>CLÁUSULA 1ª)</b> ${o} ${CT} ${eh} ${imvs.length > 1 ? "dos imóveis situados nos endereços" : "do imóvel situado no endereço"} do preâmbulo, tendo interesse em alugá-l${imvs.length > 1 ? "os" : "o"} para Fins Residenciais e/ou Comerciais, cujos valores da locação serão estabelecidos na época em que ${imvs.length > 1 ? "os mesmos forem locados" : "o mesmo for locado"}, razão pela qual ${pl ? "pretendem" : "pretende"} se utilizar dos serviços da CONTRATADA para promover a seleção dos pretendentes à${imvs.length > 1 ? "s suas locações" : " sua locação"}, e sua subsequente administração.`);
+  P(`<b>CLÁUSULA 2ª)</b> Para essa finalidade, se compromete a CONTRATADA a efetuar o levantamento das informações cadastrais dos eventuais pretendentes, de modo a poder selecionar dentre estes, aqueles que vierem a ser considerados como os mais indicados.`);
+  P(`<b>Parágrafo Único:</b> A indicação dos pretendentes pela CONTRATADA não obriga a aceitação por parte d${pl ? "os" : "o"} ${CT}, que poderá${pl ? "ão" : ""} a seus exclusivos critérios recusá-los e indicar outros, desde que mediante expressa autorização e sob sua inteira responsabilidade.`);
+  P(`<b>CLÁUSULA 3ª)</b> ${o} ${CT} ${pl ? "autorizam" : "autoriza"} a CONTRATADA celebrar e assinar contratos de locação, aceitar ou rejeitar fiadores, prorrogar, rescindir ou modificar os mesmos, arbitrar e receber aluguéis, dar quitação, requerer, promover, alegar, acompanhar processos, contratar advogados, substabelecendo a eles os poderes aqui outorgados, podendo representá-l${pl ? "os" : "o"} perante a Sabesp, CPFL, Administradoras do Condomínio, em todas as Repartições Públicas, Federais, Estaduais, Municipais ou Autarquias, e tudo o mais que aos contratos sejam devidos.`);
+  P(`<b>CLÁUSULA 4ª)</b> Pela administração das locações, será devido à CONTRATADA o percentual ${txs.length > 1 ? "indicado no preâmbulo para cada imóvel" : "de " + pctExt(txs[0] || 10)}, sobre o valor de cada aluguel mensal, nele incluídos os encargos no caso de eventual mora do(a) locatário(a), deduzido do valor a ser repassado a${pl ? "os" : "o"} ${CT}.`);
+  P(`<b>Parágrafo Primeiro:</b> Os aluguéis recebidos pela CONTRATADA, deduzida a remuneração estabelecida no “caput”, serão repassados a${pl ? "os" : "o"} ${CT} no prazo máximo de 05 (cinco) dias úteis.`);
+  P(`<b>Parágrafo Segundo:</b> Caso haja adiantamento por liberalidade do aluguel e encargos a${pl ? "os" : "o"} ${CT}, ainda que não recebidos do(a) locatário(a), os valores recebidos posteriormente serão revertidos à CONTRATADA com os acréscimos eventualmente recebidos.`);
+  P(`<b>CLÁUSULA 5ª)</b> Além do já estabelecido nas cláusulas anteriores, obriga-se a CONTRATADA:`);
+  [`Verificar o estado ${dos}, antes e após o término da locação;`, `Divulgar, pelos meios usuais e a seu critério, a oferta da locação;`, `Cobrar os aluguéis e os respectivos encargos convencionados, deles deduzindo os honorários devidos;`,
+    `Providenciar os reparos que se fizerem necessários para a conservação ${dos} na vigência da locação, mediante autorização d${pl ? "os" : "o"} ${CT}, às expensas deste${pl ? "s" : ""};`,
+    `Tomar as medidas judiciais que se fizerem necessárias, para cobrar os aluguéis impagos, ou promover o despejo do inquilino. Fica estabelecido que, as ações, que venham objetivar a desocupação ${dos}, seja ela pelo término do prazo contratual ou para uso próprio, bem como as revisionais de aluguel terão as custas processuais e os honorários advocatícios suportados exclusivamente pel${pl ? "os" : "o"} ${CT}, e as ações por falta de pagamento terão as custas processuais e os honorários advocatícios suportados pela CONTRATADA.`]
+    .forEach((t, k) => B.push({ p: `${String.fromCharCode(97 + k)}) ${t}`, ind: 709, after: 60 }));
+  P(`<b>CLÁUSULA 6ª)</b> Em contrapartida obriga${pl ? "m-se os" : "-se o"} ${CT}:`);
+  [`Não interferir na relação jurídica existente entre CONTRATADA e o inquilino e/ou Fiadores, sem prévia ciência da CONTRATADA;`, `Não receber sob qualquer hipótese, na vigência desse contrato, diretamente do inquilino e/ou fiador, valores referentes a locação ou as chaves ${dos};`,
+    `Conceder à CONTRATADA a exclusividade para a intermediação da venda ${imvs.length > 1 ? "dos imóveis objetos" : "do imóvel objeto"} deste, caso venha${pl ? "m" : ""} futuramente a decidir pela sua alienação;`]
+    .forEach((t, k) => B.push({ p: `${String.fromCharCode(97 + k)}) ${t}`, ind: 709, after: 60 }));
+  P(`<b>CLÁUSULA 7ª)</b> A CONTRATADA fica isenta de qualquer responsabilidade por fatos alheios a administração da locação, como arrombamentos, ocupação indevida, cessão irregular da locação e eventuais danos a ele causados em razão desses fatos, comprometendo-se, porém, a tomar as medidas judiciais ou extrajudiciais que estiverem ao seu alcance, mediante autorização expressa d${pl ? "os" : "o"} ${CT}, ao${pl ? "s" : ""} qua${pl ? "is" : "l"} caberá arcar com o ônus processual e honorários advocatícios.`);
+  P(`<b>CLÁUSULA 8ª)</b> Fica reservado à CONTRATADA o direito de rescindir o presente Instrumento, sem motivo justificado, desde que mediante expresso aviso com antecedência mínima de 30 (trinta) dias, uma vez prestadas as contas devidas na sua vigência e entregue a${pl ? "os" : "o"} ${CT} toda a documentação em seu poder.`);
+  P(`<b>CLÁUSULA 9ª)</b> A${pl ? "os" : "o"} ${CT} por sua vez, caberá o mesmo direito, após ressarcimento de eventuais despesas pendentes ou antecipações efetuadas, além do pagamento de indenização correspondente a 01 (um) aluguel vigente na época, caso o inquilino que esteja residindo permaneça ${nos}.`);
+  P(`<b>CLÁUSULA 10ª)</b> ${o} ${CT} ${pl ? "declaram" : "declara"} ter conhecimento do Imposto de Renda incidente sobre a receita de locação, para seu recolhimento.`);
+  P(`<b>CLÁUSULA 11ª)</b> Fica eleito o Foro da comarca de ${esc(TIMBRE.cidade)}, para a solução das questões decorrentes do presente instrumento, renunciando as partes a qualquer outro, por mais privilegiado que lhes possa ser.`);
+  P(`E por estarem, assim, justas e contratadas, AS PARTES assinam o presente contrato em 2 (duas) vias, de igual teor e forma, na presença das testemunhas abaixo, para que surta seus legais e jurídicos efeitos, obrigando-se por si, seus herdeiros e/ou sucessores, ao fiel cumprimento de todas as suas cláusulas e condições.`);
+  B.push({ p: `${esc(TIMBRE.cidade)}, ${dataExt(hoje())}.`, jc: "right", before: 240 });
+  // assinaturas em tabela de 2 colunas (como no modelo): cada linha da tabela não se divide entre páginas
+  const cel = (rot, nome, linhas) => nome ? [rot ? `<b>${rot}:</b>` : " ", " ", "_________________________________", `<b>${esc(nome)}</b>`].concat(linhas.filter(Boolean).map(esc)) : [" "];
+  const cts = ["lcd1", "lcd2"].filter((p, k) => f[p + "_nome"] && !(k && /PJ/i.test(f.lcd_qtd || ""))).map((p, k) => cel(k ? "" : CT, f[p + "_nome"].toUpperCase(), [f[p + "_rg"] && "RG: " + f[p + "_rg"], f[p + "_cpf"] && (String(f[p + "_cpf"]).replace(/\D/g, "").length > 11 ? "CNPJ: " : "CPF: ") + f[p + "_cpf"]]));
+  B.push({ tab: [[cts[0], cts[1] || cel()], [cel("CONTRATADA", TIMBRE.razao.split(" — ")[0], ["CNPJ: " + TIMBRE.cnpj, "CRECI: 4419-J"]), cel()],
+    TESTEMUNHAS_INT.map(([n, rg, cpf], k) => cel(k ? "" : "TESTEMUNHAS", n, ["RG: " + rg, "CPF: " + cpf]))] });
+  return B;
+}
+async function gerarIntermediacao(loc) {
+  if (!CTT.length) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+  const imvs = imoveisDoLocador(loc), { err, av } = conferirIntermediacao(loc, imvs);
+  if (err.length || av.length) {
+    const seguir = await new Promise(res => { let ok = false; modal({ titulo: "Contrato de intermediação · conferir " + tiraPrefixo(loc.nome), largo: true, ok: err.length ? "Fechar" : "Gerar mesmo assim",
+      corpo: `${err.length ? `<div class="box bad"><b>Precisa corrigir antes de gerar:</b><ul>${err.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}${av.length ? `<div class="box warn"><b>Convém conferir (dá para gerar e completar no Word):</b><ul>${av.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}<p class="hint">Os dados do proprietário vêm de Cadastros › Locadores (ficha). Matrícula, inscrição e CEP vêm do contrato do imóvel ou da aba Imóvel da ficha do imóvel.</p>`,
+      aoFechar: () => res(ok), salvar: async () => { ok = !err.length; } }); });
+    if (!seguir) return;
+  }
+  await carregarScript("termos/vendor/jszip.min.js");
+  const r = await fetch("termos/contrato_intermediacao.docx"); if (!r.ok) throw new Error("Modelo não encontrado (termos/contrato_intermediacao.docx).");
+  const zip = await window.JSZip.loadAsync(await r.arrayBuffer());
+  const doc = await zip.file("word/document.xml").async("string");
+  const ini = doc.indexOf("<w:body>") + 8, sect = doc.lastIndexOf("<w:sectPr"), o = { sz: 20, line: 276 };
+  const wTab = rows => `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblLook w:val="0000"/></w:tblPr><w:tblGrid><w:gridCol w:w="4900"/><w:gridCol w:w="4900"/></w:tblGrid>${rows.map(r => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map(c => `<w:tc><w:tcPr><w:tcW w:w="2500" w:type="pct"/></w:tcPr>${c.map((t, i) => wPar(t, { jc: "left", after: 0, sz: 20, before: i ? 0 : 360 })).join("")}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl><w:p/>`;
+  const corpo = textoIntermediacao(loc, imvs).map(b => b.tab ? wTab(b.tab) : b.tit ? wPar(`<b>${b.tit}</b>`, { jc: "center", after: 360, sz: 22, under: true }) : wPar(b.p, Object.assign({ after: 0 }, o, b))).join("");
+  zip.file("word/document.xml", doc.slice(0, ini) + corpo + doc.slice(sect));
+  const rod = zip.file("word/footer1.xml");
+  if (rod) { let fx = await rod.async("string"), k = 0; const txt = `Esta folha é integrante do Contrato de Intermediação/Administração Imobiliária de ${(nomesGrupo(loc.ficha || {}, "lcd")[0] || tiraPrefixo(loc.nome))} (${imvs.length} ${imvs.length === 1 ? "imóvel" : "imóveis"}).`;
+    fx = fx.replace(/<w:t([^>]*)>([^<]*)<\/w:t>/g, (m, a, t) => k++ === 0 ? `<w:t xml:space="preserve">${xmlEsc(txt)}</w:t>` : /^\d+$/.test(t) ? m : `<w:t${a}></w:t>`); zip.file("word/footer1.xml", fx); }
+  const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = nomeArqPDF(`Contrato de intermediação ${tiraPrefixo(loc.nome)}`).replace(/\.pdf$/, ".docx"); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast("Contrato de intermediação gerado (Word). Confira no Word antes de imprimir.");
+}
+async function escolherLocadorInt() {
+  const ls = (S.locadores || []).filter(l => l.ativo).map(l => ({ l, n: imoveisDoLocador(l).length })).filter(x => x.n).sort((a, b) => COLL.compare(a.l.nome, b.l.nome));
+  const it = ls.map(({ l, n }) => ({ v: l, busca: [l.nome, (l.ficha || {}).lcd1_nome, (l.ficha || {}).lcd2_nome].join(" "), html: `${tagLoc(l.nome)}<small class="muted">${n} ${n === 1 ? "imóvel" : "imóveis"}${(l.ficha || {}).lcd1_cpf ? "" : " · ficha sem CPF"}</small>` }));
+  const r = await escolherNaLista("Contrato de intermediação · qual locador?", it, "O contrato sai com todos os imóveis do locador (menos os inativos).");
+  return r ? r.v : null;
+}
+
 /* ---------- v16: planilha antiga do site — códigos de locação, imóveis à venda e interessados ---------- */
 ACT["site-importar"] = () => {
   let D = null;
@@ -7220,13 +7403,21 @@ ACT["site-importar"] = () => {
 PAGES.termos = async pg => {
   const grupo = (tit, itens) => `<h2 class="cfg-t">${tit}</h2><div class="tm-cards">${itens.map(x => `<button type="button" class="tm-card" data-act="termo-pg" data-k="${x.k}"><span class="tm-ic">${x.ic}</span><span><b>${esc(x.t)}</b><small>${esc(x.d)}</small></span></button>`).join("")}</div>`;
   pg.innerHTML = `<div class="grid"><p class="hint">Escolha o termo e depois clique no contrato, locatário, devedor ou venda (a lista mostra só quem se encaixa).</p>
-    ${pode.ver("contratos") || pode.ver("imoveis") ? grupo("Locação", TERMOS_CTT.map(x => Object.assign({}, x, { k: "ctt:" + x.k }))) : ""}
+    ${pode.ver("contratos") || pode.ver("imoveis") ? grupo("Locação", (pode.editar() ? [{ ic: "📝", k: "doc:gerador", t: "Contrato de locação (Word)", d: "gerador de contratos: novo ou de um contrato existente" }, { ic: "🤝", k: "doc:intermediacao", t: "Contrato de intermediação (Word)", d: "com o locador, para todos os imóveis dele" }] : []).concat(TERMOS_CTT.map(x => Object.assign({}, x, { k: "ctt:" + x.k })))) : ""}
     ${pode.ver("atrasados") || pode.ver("devedores") ? grupo("Cobrança", TERMOS_COB_IC.map(x => Object.assign({}, x, { k: "cob:" + x.k }))) : ""}
     ${pode.ver("vendas") ? grupo("Vendas", TERMOS_VEN.map(x => Object.assign({}, x, { k: "ven:" + x.k }))) : ""}</div>`;
 };
 const FILTRO_TERMO = { entrega: c => c.situacao === "ATIVO", moradia: c => c.situacao === "ATIVO", caucao: c => garDe(c) === "caucao" && c.situacao !== "RASCUNHO", quitacao: c => ["ATIVO", "ENCERRADO", "DÉBITO EM ABERTO"].includes(c.situacao) };
 ACT["termo-pg"] = async el => {
   const [g, k] = el.dataset.k.split(":");
+  if (g === "doc" && k === "intermediacao") { const l = await escolherLocadorInt(); if (l) gerarIntermediacao(l).catch(falha); return; }
+  if (g === "doc" && k === "gerador") {
+    if (!CTT.length) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+    const it = [{ v: "novo", busca: "novo contrato", html: `<span class="esc-cod">➕</span><b>Novo contrato</b><small class="muted">próximo número: ${esc(proximoCodigo())}</small>` }]
+      .concat(CTT.filter(c => c.situacao !== "CANCELADO").map(c => { const im = imvDoCtt(c); return { v: c, busca: [c.codigo, c.locatario, c.endereco, im && im.endereco].join(" "), html: `<span class="mono esc-cod">${esc(c.codigo)}</span><span class="tag ${SIT_CTT[c.situacao] || "idle"}">${esc(sitTxt(c.situacao))}</span>${im ? tagImv(im.endereco) : ""}${tagPes(nomesCtt(c, "lct").length ? nomesCtt(c, "lct") : separaNomes(c.locatario), "etq-lct", "", 2)}` }; }));
+    const r = await escolherNaLista("Contrato de locação (Word) · novo ou de qual contrato?", it, "Clique em “Novo contrato” ou no contrato que quer gerar de novo."); if (!r) return;
+    return r.v === "novo" ? ACT["ctt-gerar"]() : abrirTermo("gerador", r.v.codigo);
+  }
   if (g === "ctt") { const c = await escolherContrato(TERMOS_CTT.find(x => x.k === k).t + " · escolha o contrato", FILTRO_TERMO[k]); if (c) abrirTermoNativo(k, c.codigo); return; }
   if (g === "cob") {
     await carregarInad();
