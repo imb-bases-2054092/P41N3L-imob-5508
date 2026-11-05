@@ -700,6 +700,27 @@ dialog.esc-dlg .dlg-b{max-height:none;overflow:visible}dialog.esc-dlg .pk-busca{
 .res-2col>*{min-width:0}.ctt-res .res-v{min-width:0}.res-v .btn{white-space:nowrap;flex-shrink:0}.hist-res{width:100%}.hist-res td:first-child{white-space:nowrap}.res-dir{position:relative;z-index:0}
 .nf-2col{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px}@media (max-width:900px){.nf-2col{grid-template-columns:1fr}}
 .cp-l{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.cp-r{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--muted)}.cp-v{font-weight:600;word-break:break-word}
+/* v19 */
+.cad-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin:8px 0}.cad-p{border:1px solid var(--line);border-radius:8px;padding:8px 10px}.cad-p h3{margin:0 0 4px}.cad-arq{margin:4px 0 10px;padding-left:18px}
+/* recibo na matricial: tudo preto, linhas e letras mais grossas (a fita não imprime cinza/fino) */
+.rc-meia .recibo{border:2.5px solid #000;color:#000;font-weight:600;font-size:13px}
+.rc-meia .rc-top{border-bottom:2.5px solid #000}.rc-meia .rc-logo{color:#000;--logo-red:#000;--logo-w:4}
+.rc-meia .rc-emp small,.rc-meia .rc-emp b,.rc-meia .rc-tit,.rc-meia .rc-tit small,.rc-meia .rc-num b,.rc-meia .rc-rod{color:#000}
+.rc-meia .rc-emp b{font-family:Arial,Helvetica,sans-serif;font-weight:900}.rc-meia .rc-tit{font-weight:900}
+.rc-meia .rc-val{border:2.5px solid #000;font-weight:900}
+.rc-meia .rc-l{border-bottom:1.5px solid #000}
+.rc-meia .rc-desc{font-size:12.5px}.rc-meia .rc-desc th,.rc-meia .rc-desc td{border-bottom:1.5px solid #000}
+.rc-meia .rc-desc thead th{background:none;border-bottom:2.5px solid #000;font-weight:900;color:#000}.rc-meia .rc-desc tfoot td{border-top:2.5px solid #000;font-weight:900}
+.rc-meia .rc-ass .linha{border-top:2px solid #000;font-weight:700}.rc-meia .rc-rod{font-size:9.5px;font-weight:600}
+.hist-lct{margin:6px 0 10px}.hist-lct>summary{cursor:pointer;font-weight:600}.cur-l td{background:color-mix(in srgb,var(--accent,#1e3a6e) 9%,transparent);font-weight:600}.aj-conf{outline:2px solid var(--warn);border-radius:6px}
+.alert.info{background:color-mix(in srgb,var(--accent,#1e3a6e) 9%,var(--surface));color:var(--text)}
+.pk-imv .pk-lista{max-height:min(48vh,440px)}.pk-it-imv{display:flex!important;flex-wrap:wrap;gap:4px 6px;align-items:center;text-align:left}.pk-it-imv .etq{font-size:12.5px}
+td.nw,.nw{white-space:nowrap}.cob-res>summary{cursor:pointer;font-weight:600;color:var(--muted);margin-bottom:6px}.trava-l{margin:0 0 6px}
+.car-g{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:end}.car-g>.fl>span{white-space:nowrap}.car-g>.fl{flex:0 0 auto}
+.car-tipo{width:130px}.car-cod{width:200px}.car-terreno{width:120px}.car-construcao{width:205px}.car-quartos,.car-wc,.car-suites{width:78px}.car-garagem{width:125px}
+.car-vg{width:300px}.car-etq{flex:1 1 280px!important;min-width:260px}.vg-w{display:flex;gap:6px}.vg-w input{flex:1;min-width:0}.vg-rot{white-space:nowrap}.vg-rot.on{flex:1;background:color-mix(in srgb,var(--accent,#1e3a6e) 12%,var(--surface));border-color:var(--accent,#1e3a6e);font-weight:600;min-height:38px}
+@media (max-width:700px){.car-g>.fl{width:calc(50% - 5px)!important;flex:0 0 auto!important;min-width:0}}
+.ctt-res{overflow:hidden}.res-hist{margin-top:10px;border-bottom:0}.res-hist .hist-res td{vertical-align:middle;padding:4px 10px}
 </style>
 </head>
 <body>
@@ -769,21 +790,21 @@ dialog.esc-dlg .dlg-b{max-height:none;overflow:visible}dialog.esc-dlg .pk-busca{
     <nav class="nav" id="nav">
       <div class="nav-h">Financeiro <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa</span><span class="nav-c" data-c="caixa"></span></a>
-      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
+      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pagto aluguel</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
       <div class="nav-h">Cadastros · Locação</div>
-      <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
+      <a href="#interessados_loc" data-p="interessados_loc"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span></a>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
+      <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
-      <a href="#interessados_loc" data-p="interessados_loc"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span></a>
       <div class="nav-h">Cadastros · Vendas</div>
+      <a href="#interessados_ven" data-p="interessados_ven"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_ven"></span></a>
       <a href="#imoveis_venda" data-p="imoveis_venda"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis_venda"></span></a>
       <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="vendas"></span></a>
-      <a href="#interessados_ven" data-p="interessados_ven"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_ven"></span></a>
       <div class="nav-h">Gestão</div>
       <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>
