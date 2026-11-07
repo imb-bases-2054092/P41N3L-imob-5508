@@ -347,7 +347,7 @@ const NAV_MET = {
   imoveis: { aperm: "imoveis", rot: "Imóveis", ops: { ALG: "alugados", LVR: "livres", OCP: "ocupados", INTV: "inativos", nada: "(nada)" } },
   contratos: { aperm: "contratos", rot: "Contratos", ops: { ativos: "ativos", semimovel: "sem imóvel ligado", elab: "em preparo (rascunho, corrigir, pronto)", cadastros: "cadastros recebidos novos (formulário)", nada: "(nada)" } },
   caucao: { aperm: "caucao", rot: "Contas caução", ops: { ocup: "ocupadas", livres: "livres", nada: "(nada)" } },
-  tarefas: { aperm: "tarefas", rot: "Tarefas", ops: { hoje: "minhas para hoje", atrasadas: "atrasadas", nada: "(nada)" } },
+  tarefas: { aperm: "tarefas", rot: "Tarefas", ops: { minhas: "minhas não feitas (atribuídas a mim)", hoje: "minhas para hoje", minhasatr: "minhas atrasadas", atrasadas: "atrasadas (de todos)", nada: "(nada)" } },
   caixa: { aperm: "caixa", rot: "Caixa", ops: { prevpagar: "previstos a pagar no mês", lancmes: "lançamentos no mês", nada: "(nada)" } },
   recibos_lct: { aperm: "recibos", rot: "Recibos", ops: { mes: "recibos de locatários no mês", meslcd: "recibos de locadores no mês", nada: "(nada)" } },
   notas: { aperm: "notas", rot: "Notas fiscais", ops: { mesir: "aluguéis com IR no mês", emitidas: "notas registradas no mês", nada: "(nada)" } },
@@ -376,8 +376,10 @@ async function contarMenu() {
     contratos: { ativos: () => conta(head("contratos").eq("situacao", "ATIVO")), semimovel: () => conta(head("contratos").in("situacao", ["ATIVO", "PRONTO"]).is("imovel_id", null)), elab: () => conta(head("contratos").in("situacao", PREPARO)), cadastros: () => conta(head("cadastros_recebidos").eq("situacao", "NOVO")) },
     caucao: { ocup: () => conta(head("cauc_mov").is("data_saida", null).eq("somada", false)),
       livres: async () => { const [t, bl, oc] = await Promise.all([conta(head("cauc_contas")), conta(head("cauc_contas").eq("bloqueada", true)), conta(head("cauc_mov").is("data_saida", null).eq("somada", false))]); return t == null ? null : Math.max(0, t - bl - oc); } },
-    tarefas: { hoje: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(t => tarefaPendente(t) && (!t.responsavel || t.responsavel === S.user.id)).length).catch(() => null),
-      atrasadas: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(t => { const d = dataTarefa(t); return d && d < hoje() && !tarefaFeita(t); }).length).catch(() => null) },
+    tarefas: { hoje: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(t => tarefaPendente(t) && tarMinha(t)).length).catch(() => null),
+      minhas: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(t => !tarefaFeita(t) && tarMinha(t)).length).catch(() => null),
+      minhasatr: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(t => tarAtrasada(t) && tarMinha(t)).length).catch(() => null),
+      atrasadas: () => q(sb.from("tarefas").select("*").eq("ativa", true)).then(ls => ls.filter(tarAtrasada).length).catch(() => null) },
     caixa: { prevpagar: () => conta(head("lancamentos").eq("competencia", S.mes).eq("pago", false).eq("tipo", "saida")), lancmes: () => conta(head("lancamentos").eq("competencia", S.mes)) },
     recibos_lct: { mes: () => conta(cob().not("recibo_locatario", "is", null)), meslcd: () => conta(cob().not("recibo_locador", "is", null)) },
     notas: { mesir: () => S.imoveis.filter(i => i.declarar_ir === "Sim" && i.status === "ALG").length, emitidas: () => conta(head("notas_fiscais").eq("competencia", S.mes).neq("numero", "")) },
@@ -435,7 +437,7 @@ ACT["nav-cfg"] = () => {
     } });
 };
 document.addEventListener("click", ev => {
-  if (ev.target.closest("a[data-pasta],[data-csel],[data-sel],[data-sel-todos],[data-tok]")) return; // link da pasta e caixa de seleção dentro de linhas clicáveis
+  if (ev.target.closest("a[data-pasta],[data-csel],[data-sel],[data-sel-todos],[data-tok],[data-tsel]")) return; // link da pasta e caixa de seleção dentro de linhas clicáveis
   const el = ev.target.closest("[data-act]");
   if (!el || !ACT[el.dataset.act]) return;
   ev.preventDefault();
@@ -925,26 +927,34 @@ ACT["reaj-conf"] = () => confirmarReajustes();
 ACT["reaj-prox"] = async () => {
   const atual = inicioMes(hoje());
   const [ctts, rjs] = await Promise.all([fetchAll("contratos", b => b.eq("situacao", "ATIVO").order("codigo"), "codigo,imovel_id,inicio,data_contrato,valor"),
-    fetchAll("reajustes", b => b.gte("competencia", addMes(atual, -2)).order("competencia"), "imovel_id,competencia,aplicado_em")]);
+    fetchAll("reajustes", b => b.gte("competencia", addMes(atual, -2)).order("competencia"), "imovel_id,competencia,aplicado_em,valor_novo")]);
   const linhas = horizonte => S.imoveis.filter(i => i.status === "ALG" && i.contrato_codigo).map(i => {
     const c = ctts.find(x => x.codigo === i.contrato_codigo); if (!c || !c.inicio) return null;
     const fc = addMes(inicioMes(c.inicio), 1); let comp = addMes(fc, 12), k = 1;
     while (comp < atual) { comp = addMes(comp, 12); k++; }
     if (comp > addMes(atual, horizonte)) return null;
-    const ja = rjs.some(r => r.imovel_id === i.id && r.competencia >= addMes(comp, -2) && r.competencia <= addMes(comp, 2));
-    return { i, c, comp, anos: k, ja, aniv: addMes(c.inicio.slice(0, 7) + "-01", 12 * k).slice(0, 8) + c.inicio.slice(8, 10) };
+    const ja = rjs.find(r => r.imovel_id === i.id && r.competencia >= addMes(comp, -2) && r.competencia <= addMes(comp, 2)) || null;
+    return { i, c, comp, anos: k, ja, busca: norm([rotuloImvDe(i), i.endereco, i.locatario, i.locador, c.codigo].join(" ")), aniv: addMes(c.inicio.slice(0, 7) + "-01", 12 * k).slice(0, 8) + c.inicio.slice(8, 10) };
   }).filter(Boolean).sort((a, b) => a.comp.localeCompare(b.comp) || COLL.compare(rotuloImvDe(a.i), rotuloImvDe(b.i)));
   let H = 1, L = linhas(H);
-  const tabela = () => `<div class="tw" style="max-height:52vh"><table class="compacta rp-t"><thead><tr><th></th><th>Imóvel</th><th>Locatário</th><th>Contrato</th><th>Início → aniversário</th><th>Vale no aluguel</th><th class="num">Atual</th><th class="num">Novo</th></tr></thead><tbody>
-    ${L.map((x, k) => `<tr><td>${x.ja ? `<span class="tag ok" title="Já existe reajuste programado ou aplicado nessa época">✔ programado</span>` : `<input type="checkbox" data-rp="${k}" checked>`}</td><td class="rp-imv">${tagImv(x.i.endereco)}</td><td class="rp-lct">${tagPes(separaNomes(x.i.locatario), "etq-lct", "", 2)}</td><td class="nw">${tagCtt(x.c.codigo)}</td>
-      <td class="nw">${dt(x.c.inicio)} → ${dt(x.aniv)}<br><small class="muted">${x.anos} ano${x.anos > 1 ? "s" : ""}</small></td><td class="nw"><b>${esc(mesCurto(x.comp))}</b></td><td class="num">${n2(x.i.valor)}</td><td class="num">${x.ja ? "" : `<input data-rn="${k}" inputmode="numeric" style="width:92px;text-align:right">`}</td></tr>`).join("") || `<tr><td colspan="8" class="muted">Nenhum contrato completa 12 meses nesse período.</td></tr>`}</tbody></table></div>`;
+  const tabela = () => `<div class="tw" style="max-height:52vh"><table class="compacta rp-t"><thead><tr><th><input type="checkbox" data-rp-all checked title="Marcar / desmarcar todos os que estão na lista"></th><th>Imóvel</th><th>Locatário</th><th>Contrato</th><th>Início → aniversário</th><th>Vale no aluguel</th><th class="num">Atual</th><th class="num">Novo</th></tr></thead><tbody>
+    ${L.map((x, k) => `<tr data-rp-l="${k}"${x.ja ? ` class="rp-ja"` : ""}><td>${x.ja ? `<span class="tag ok" title="Já existe reajuste ${x.ja.aplicado_em ? "aplicado" : "programado"} nessa época (${esc(mesCurto(x.ja.competencia))}). Para mudar, use o histórico de reajustes do imóvel.">✔ ${x.ja.aplicado_em ? "aplicado" : "programado"}</span>` : `<input type="checkbox" data-rp="${k}" checked>`}</td><td class="rp-imv">${tagImv(x.i.endereco)}</td><td class="rp-lct">${tagPes(separaNomes(x.i.locatario), "etq-lct", "", 2)}</td><td class="nw">${tagCtt(x.c.codigo)}</td>
+      <td class="nw">${dt(x.c.inicio)} → ${dt(x.aniv)}<br><small class="muted">${x.anos} ano${x.anos > 1 ? "s" : ""}</small></td><td class="nw"><b>${esc(mesCurto(x.comp))}</b></td><td class="num">${n2(x.i.valor)}</td><td class="num">${x.ja ? `<b class="rp-val" title="Valor já ${x.ja.aplicado_em ? "aplicado" : "programado"}: não pode ser alterado aqui">${n2(x.ja.valor_novo)}</b>${x.i.valor && !x.ja.aplicado_em ? `<br><small class="muted">${n2((x.ja.valor_novo / x.i.valor - 1) * 100)}%</small>` : ""}` : `<input data-rn="${k}" inputmode="numeric" style="width:92px;text-align:right">`}</td></tr>`).join("") || `<tr><td colspan="8" class="muted">Nenhum contrato completa 12 meses nesse período.</td></tr>`}</tbody></table></div>`;
   modal({ titulo: "Reajustes a programar (aniversário do contrato)", xxl: true, ok: "Programar os marcados",
     corpo: `<p class="hint">Todo contrato é reajustado a cada 12 meses contados do início. O novo valor vale a partir do aluguel que vence depois do aniversário (ex.: início 25/10/2025 → reajuste no aluguel de nov/2026). Informe o índice do período (IGP-M, IPCA…) para calcular todos de uma vez, ou digite o valor de cada um.</p>
       <div class="row"><label class="fl" style="max-width:200px"><span>Índice acumulado (%)</span><input data-rp-pct inputmode="decimal" placeholder="ex.: 4,25"></label>
-        <label class="fl" style="max-width:240px"><span>Mostrar</span><select data-rp-h>${opt("1", "este mês e o próximo", true)}${opt("3", "próximos 3 meses", false)}${opt("12", "próximos 12 meses", false)}</select></label></div>
+        <label class="fl" style="max-width:240px"><span>Mostrar</span><select data-rp-h>${opt("1", "este mês e o próximo", true)}${opt("3", "próximos 3 meses", false)}${opt("12", "próximos 12 meses", false)}</select></label>
+        <label class="fl" style="flex:1 1 240px"><span>Procurar</span><input type="search" data-rp-q placeholder="imóvel, locatário, locador ou contrato…" autocomplete="off"></label></div>
+      <div class="rp-bar"><button type="button" class="btn sm" data-rp-tod="1">☑ Marcar todos</button><button type="button" class="btn sm" data-rp-tod="0">☐ Desmarcar todos</button><span class="hint" data-rp-n></span></div>
       <div data-rp-t>${tabela()}</div>`,
     aoAbrir: (f, d) => {
-      const pct = $("[data-rp-pct]", d), liga = () => { $$("[data-rn]", d).forEach(x => mascaraMoeda(x)); calc(); };
+      const qb = $("[data-rp-q]", d), cont = () => { const n = $$("[data-rp]:checked", d).length, tot = $$("[data-rp]", d).length; $("[data-rp-n]", d).textContent = tot ? `${n} de ${tot} marcado(s) para programar` : ""; const a = $("[data-rp-all]", d); if (a) { const vis = $$("tr[data-rp-l]:not([hidden]) [data-rp]", d); a.checked = vis.length > 0 && vis.every(x => x.checked); } };
+      const filtra = () => { const t = norm(qb.value.trim()); L.forEach((x, k) => { const tr = $(`[data-rp-l="${k}"]`, d); if (tr) tr.hidden = !!t && !x.busca.includes(t); }); cont(); };
+      const marcaTodos = on => { $$("tr[data-rp-l]:not([hidden]) [data-rp]", d).forEach(x => (x.checked = on)); cont(); };
+      const pct = $("[data-rp-pct]", d), liga = () => { $$("[data-rn]", d).forEach(x => mascaraMoeda(x)); const a = $("[data-rp-all]", d); if (a) a.addEventListener("change", () => marcaTodos(a.checked)); calc(); filtra(); };
+      $("[data-rp-t]", d).addEventListener("change", e => { if (e.target.matches("[data-rp]")) cont(); });
+      $$("[data-rp-tod]", d).forEach(b => b.addEventListener("click", () => marcaTodos(b.dataset.rpTod === "1")));
+      qb.addEventListener("input", filtra);
       const calc = () => { const p = parseMoney(pct.value); if (p == null) return; L.forEach((x, k) => { const inp = $(`[data-rn="${k}"]`, d); if (inp) inp.value = moedaFmt(r2(+x.i.valor * (1 + p / 100))); }); };
       pct.addEventListener("input", calc);
       $("[data-rp-h]", d).addEventListener("change", e => { H = +e.target.value; L = linhas(H); $("[data-rp-t]", d).innerHTML = tabela(); liga(); });
@@ -2150,27 +2160,53 @@ function tiposImovel(atual) {
 // v18: nota fiscal / IR — em nome do proprietário (padrão) ou de outro(s) favorecido(s)
 const ehApto = t => /apto|apart/i.test(t || "");
 const nfOutros = i => ((i && i.ficha && Array.isArray(i.ficha.nf_outros)) ? i.ficha.nf_outros : []).filter(x => x && x.nome);
+// v21: favorecido pode ser um locador cadastrado (escolhido pela etiqueta: razão social e CNPJ vêm do cadastro)
+const dadosFavLoc = l => { const f = (l && l.ficha) || {}; return { nome: f.lcd1_nome || tiraPrefixo(l.nome), cpf: f.lcd1_cpf || l.cpf_cnpj || "" }; };
 function irHTML(i) {
-  const dis = pode.editar() ? "" : "disabled", outros = nfOutros(i), sim = i.declarar_ir === "Sim";
-  const linha = x => `<div class="ir-l"><input data-irn placeholder="Nome completo" value="${esc(x.nome || "")}" ${dis}><input data-irc placeholder="CPF / CNPJ" value="${esc(x.cpf || "")}" inputmode="numeric" ${dis}>${dis ? "" : `<button type="button" class="btn sm ghost" data-ir-del title="Tirar">✕</button>`}</div>`;
+  const dis = pode.editar() ? "" : "disabled", outros = nfOutros(i), sim = i.declarar_ir === "Sim", vd = valorDecl(i);
+  const linha = x => { const l = x.loc ? (S.locadores || []).find(y => y.nome === x.loc) : null, dd = l ? dadosFavLoc(l) : x, ro = l ? "readonly" : "";
+    return `<div class="ir-l" data-loc="${esc(l ? l.nome : "")}"><span class="ir-tag">${l ? `<span class="etq etq-lcd" title="Locador cadastrado: razão social e CPF/CNPJ vêm do cadastro">${esc(l.nome)}</span>` : ""}</span><input data-irn placeholder="Nome completo / razão social" value="${esc(dd.nome || "")}" ${dis} ${ro}><input data-irc placeholder="CPF / CNPJ" value="${esc(dd.cpf || "")}" inputmode="numeric" ${dis} ${ro}>${dis ? "" : `<button type="button" class="btn sm" data-ir-loc title="${l ? "Desligar do cadastro e digitar" : "Escolher um locador cadastrado (etiqueta)"}">${l ? "✎ digitar" : "🏷 locador"}</button><button type="button" class="btn sm ghost" data-ir-del title="Tirar">✕</button>`}</div>`; };
   return `<div class="ir-g">
     <label class="fl"><span>Declara IR?</span><select name="declarar_ir" ${dis}>${opt("", "—", !i.declarar_ir)}${opt("Sim", "Sim", sim)}${opt("Não", "Não", i.declarar_ir === "Não")}</select></label>
     <div class="fl" data-ir-quem ${sim ? "" : "hidden"}><span>Nota fiscal em nome de</span>
       <div class="seg"><button type="button" data-ir-op="lcd" class="${outros.length ? "" : "on"}" ${dis}>Proprietário (locador)</button><button type="button" data-ir-op="outro" class="${outros.length ? "on" : ""}" ${dis}>Outro favorecido</button></div>
-      <small class="muted" data-ir-lcd ${outros.length ? "hidden" : ""}>${i.locador ? `${esc(nomeRealLocador(i.locador))}${docLocador(i.locador) ? " · " + esc(docLocador(i.locador)) : " · <b class=\"neg\">sem CPF no cadastro do locador</b>"}` : "o locador escolhido acima"}</small>
-      <div data-ir-outros ${outros.length ? "" : "hidden"}><div data-ir-ls>${(outros.length ? outros : [{}]).map(linha).join("")}</div>${dis ? "" : `<button type="button" class="btn sm" data-ir-add>+ outra pessoa</button> <span class="hint">Com mais de uma pessoa, a taxa é dividida em partes iguais (uma nota para cada).</span>`}</div>
-      <div class="ir-decl"><label class="chk" title="Casos raros: o locador declara à Receita um aluguel diferente do valor real"><input type="checkbox" data-ir-decl ${valorDecl(i) ? "checked" : ""} ${dis}> Valor declarado diferente do aluguel</label>
-        <span data-ir-decl-v ${valorDecl(i) ? "" : "hidden"}><input name="valor_declarado" inputmode="numeric" value="${valorDecl(i) ? moedaFmt(valorDecl(i)) : ""}" placeholder="R$ 0,00" style="width:120px" ${dis}> <small class="muted">por mês · vale para a nota fiscal (comissão = este valor × taxa) e para a DIMOB</small></span></div></div></div>`;
+      <small class="muted" data-ir-lcd ${outros.length ? "hidden" : ""}>${i.locador ? `${esc(nomeRealLocador(i.locador))}${docLocador(i.locador) ? " · " + esc(docLocador(i.locador)) : " · <b class=\"neg\">sem CPF no cadastro do locador</b>"}` : "o locador escolhido acima"}</small></div>
+    <div class="fl" data-ir-vq ${sim ? "" : "hidden"}><span>Valor declarado</span>
+      <div class="ir-vl"><div class="seg"><button type="button" data-ir-dv="alug" class="${vd ? "" : "on"}" ${dis}>Valor do aluguel</button><button type="button" data-ir-dv="outro" class="${vd ? "on" : ""}" title="Casos raros: o locador declara à Receita um aluguel diferente do valor real" ${dis}>Outro valor</button></div>
+        <input name="valor_declarado" inputmode="numeric" value="${vd ? moedaFmt(vd) : ""}" placeholder="R$ por mês" ${vd ? "" : "hidden"} ${dis} title="Por mês · vale para a nota fiscal (comissão = este valor × taxa) e para a DIMOB"></div></div>
+    <div class="ir-outros" data-ir-outros ${sim && outros.length ? "" : "hidden"}><div data-ir-ls>${(outros.length ? outros : [{}]).map(linha).join("")}</div>${dis ? "" : `<button type="button" class="btn sm" data-ir-add>+ outro favorecido</button> <span class="hint">Locador cadastrado (ex.: a empresa dele)? Use <b>🏷 locador</b> e escolha a etiqueta. Com mais de um favorecido, a taxa é dividida em partes iguais (uma nota para cada).</span>`}</div></div>`;
+}
+function escolherLocadorInline(btn) {
+  return new Promise(res => {
+    const p = pop(btn, `<div class="pk"><input type="search" class="pk-busca" placeholder="Procure o locador (etiqueta, nome ou CNPJ)…" autocomplete="off"><div class="pk-lista"></div></div>`, 560);
+    const busca = $(".pk-busca", p), ls = $(".pk-lista", p), todos = (S.locadores || []).filter(l => l.ativo !== false).sort((a, b) => COLL.compare(a.nome, b.nome));
+    const des = () => { const q2 = norm(busca.value.trim()), vs = todos.filter(l => { const f = l.ficha || {}; return !q2 || norm([l.nome, f.lcd1_nome, f.lcd2_nome, f.lcd1_cpf, l.cpf_cnpj].join(" ")).includes(q2); }).slice(0, 150);
+      ls.innerHTML = vs.length ? vs.map((l, k) => { const dd = dadosFavLoc(l); return `<button type="button" class="pk-it" data-k="${k}"><span class="etq etq-lcd">${esc(l.nome)}</span><small>${esc(dd.nome)}${dd.cpf ? " · " + esc(dd.cpf) : " · sem CPF/CNPJ"}</small></button>`; }).join("") : `<p class="hint" style="padding:8px">Nada encontrado.</p>`;
+      $$("[data-k]", ls).forEach(b => b.addEventListener("click", () => { fecharPop(); res(vs[+b.dataset.k]); })); };
+    busca.addEventListener("input", des); busca.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const b = $("[data-k]", ls); if (b) b.click(); } });
+    des(); busca.focus();
+  });
 }
 function ligarIr(d) {
   const sel = $("[name=declarar_ir]", d), quem = $("[data-ir-quem]", d); if (!sel || !quem) return;
-  sel.addEventListener("change", () => (quem.hidden = sel.value !== "Sim"));
-  $$("[data-ir-op]", d).forEach(b => b.addEventListener("click", () => { $$("[data-ir-op]", d).forEach(x => x.classList.toggle("on", x === b)); const o = b.dataset.irOp === "outro"; $("[data-ir-outros]", d).hidden = !o; $("[data-ir-lcd]", d).hidden = o; }));
-  const dk = $("[data-ir-decl]", d); if (dk) { const vi = $("[name=valor_declarado]", d); mascaraMoeda(vi); dk.addEventListener("change", () => { $("[data-ir-decl-v]", d).hidden = !dk.checked; if (dk.checked) vi.focus(); }); }
+  const outrosOn = () => { const b = $("[data-ir-op=outro]", d); return !!(b && b.classList.contains("on")); };
+  const mostra = () => { const sim = sel.value === "Sim"; quem.hidden = !sim; const vq = $("[data-ir-vq]", d); if (vq) vq.hidden = !sim; $("[data-ir-outros]", d).hidden = !(sim && outrosOn()); };
+  sel.addEventListener("change", mostra);
+  $$("[data-ir-op]", d).forEach(b => b.addEventListener("click", () => { $$("[data-ir-op]", d).forEach(x => x.classList.toggle("on", x === b)); $("[data-ir-lcd]", d).hidden = b.dataset.irOp === "outro"; mostra(); }));
+  const vi = $("[name=valor_declarado]", d);
+  if (vi) { mascaraMoeda(vi); $$("[data-ir-dv]", d).forEach(b => b.addEventListener("click", () => { $$("[data-ir-dv]", d).forEach(x => x.classList.toggle("on", x === b)); vi.hidden = b.dataset.irDv !== "outro"; if (!vi.hidden) vi.focus(); })); }
   const ls = $("[data-ir-ls]", d);
-  const ligaL = l => { const c = $("[data-irc]", l); if (c && typeof mascaraDoc === "function") mascaraDoc(c); const x = $("[data-ir-del]", l); if (x) x.addEventListener("click", () => { if ($$(".ir-l", ls).length > 1) l.remove(); else $$("input", l).forEach(i => (i.value = "")); }); };
+  const solta = l => { l.dataset.loc = ""; $(".ir-tag", l).innerHTML = ""; $$("input", l).forEach(i => { i.readOnly = false; i.value = ""; }); const b = $("[data-ir-loc]", l); if (b) { b.textContent = "🏷 locador"; b.title = "Escolher um locador cadastrado (etiqueta)"; } };
+  const ligaL = l => { const c = $("[data-irc]", l); if (c && typeof mascaraDoc === "function") mascaraDoc(c);
+    const x = $("[data-ir-del]", l); if (x) x.addEventListener("click", () => { if ($$(".ir-l", ls).length > 1) l.remove(); else solta(l); });
+    const bl = $("[data-ir-loc]", l); if (bl) bl.addEventListener("click", async () => {
+      if (l.dataset.loc) { solta(l); $("[data-irn]", l).focus(); return; }
+      const lc = await escolherLocadorInline(bl); if (!lc) return; const dd = dadosFavLoc(lc);
+      l.dataset.loc = lc.nome; $(".ir-tag", l).innerHTML = `<span class="etq etq-lcd" title="Locador cadastrado: razão social e CPF/CNPJ vêm do cadastro">${esc(lc.nome)}</span>`;
+      $("[data-irn]", l).value = dd.nome; $("[data-irc]", l).value = dd.cpf; $$("input", l).forEach(i => (i.readOnly = true)); bl.textContent = "✎ digitar"; bl.title = "Desligar do cadastro e digitar";
+      if (!dd.cpf) toast(`O cadastro de ${lc.nome} está sem CPF/CNPJ: complete em Locadores.`, true); }); };
   $$(".ir-l", ls).forEach(ligaL);
-  const add = $("[data-ir-add]", d); if (add) add.addEventListener("click", () => { const l = $(".ir-l", ls).cloneNode(true); $$("input", l).forEach(i => (i.value = "")); ls.appendChild(l); ligaL(l); $("[data-irn]", l).focus(); });
+  const add = $("[data-ir-add]", d); if (add) add.addEventListener("click", () => { const l = $(".ir-l", ls).cloneNode(true); ls.appendChild(l); solta(l); ligaL(l); $("[data-irn]", l).focus(); });
 }
 // v20: valor declarado à Receita diferente do aluguel real (nota fiscal e DIMOB usam este)
 const valorDecl = im => { const v = +(((im && im.ficha) || {}).valor_declarado); return v > 0 ? v : 0; };
@@ -2180,17 +2216,17 @@ function baseDecl(c, im, taxa) {
   return { base: vd, taxa: r2(vd * pct / 100), decl: true };
 }
 function lerDecl(d) {
-  const ck = $("[data-ir-decl]", d), sel = $("[name=declarar_ir]", d); if (!ck) return null;
-  if (!ck.checked || !sel || sel.value !== "Sim") return null;
+  const b = $("[data-ir-dv=outro]", d), sel = $("[name=declarar_ir]", d); if (!b) return null;
+  if (!b.classList.contains("on") || !sel || sel.value !== "Sim") return null;
   const v = parseMoney($("[name=valor_declarado]", d).value);
-  if (!(v > 0)) throw new Error("Valor declarado diferente: informe o valor (ou desmarque a opção).");
+  if (!(v > 0)) throw new Error("Valor declarado: informe o outro valor (ou escolha “Valor do aluguel”).");
   return v;
 }
 function lerIr(d) {
   const sel = $("[name=declarar_ir]", d); if (!sel) return null;
   const outro = sel.value === "Sim" && $("[data-ir-op=outro]", d) && $("[data-ir-op=outro]", d).classList.contains("on");
   if (!outro) return [];
-  const xs = $$(".ir-l", d).map(l => ({ nome: $("[data-irn]", l).value.trim(), cpf: $("[data-irc]", l).value.trim() })).filter(x => x.nome || x.cpf);
+  const xs = $$(".ir-l", d).map(l => Object.assign({ nome: $("[data-irn]", l).value.trim(), cpf: $("[data-irc]", l).value.trim() }, l.dataset.loc ? { loc: l.dataset.loc } : {})).filter(x => x.nome || x.cpf);
   if (!xs.length) throw new Error("Nota fiscal em nome de outro favorecido: informe o nome e o CPF/CNPJ (ou volte para “Proprietário”).");
   xs.forEach(x => { const n = x.cpf.replace(/\D/g, "").length; if (!x.nome) throw new Error("Favorecido sem nome."); if (n !== 11 && n !== 14) throw new Error(`CPF/CNPJ de ${x.nome} incompleto.`); });
   return xs;
@@ -2652,6 +2688,7 @@ async function abrirSaida(i) {
       q(sb.from("cobrancas").select("id,competencia,valor,acrescimos,descontos").eq("imovel_id", i.id).is("data_pagamento", null).is("devedor_id", null).eq("carencia", false).order("competencia")),
       i.contrato_codigo ? q(sb.from("contratos").select("garantia,contatos").eq("codigo", i.contrato_codigo).maybeSingle()) : Promise.resolve(null)
     ]);
+    const rjPend = await q(sb.from("reajustes").select("competencia,valor_novo").eq("imovel_id", i.id).is("aplicado_em", null).order("competencia")).catch(() => []);
     let lerItens;
     const total = d => {
       const its = lerItens ? lerItens() : [];
@@ -2689,9 +2726,14 @@ async function abrirSaida(i) {
             <label class="chk" style="margin-top:6px"><input type="checkbox" name="semtermo"> Neste caso específico o termo <b>não é necessário</b></label>
             <label class="fl" data-motivo hidden><span>Motivo</span><input name="motivo" placeholder="Ex.: chaves devolvidas em cartório, termo feito em papel…"></label></div>
             <div class="obrig ok" data-obrig-c style="margin-top:8px"><label class="chk"><input type="checkbox" name="teve_cauc"> <b>💰 Este locatário deixou caução</b> — gerar também o <b>termo de devolução de caução</b></label></div>`}
-        <p class="hint">Ao registrar: o imóvel muda para a situação escolhida (o valor do aluguel fica como previsto), o contrato fica <b>Encerrado</b> — ou <b>Débito em aberto</b> se ficou devendo — e o devedor entra na lista de <b>Devedores</b> com os dados e contatos do contrato.</p>`,
+        <div class="box sai-prev"><b>Depois da saída o imóvel fica limpo:</b> saem locatário, fiador, aluguel, dia de pagamento${rjPend.length ? ` e <b>${rjPend.length} reajuste(s) programado(s)</b> (${rjPend.map(r => esc(mesCurto(r.competencia)) + " " + n2(r.valor_novo)).join(", ")})` : " e reajustes programados"}.
+          <div class="fl" style="margin-top:8px"><span>Valor previsto para pedir do próximo locatário · o último aluguel era <b>${brl(i.valor || 0)}</b></span>
+            <div class="ir-vl"><div class="seg"><button type="button" data-vp="manter" class="on">Manter ${brl(i.valor || 0)}</button><button type="button" data-vp="outro">Outro valor</button><button type="button" data-vp="nada">Sem previsão</button></div>
+              <input name="vprev" inputmode="numeric" placeholder="R$ 0,00" hidden></div></div></div>
+        <p class="hint">Ao registrar: o imóvel muda para a situação escolhida, o contrato fica <b>Encerrado</b> — ou <b>Débito em aberto</b> se ficou devendo — e o devedor entra na lista de <b>Devedores</b> com os dados e contatos do contrato.</p>`,
       aoAbrir: (f, d) => {
         lerItens = ligarItens(d, [], () => total(d));
+        mascaraMoeda(f.vprev); $$("[data-vp]", d).forEach(b => b.addEventListener("click", () => { $$("[data-vp]", d).forEach(x => x.classList.toggle("on", x === b)); f.vprev.hidden = b.dataset.vp !== "outro"; if (!f.vprev.hidden) f.vprev.focus(); }));
         if (f.semtermo) f.semtermo.addEventListener("change", () => { $("[data-motivo]", d).hidden = !f.semtermo.checked; $("[data-obrig]", d).classList.toggle("ok", f.semtermo.checked); });
         if (f.semcauc) f.semcauc.addEventListener("change", () => { $("[data-motivo-c]", d).hidden = !f.semcauc.checked; $("[data-obrig-c]", d).classList.toggle("ok", f.semcauc.checked); });
         $$("[name=deve]", d).forEach(r => r.addEventListener("change", () => { $("[data-divida]", d).hidden = f.deve.value !== "sim"; total(d); }));
@@ -2714,11 +2756,14 @@ async function abrirSaida(i) {
         const temCauc = !!f.semcauc, semCauc = temCauc && f.semcauc.checked, motivoC = f.motivoc ? f.motivoc.value.trim() : "";
         if (semCauc && motivoC.length < 5) throw new Error("Explique por que o termo de devolução de caução não é necessário.");
         const totalTxt = deve ? brl(itens.reduce((a, x) => a + (+x.valor || 0), 0)) : "";
+        const vpOp = ($("[data-vp].on", $("#dlg")) || {}).dataset || { vp: "manter" };
+        const vPrev = vpOp.vp === "nada" ? null : vpOp.vp === "outro" ? parseMoney(f.vprev.value) : (+i.valor || null);
+        if (vpOp.vp === "outro" && !(vPrev > 0)) throw new Error("Informe o valor previsto (ou escolha “Manter” / “Sem previsão”).");
         if (!pedeConfirmacao(f, `<b>Confirma a saída de ${esc(i.locatario || "?")}</b> de ${esc(i.endereco)} em <b>${dt(f.data.value)}</b>?<br>
-          O imóvel passa a ficar <b>${esc((STATUS_IMV[f.status.value] || [f.status.value])[0])}</b>${deve ? ` e o devedor entra na lista com <b>${totalTxt}</b>` : " (saiu sem dever)"}.
+          O imóvel passa a ficar <b>${esc((STATUS_IMV[f.status.value] || [f.status.value])[0])}</b>, com valor previsto <b>${vPrev ? brl(vPrev) : "em branco"}</b>${deve ? ` e o devedor entra na lista com <b>${totalTxt}</b>` : " (saiu sem dever)"}.
           ${semTermo ? `<br>⚠️ Termo de entrega <b>DISPENSADO</b>: “${esc(motivo)}”.` : "<br>Em seguida abre o <b>termo de entrega de chaves</b> (obrigatório)."}${caucSemCtt ? "<br>Fica pendente também o <b>termo de devolução de caução</b>." : ""}
           ${f.semcauc ? (f.semcauc.checked ? `<br>⚠️ Termo de devolução de caução <b>DISPENSADO</b>.` : "<br>Fica pendente a <b>baixa da caução</b> com o termo de devolução.") : ""}`, "Sim, registrar a saída")) return false;
-        await rpc("registrar_saida", { p_imovel: i.id, p_data: f.data.value, p_devedor: deve ? f.devedor.value : null, p_itens: itens, p_obs: deve ? f.obs.value : "", p_cobrancas: cobsSel, p_status: f.status.value });
+        await rpc("registrar_saida", { p_imovel: i.id, p_data: f.data.value, p_devedor: deve ? f.devedor.value : null, p_itens: itens, p_obs: deve ? f.obs.value : "", p_cobrancas: cobsSel, p_status: f.status.value, p_valor_prev: vPrev });
         if (i.contrato_codigo) {
           try { await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "entrega", p_estado: semTermo ? "dispensado" : "pendente", p_motivo: motivo });
             if (temCauc) await rpc("marcar_termo", { p_codigo: i.contrato_codigo, p_tipo: "caucao", p_estado: semCauc ? "dispensado" : "pendente", p_motivo: motivoC }); } catch (e) { falha(e); }
@@ -3165,10 +3210,10 @@ function timbrado(conteudo) {
     <tbody><tr><td>${conteudo}</td></tr></tbody>
     <tfoot><tr><td><div class="tb-f">${TIMBRE.rodape.map(esc).join("<br>")}</div></td></tr></tfoot></table></div>`;
 }
-function imprimir(html, paisagem) {
+function imprimir(html, paisagem, margem) {
   const area = $("#print-area"); area.innerHTML = html;
   let pg = $("#print-page"); if (!pg) { pg = document.createElement("style"); pg.id = "print-page"; document.head.appendChild(pg); }
-  pg.textContent = `@media print{@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:9mm}}`;
+  pg.textContent = `@media print{@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:${margem || "9mm"}}}`;
   document.body.classList.add("imprimindo");
   const fim = () => { document.body.classList.remove("imprimindo"); area.innerHTML = ""; window.removeEventListener("afterprint", fim); };
   window.addEventListener("afterprint", fim);
@@ -3178,9 +3223,9 @@ function imprimir(html, paisagem) {
 function abrirRelatorio(titulo, conteudo, opts) {
   opts = opts || {};
   const blocos = Array.isArray(conteudo) ? conteudo : [conteudo];
-  const html = blocos.map((b, i) => `<div class="${i ? "rel-quebra" : ""}">${timbrado(b)}</div>`).join("");
+  const html = blocos.map((b, i) => `<div class="${[i ? "rel-quebra" : "", opts.compacto ? "rel-compacto" : ""].join(" ").trim()}">${timbrado(b)}</div>`).join("");
   modal({ titulo, xl: !!opts.paisagem, largo: !opts.paisagem, semOk: true, extra: `<button type="button" class="btn pri" data-imp>🖨 Imprimir / salvar PDF</button>`, corpo: `<div class="rel-prev">${html}</div>`,
-    aoAbrir: (f, d) => $("[data-imp]", d).addEventListener("click", () => imprimir(html, opts.paisagem)) });
+    aoAbrir: (f, d) => $("[data-imp]", d).addEventListener("click", () => imprimir(html, opts.paisagem, opts.compacto ? "4mm 7mm" : "")) });
 }
 // ---- relatório do proprietário (como o modelo do Excel: aluguéis, descontos e total a receber) ----
 function relatorioProprietario(fav) {
@@ -4620,13 +4665,14 @@ PAGES.config = async pg => {
   if (aba === "fechamento") S.cfgBloq = await q(sb.from("config").select("*").eq("chave", "bloqueado_ate").maybeSingle());
   if (aba === "prestadores") await carregarForn();
   if (aba === "formulario") S.cfgCad = await q(sb.from("config").select("valor").eq("chave", "cadastro_token").maybeSingle()).catch(() => null);
+  if (aba === "condominios") await carregarConds(true);
   setRd(pg, () => desenharConfig());
   desenharConfig(pg);
 };
 function desenharConfig(pg) {
   pg = pg || $("#page");
   let aba = S.f.cfg || "usuarios"; if (aba === "contas") aba = "usuarios";
-  const abas = [["usuarios", "Usuários e contas"], ["categorias", "Plano de contas"], ["prestadores", "Prestadores e lojas"], ["fechamento", "Fechamento"], ["site", "Link do site"], ["formulario", "Formulário do cliente"], ["auditoria", "Auditoria"]];
+  const abas = [["usuarios", "Usuários e contas"], ["categorias", "Plano de contas"], ["prestadores", "Prestadores e lojas"], ["fechamento", "Fechamento"], ["site", "Link do site"], ["formulario", "Formulário do cliente"], ["condominios", "Condomínios"], ["auditoria", "Auditoria"]];
   let html = "";
   // ativas à esquerda, inativas à direita (cada tabela já é a situação)
   const ladoALado = (id, cols, lista, act, titAt, titInat) => {
@@ -4698,6 +4744,8 @@ function desenharConfig(pg) {
       ${btnCopiar("Endereço do sistema (SUPABASE_URL)", CFG.SUPABASE_URL || "")}${btnCopiar("Código secreto do formulário (CADASTRO_TOKEN)", tk)}
       <p class="hint">O código secreto só fica aqui e no programa do Google: <b>nunca</b> coloque no formulário nem no GitHub. Se ele vazar, clique em “Gerar outro código” e atualize no programa do Google.</p>
       <div class="filters"><button class="btn danger" data-cad-novotk>Gerar outro código</button></div></div>`;
+  } else if (aba === "condominios") {
+    html = `<div data-cond-cfg>${condCfgHTML()}</div>`;
   } else if (aba === "auditoria") {
     const g = grade("auditoria6", COLS_AUD, (S.audit || []).map((a, k) => Object.assign({ _k: k }, a)), { attr: a => `data-act="audit-ver" data-k="${a._k}" style="cursor:pointer"`, sort: { k: "em", dir: "desc" }, divisor: { k: "em", g: a => new Date(a.em).toLocaleDateString("pt-BR") } }); g.redesenhar = () => desenharConfig();
     const fa = S.f.aud || {};
@@ -4710,6 +4758,7 @@ function desenharConfig(pg) {
   pg.innerHTML = `<div class="grid"><div class="chips">${abas.map(([k, t]) => `<button class="chip${aba === k ? " on" : ""}" data-act="cfg-aba" data-v="${k}">${t}</button>`).join("")}</div>${html}</div>`;
   ligarBusca(pg);
   if (aba === "prestadores") desenharForn($("#cfg-forn", pg));
+  if (aba === "condominios") ligarCondCfg(pg);
   $$("[data-copiar]", pg).forEach(b => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText(b.dataset.copiar); const t = b.textContent; b.textContent = "✔ Copiado"; setTimeout(() => (b.textContent = t), 1200); } catch (e) { toast("Não consegui copiar: selecione e use Ctrl+C.", true); } }));
   const ntk = $("[data-cad-novotk]", pg); if (ntk) ntk.addEventListener("click", async () => {
     if (!(await confirmar("Gerar outro código", "O formulário para de funcionar até você colar o código novo no programa do Google (CADASTRO_TOKEN). Continuar?", "Gerar"))) return;
@@ -5239,7 +5288,12 @@ function dataTarefa(t) {
 }
 const quandoTar = t => t.frequencia === "semanal" ? `Toda ${DIAS_SEM[t.dia_semana ?? 1]}` : t.frequencia === "mensal" && t.regra === "ultima" ? `Última ${DIAS_SEM[t.dia_semana ?? 5]} do mês (${dt(ultimoDiaSemMes(t.dia_semana ?? 5)).slice(0, 5)})` : t.frequencia === "mensal" ? `Todo dia ${t.dia_mes || 1}` : t.frequencia === "diaria" ? "Todo dia" : t.prazo ? `Até ${dt(t.prazo)}` : "Avulsa";
 const nomeMembro = id => (TAR.membros.find(m => m.id === id) || {}).nome || "";
+// v21: "minhas" = atribuídas a mim ou a todos; atrasada = a data já passou e não foi feita
+const tarMinha = t => !t.responsavel || t.responsavel === S.user.id;
+const tarAtrasada = t => { const d = dataTarefa(t); return !!d && d < hoje() && !tarefaFeita(t); };
+const TAR_SEL = new Set();
 const COLS_TAR = [
+  { k: "sel", t: "Seleção", nf: true, fixo: true, w: 30, th: `<input type="checkbox" data-tsel="todos" aria-label="Selecionar todas">`, html: t => `<input type="checkbox" data-tsel="${t.id}" ${TAR_SEL.has(t.id) ? "checked" : ""} aria-label="Selecionar">` },
   { k: "data", t: "Data", tipo: "data", w: 150, v: dataTarefa, html: t => { const d = dataTarefa(t); if (!d) return `<span class="muted">sem data</span>`;
       const feita = tarefaFeita(t) && t.frequencia === "unica", dias = diasEntre(hoje(), d), cls = feita ? "ok" : dias < 0 ? "atr" : dias <= 7 ? "prox" : "folga";
       const txt = feita ? "feita" : dias < 0 ? `Atrasado ${-dias} dia${dias === -1 ? "" : "s"}` : dias === 0 ? "Hoje" : `Em ${dias} dia${dias === 1 ? "" : "s"}`;
@@ -5261,11 +5315,12 @@ PAGES.tarefas = async pg => {
 };
 function desenharTarefas(pg) {
   pg = pg || $("#page");
-  const f = S.f.tar || "hoje", quem = S.f.tarQuem == null ? "eu" : S.f.tarQuem;
-  const doResp = t => !quem || (quem === "eu" ? (!t.responsavel || t.responsavel === S.user.id) : t.responsavel === quem);
-  const base = TAR.ls.filter(t => t.ativa && doResp(t));
-  const teste = { hoje: t => tarefaPendente(t), todas: () => true, feitas: t => tarefaFeita(t), atrasadas: t => t.frequencia === "unica" && t.prazo && t.prazo < hoje() && !tarefaFeita(t) };
+  const f = S.f.tar || "hoje", quem = S.f.tarQuem == null ? "eu" : S.f.tarQuem, busca = S.f.tarBusca || "", qb = norm(busca.trim());
+  const doResp = t => !quem || (quem === "eu" ? tarMinha(t) : t.responsavel === quem);
+  const base = TAR.ls.filter(t => t.ativa && doResp(t) && (!qb || norm([t.titulo, t.descricao, nomeMembro(t.responsavel)].join(" ")).includes(qb)));
+  const teste = { hoje: t => tarefaPendente(t), abertas: t => !tarefaFeita(t), todas: () => true, feitas: t => tarefaFeita(t), atrasadas: tarAtrasada };
   const lista = base.filter(teste[f] || teste.todas);
+  const ids = new Set(TAR.ls.map(t => t.id)); [...TAR_SEL].forEach(id => { if (!ids.has(id)) TAR_SEL.delete(id); });
   // v20: rotina (se repete) e avulsas (com prazo) em quadros separados
   const tipo = S.f.tarTipo || "sep", ehRec = t => t.frequencia !== "unica";
   const mk = (id, ls, vazio) => { const g = grade(id, COLS_TAR, ls, { attr: t => `data-act="tar-ed" data-id="${t.id}" style="cursor:pointer"`, sort: { k: "data", dir: "asc" },
@@ -5278,17 +5333,49 @@ function desenharTarefas(pg) {
   const inat = TAR.ls.filter(t => !t.ativa).length;
   pg.innerHTML = `<div class="grid">
     <div class="filters">
-      <div class="fgrupo"><span>Mostrar</span>${[["hoje", "Para hoje"], ["atrasadas", "Atrasadas"], ["todas", "Todas"], ["feitas", "Feitas"]].map(([k, t]) => `<button class="chip${f === k ? " on" : ""}" data-act="chip" data-k="tar" data-v="${k}">${t}<span class="c">${base.filter(teste[k]).length}</span></button>`).join("")}</div>
+      <div class="fgrupo"><span>Mostrar</span>${[["hoje", "Para hoje"], ["atrasadas", "Atrasadas"], ["abertas", "Não feitas"], ["todas", "Todas"], ["feitas", "Feitas"]].map(([k, t]) => `<button class="chip${f === k ? " on" : ""}" data-act="chip" data-k="tar" data-v="${k}">${t}<span class="c">${base.filter(teste[k]).length}</span></button>`).join("")}</div>
       <div class="fgrupo"><span>Tipo</span>${[["sep", "Rotina e avulsas"], ["rec", "Só rotina"], ["avu", "Só avulsas"]].map(([k, t]) => `<button class="chip${tipo === k ? " on" : ""}" data-act="chip" data-k="tarTipo" data-v="${k}">${t}</button>`).join("")}</div>
       <div class="fgrupo"><span>De quem</span><select data-tar-quem>${opt("eu", "Minhas (e de todos)", quem === "eu")}${opt("", "Todos", quem === "")}${TAR.membros.map(m => opt(m.id, m.nome, quem === m.id)).join("")}</select></div>
+      <input type="search" placeholder="Procurar tarefa…" value="${esc(busca)}" data-busca="tarBusca">
       <span class="spacer"></span>${gradeBarra("tarefas2")}${pode.ed("tarefas") ? `<button class="btn pri" data-act="tar-ed">+ Tarefa</button>` : ""}
     </div>
+    ${pode.ed("tarefas") ? `<div class="tar-lote" data-tar-lote hidden><b data-tar-n></b><button class="btn sm" data-act="tar-lote" data-v="feito">✔ Marcar como feitas</button><button class="btn sm" data-act="tar-lote" data-v="desativar">⏸ Desativar</button><button class="btn sm danger" data-act="tar-lote" data-v="excluir">🗑 Excluir</button><button class="btn sm ghost" data-act="tar-lote" data-v="limpar">Limpar seleção</button></div>` : ""}
     ${tipo !== "avu" ? secTar("tarefas2", "🔁", "Rotina", lsR.length, "se repetem: todo dia, toda semana ou todo mês") : ""}
     ${tipo !== "rec" ? secTar("tarefasA", "📌", "Avulsas", lsA.length, "uma vez só, com prazo") : ""}
     ${inat ? `<p class="hint">${inat} tarefa(s) desativada(s): abra em "Todas" com "Todos" para ver… <button class="btn sm" data-act="tar-inat">mostrar desativadas</button></p>` : ""}
     <p class="hint">As tarefas que se repetem voltam sozinhas: diárias todo dia, semanais na semana seguinte, mensais no mês seguinte. "Para hoje" mostra o que falta fazer hoje.</p>
   </div>`;
   const sq = $("[data-tar-quem]", pg); sq.addEventListener("change", () => { S.f.tarQuem = sq.value; desenharTarefas(); requestAnimationFrame(ajustarAlturas); });
+  ligarBusca(pg);
+  const lote = () => { const bx = $("[data-tar-lote]", pg); if (!bx) return; bx.hidden = !TAR_SEL.size; $("[data-tar-n]", bx).textContent = `${TAR_SEL.size} selecionada${TAR_SEL.size === 1 ? "" : "s"}:`; };
+  $$("[data-tsel]", pg).forEach(x => x.addEventListener("change", () => {
+    if (x.dataset.tsel === "todos") { const tb = x.closest("table"); $$("[data-tsel]:not([data-tsel=todos])", tb).forEach(c => { c.checked = x.checked; if (x.checked) TAR_SEL.add(c.dataset.tsel); else TAR_SEL.delete(c.dataset.tsel); }); }
+    else if (x.checked) TAR_SEL.add(x.dataset.tsel); else TAR_SEL.delete(x.dataset.tsel);
+    lote(); }));
+  if (!pode.ed("tarefas")) $$("[data-tsel]", pg).forEach(x => (x.disabled = true));
+  lote();
+}
+// v21: ações nas tarefas selecionadas
+ACT["tar-lote"] = async el => {
+  const v = el.dataset.v, ls = TAR.ls.filter(t => TAR_SEL.has(t.id));
+  if (v === "limpar") { TAR_SEL.clear(); return desenharTarefas(); }
+  if (!ls.length) return toast("Nenhuma tarefa selecionada.", true);
+  const nomes = `<ul class="tar-ls">${ls.slice(0, 12).map(t => `<li>${esc(t.titulo)}</li>`).join("")}${ls.length > 12 ? `<li>… e mais ${ls.length - 12}</li>` : ""}</ul>`;
+  if (v === "excluir" && !(await confirmar("Excluir tarefas", `Excluir de vez <b>${ls.length} tarefa(s)</b>? Não dá para desfazer.${nomes}`, "Excluir"))) return;
+  if (v === "desativar" && !(await confirmar("Desativar tarefas", `Desativar <b>${ls.length} tarefa(s)</b>? Elas saem das listas (dá para reativar em “mostrar desativadas”).${nomes}`, "Desativar"))) return;
+  const ids = ls.map(t => t.id);
+  if (v === "excluir") await q(sb.from("tarefas").delete().in("id", ids));
+  else if (v === "desativar") await q(sb.from("tarefas").update({ ativa: false }).in("id", ids));
+  else if (v === "feito") { for (const t of ls) await q(sb.from("tarefas").update(t.frequencia === "unica" ? { status: "feito", ultima_conclusao: hoje(), concluida_por: S.user.id } : { ultima_conclusao: hoje(), concluida_por: S.user.id, status: "a_fazer" }).eq("id", t.id)); }
+  TAR_SEL.clear(); toast(`${ls.length} tarefa(s) ${v === "excluir" ? "excluída(s)" : v === "desativar" ? "desativada(s)" : "marcada(s) como feita(s)"}.`); atualizarContadores(); render();
+};
+// v21: avulsa concluída → guardar como feita ou excluir
+function perguntaConcluida(t) {
+  return new Promise(res => { let r = "guardar"; modal({ titulo: "Tarefa concluída ✔", ok: "📁 Guardar como feita",
+    corpo: `<p><b>${esc(t.titulo)}</b> foi marcada como feita.</p><p class="hint">Guarde para saber depois quando foi feita, ou exclua para limpar a lista.</p>`,
+    extra: `<button type="button" class="btn danger" data-exc>🗑 Excluir a tarefa</button>`,
+    aoAbrir: (f, d) => $("[data-exc]", d).addEventListener("click", () => { r = "excluir"; d.close(); }),
+    aoFechar: () => res(r), salvar: async () => { r = "guardar"; } }); });
 }
 // situação: a fazer / fazendo / feito (nas que se repetem, "feito" vale para o período atual)
 ACT["tar-st"] = async el => {
@@ -5296,7 +5383,9 @@ ACT["tar-st"] = async el => {
   const v = el.dataset.v, unica = t.frequencia === "unica", feita = tarefaFeita(t);
   const u = v === "feito" ? (unica ? { status: "feito", ultima_conclusao: hoje(), concluida_por: S.user.id } : { ultima_conclusao: hoje(), concluida_por: S.user.id, status: "a_fazer" })
     : Object.assign({ status: v }, feita ? { ultima_conclusao: null } : {});
-  try { const r = await q(sb.from("tarefas").update(u).eq("id", t.id).select().single()); Object.assign(t, r); desenharTarefas(); atualizarContadores(); } catch (e) { falha(e); }
+  try { const r = await q(sb.from("tarefas").update(u).eq("id", t.id).select().single()); Object.assign(t, r); desenharTarefas(); atualizarContadores();
+    if (v === "feito" && unica && !feita && (await perguntaConcluida(t)) === "excluir") { await q(sb.from("tarefas").delete().eq("id", t.id)); TAR.ls = TAR.ls.filter(x => x.id !== t.id); toast("Tarefa excluída."); desenharTarefas(); atualizarContadores(); }
+  } catch (e) { falha(e); }
 };
 ACT["tar-inat"] = () => modal({ titulo: "Tarefas desativadas", semOk: true, corpo: `<div class="aviso-lista">${TAR.ls.filter(t => !t.ativa).map(t => `<button class="btn sm" data-act="tar-ed" data-id="${t.id}">${esc(t.titulo)}</button>`).join("")}</div>` });
 ACT["tar-fazendo"] = async el => {
@@ -5304,7 +5393,7 @@ ACT["tar-fazendo"] = async el => {
   try { const r = await q(sb.from("tarefas").update({ status: t.status === "fazendo" ? "a_fazer" : "fazendo" }).eq("id", t.id).select().single()); Object.assign(t, r); desenharTarefas(); } catch (e) { falha(e); }
 };
 ACT["tar-ed"] = el => {
-  const t = TAR.ls.find(x => x.id === el.dataset.id) || { frequencia: "diaria", prioridade: "normal", ativa: true, status: "a_fazer", responsavel: null };
+  const t = TAR.ls.find(x => x.id === el.dataset.id) || { frequencia: "unica", prazo: hoje(), prioridade: "normal", ativa: true, status: "a_fazer", responsavel: TAR.membros.some(m => m.id === S.user.id) ? S.user.id : null };
   const ed = pode.ed("tarefas"), dis = ed ? "" : "disabled";
   modal({ titulo: t.id ? "Tarefa" : "Nova tarefa", largo: true, semOk: !ed,
     corpo: `<label class="fl"><span>Tarefa</span><input name="titulo" value="${esc(t.titulo || "")}" required ${dis} placeholder="Ex.: Conferir o caixa com o extrato"></label>
@@ -5315,11 +5404,12 @@ ACT["tar-ed"] = el => {
         <label class="fl" data-q="mensal"><span>No mês</span><select name="regra" ${dis}>${opt("", "num dia fixo", t.regra !== "ultima")}${opt("ultima", "na última … do mês", t.regra === "ultima")}</select></label>
         <label class="fl" data-q="mensal" data-r=""><span>Dia do mês</span><input type="number" name="dmes" min="1" max="31" value="${t.dia_mes || 1}" ${dis}></label>
         <label class="fl" data-q="mensal" data-r="ultima"><span>Dia da semana</span><select name="dsemu" ${dis}>${DIAS_SEM.map((d, i) => opt(i, d, (t.dia_semana ?? 5) === i)).join("")}</select></label>
-        <label class="fl" data-q="unica"><span>Prazo</span><input type="date" name="prazo" value="${t.prazo || ""}" ${dis}></label>
+        <label class="fl" data-q="unica"><span>Prazo</span><span class="tar-prazo"><input type="date" name="prazo" value="${t.prazo || ""}" ${dis}>${dis ? "" : `<button type="button" class="btn sm" data-hoje title="Muda o prazo para hoje (ex.: tarefa atrasada)">Hoje</button>`}</span></label>
         <label class="fl"><span>Prioridade</span><select name="prio" ${dis}>${Object.entries(PRIO_TAR).map(([k, v]) => opt(k, v[0], t.prioridade === k)).join("")}</select></label></div>
       <label class="chk"><input type="checkbox" name="ativa" ${t.ativa ? "checked" : ""} ${dis}> Ativa</label>`,
     extra: t.id && ed ? `<button type="button" class="btn danger" data-del>Excluir</button>` : "",
     aoAbrir: (f, d) => {
+      const bh = $("[data-hoje]", d); if (bh) bh.addEventListener("click", () => { f.prazo.value = hoje(); f.prazo.dispatchEvent(new Event("change")); });
       const vis = () => $$("[data-q]", d).forEach(x => (x.hidden = x.dataset.q !== f.freq.value || (x.dataset.r != null && x.dataset.r !== f.regra.value))); f.freq.addEventListener("change", vis); f.regra.addEventListener("change", vis); vis();
       const b = $("[data-del]", d); if (b) b.addEventListener("click", async () => { d.close(); if (!(await confirmar("Excluir tarefa", `Excluir <b>${esc(t.titulo)}</b>? Prefira desmarcar "Ativa".`, "Excluir"))) return; try { await q(sb.from("tarefas").delete().eq("id", t.id)); toast("Excluída."); render(); } catch (e) { falha(e); } });
     },
@@ -6597,19 +6687,21 @@ const soDig = v => String(v || "").replace(/\D/g, "");
 // quem recebe a nota de um imóvel: [{nome, doc, end, parte}]
 function tomadoresImv(im) {
   const outros = nfOutros(im);
-  if (outros.length) return outros.map(x => ({ nome: x.nome, doc: x.cpf, end: "", parte: 1 / outros.length, outro: true }));
+  if (outros.length) return outros.map(x => { const l = x.loc ? (S.locadores || []).find(y => y.nome === x.loc) : null, dd = l ? dadosFavLoc(l) : x;
+    return { nome: dd.nome || x.nome, doc: dd.cpf || x.cpf, end: "", parte: 1 / outros.length, outro: true, locFav: l ? l.nome : "" }; });
   const l = locPor(im.locador) || {}, f = l.ficha || {};
   const end = [f.lcd_end1_rua, f.lcd_end1_bairro, f.lcd_end1_cidade].filter(Boolean).join(", ") || l.endereco || "";
   return [{ nome: f.lcd1_nome || tiraPrefixo(im.locador), doc: f.lcd1_cpf || l.cpf_cnpj || "", end, parte: 1 }];
 }
 // v20: etiqueta do tomador (link para o locador quando ele é o proprietário cadastrado)
-const tagTomador = x => { const l = !x.outro && x.origem === "aluguel" && x.partes && x.partes[0] ? locResolve(x.partes[0].im.locador) : null;
+const tagTomador = x => { if (x.outro && !x.locFav) return `<b class="nf-fav" title="Favorecido indicado no imóvel (sem cadastro de locador). Abra a nota para ver o locador de cada imóvel.">${esc(x.tomador || "")}</b>`;
+  const l = x.outro ? (S.locadores || []).find(y => y.nome === x.locFav) : x.origem === "aluguel" && x.partes && x.partes[0] ? locResolve(x.partes[0].im.locador) : null;
   return l ? `<span class="etq etq-lcd etq-lnk" data-act="ir-loc" data-id="${l.id}" title="${esc(x.tomador)} · clique para abrir o locador">${esc(nomeTag(x.tomador || l.nome))}</span>` : `<span class="etq etq-lcd" title="${esc(x.tomador || "")}">${esc(nomeTag(x.tomador || ""))}</span>`; };
 const descCurtaNF = x => x.origem === "venda" ? `Venda ${x.ref || ""}` : `${x.partes && x.partes.length > 1 ? "Comissões" : "Comissão"} ${mesCurto(S.mes)}`;
 const descNF = (n, mes) => `${n > 1 ? "Comissões recebidas" : "Comissão recebida"} no mês de ${MESES[+mes.slice(5, 7) - 1]} de ${mes.slice(0, 4)}`;
 const COLS_NF = [
   { k: "origem", t: "Origem", v: x => x.origem === "venda" ? "Venda" : "Aluguel", html: x => `<span class="tag ${x.origem === "venda" ? "warn" : "info"}">${x.origem === "venda" ? "Venda" : "Aluguel"}</span>`, w: 80 },
-  { k: "tomador", t: "Tomador (nome na nota)", html: x => `${tagTomador(x)}<span class="sub">${esc(x.tomador || "")}${x.outro ? " · favorecido indicado no imóvel" : ""}</span>` },
+  { k: "tomador", t: "Tomador (nome na nota)", html: x => `${tagTomador(x)}<span class="sub">${x.outro && !x.locFav ? "" : esc(x.tomador || "")}${x.outro ? `${x.locFav ? " · " : ""}favorecido indicado no imóvel` : ""}</span>` },
   { k: "doc", t: "CPF / CNPJ", cls: "mono", html: x => x.doc ? esc(x.doc) : `<span class="tag bad">falta</span>` },
   { k: "ref", t: "Imóveis / venda", cls: "trunc", v: x => x.ref, html: x => x.partes ? (x.partes.length === 1 ? tagImv(x.partes[0].im.endereco) : `<b>${x.partes.length} imóveis</b> · ${esc(x.partes.map(p => rotuloImvDe(p.im)).join(" · "))}`) : esc(x.ref) },
   { k: "base", t: "Aluguéis / venda", tipo: "num" },
@@ -6633,7 +6725,7 @@ PAGES.notas = async pg => {
     tomadoresImv(im).forEach(t => {
       if (!soDig(t.doc) && docPorNome[norm(t.nome)]) t.doc = docPorNome[norm(t.nome)];
       const key = soDig(t.doc) || "n:" + norm(t.nome);
-      const g = grupos[key] = grupos[key] || { id: "g:" + key, origem: "aluguel", tomador: t.nome, doc: t.doc, end: t.end, outro: t.outro, partes: [], base: 0, valor: 0, pend: 0 };
+      const g = grupos[key] = grupos[key] || { id: "g:" + key, origem: "aluguel", tomador: t.nome, doc: t.doc, end: t.end, outro: t.outro, locFav: t.locFav || "", partes: [], base: 0, valor: 0, pend: 0 };
       const nf = notas.find(n => n.cobranca_id === c.id && (soDig(n.tomador_doc) === soDig(t.doc) || norm(n.tomador) === norm(t.nome)));
       const bd = baseDecl(c, im, taxa);
       g.partes.push({ c, im, valor: r2(bd.taxa * t.parte), base: r2(bd.base * t.parte), real: r2(+c.valor * t.parte), decl: bd.decl, pago: !!c.data_pagamento, nf });
@@ -6684,19 +6776,33 @@ function desenharNotas(pg) {
 ACT["nf-imp"] = () => {
   const g = G.notas2, fl = (g && g.filtradas) || NF;
   const st = p => p.pago ? "" : p.entra ? " <small>(não pago)</small>" : " <small>(fora: não pago)</small>";
-  const linhas = fl.map((x, i) => {
-    const cab = (n, rs) => `<td rowspan="${rs}" class="nf-n">${n}</td><td rowspan="${rs}"><b>${esc(x.tomador)}</b>${x.outro ? "<br><small>favorecido</small>" : ""}</td><td rowspan="${rs}" class="nw">${esc(x.doc)}</td><td rowspan="${rs}">${esc(descCurtaNF(x))}</td>`;
+  const soma = (ls, k) => ls.reduce((a, x) => a + (+x[k] || 0), 0), nn = n => `${n} nota${n === 1 ? "" : "s"}`;
+  let num = 0;
+  const linhas = ls => ls.map(x => {
+    const n = ++num;
+    const cab = rs => `<td rowspan="${rs}" class="nf-n">${n}</td><td rowspan="${rs}" class="nf-tom"><b>${esc(x.tomador)}</b>${x.outro ? "<br><small>favorecido</small>" : ""}</td><td rowspan="${rs}" class="nw nf-doc">${esc(x.doc)}</td>`;
     const fimN = rs => `<td rowspan="${rs}" class="nf-num">${esc((x.nf || {}).numero || "")}</td>`;
-    if (!x.partes) return `<tr class="nf-g">${cab(i + 1, 1)}<td>${esc(x.ref)}</td><td class="num">${n2(x.base)}</td><td class="num">${n2(x.valor)}</td>${fimN(1)}</tr>`;
-    const ps = x.partes, rs = ps.length + (ps.length > 1 ? 1 : 0), vd = p => p.entra ? n2(p.valor) : "—";
-    return ps.map((p, k) => `<tr class="${k ? "nf-sub" : "nf-g"}">${k ? "" : cab(i + 1, rs)}<td>${esc(rotuloImvDe(p.im))}${p.decl ? " <small>(declarado)</small>" : ""}${st(p)}</td><td class="num">${n2(p.base)}</td><td class="num">${vd(p)}</td>${k ? "" : fimN(rs)}</tr>`).join("")
-      + (ps.length > 1 ? `<tr class="nf-tot"><td class="num"><b>Total (${ps.length} imóveis)</b></td><td class="num"><b>${n2(x.base)}</b></td><td class="num"><b>${n2(x.valor)}</b></td></tr>` : "");
+    if (!x.partes) return `<tr class="nf-g">${cab(1)}<td>${esc(x.ref)}</td><td class="num">${n2(x.base)}</td><td class="num">${n2(x.valor)}</td>${fimN(1)}</tr>`;
+    const ps = x.partes, vd = p => p.entra ? n2(p.valor) : "—";
+    // até 14 imóveis: nome e CPF centralizados no grupo (rowspan); mais que isso o grupo passa de uma folha, então o nome fica na 1ª linha
+    const grande = ps.length > 14, rs = grande ? 1 : ps.length + (ps.length > 1 ? 1 : 0), vaz = `<td class="nf-cont"></td><td class="nf-cont"></td><td class="nf-cont"></td>`;
+    return ps.map((p, k) => `<tr class="${k ? "nf-sub" : "nf-g"}">${k ? (grande ? vaz : "") : cab(rs)}<td>${esc(rotuloImvDe(p.im))}${p.decl ? " <small>(declarado)</small>" : ""}${st(p)}</td><td class="num">${n2(p.base)}</td><td class="num">${vd(p)}</td>${k ? (grande ? `<td class="nf-cont"></td>` : "") : fimN(rs)}</tr>`).join("")
+      + (ps.length > 1 ? `<tr class="nf-tot">${grande ? vaz : ""}<td class="num"><b>Total (${ps.length} imóveis)</b></td><td class="num"><b>${n2(x.base)}</b></td><td class="num"><b>${n2(x.valor)}</b></td>${grande ? `<td class="nf-cont"></td>` : ""}</tr>` : "");
   }).join("");
-  abrirRelatorio("Notas fiscais", `<style>.rel-t.nf-t tr.nf-g td{border-top:1.5px solid #333}.rel-t.nf-t tr.nf-sub td,.rel-t.nf-t tr.nf-tot td{border-top:1px dotted #999}.rel-t.nf-t tr.nf-tot td{background:#f3f3f3}.rel-t.nf-t{table-layout:fixed;width:100%}.rel-t.nf-t td{vertical-align:top;overflow-wrap:anywhere}.rel-t.nf-t .nw{white-space:nowrap}</style>
+  const tabela = (tit, ls, col) => !ls.length ? "" : `<h3 class="nf-sec">${tit} · ${nn(ls.length)}</h3><table class="rel-t nf-t"><colgroup><col style="width:3.5%"><col style="width:25%"><col style="width:13%"><col style="width:33%"><col style="width:9.5%"><col style="width:8.5%"><col style="width:7.5%"></colgroup>
+    <thead><tr><th>#</th><th>Tomador</th><th>CPF/CNPJ</th><th>${col}</th><th class="num">${tit === "Aluguéis" ? "Aluguel" : "Venda"}</th><th class="num">Comissão</th><th>Nº da nota</th></tr></thead>
+    <tbody>${linhas(ls)}<tr class="nf-geral"><td colspan="4"><b>Total ${tit.toLowerCase()} (${nn(ls.length)})</b></td><td class="num"><b>${n2(soma(ls, "base"))}</b></td><td class="num"><b>${n2(soma(ls, "valor"))}</b></td><td></td></tr></tbody></table>`;
+  const alu = fl.filter(x => x.origem !== "venda"), ven = fl.filter(x => x.origem === "venda");
+  const resumo = `<table class="rel-t nf-res"><thead><tr><th>Resumo</th><th class="num">Notas</th><th class="num">Aluguéis / vendas</th><th class="num">Valor das notas</th></tr></thead><tbody>
+    <tr><td>Aluguel</td><td class="num">${alu.length}</td><td class="num">${n2(soma(alu, "base"))}</td><td class="num">${n2(soma(alu, "valor"))}</td></tr>
+    <tr><td>Venda</td><td class="num">${ven.length}</td><td class="num">${n2(soma(ven, "base"))}</td><td class="num">${n2(soma(ven, "valor"))}</td></tr>
+    <tr class="nf-geral"><td><b>Total geral</b></td><td class="num"><b>${fl.length}</b></td><td class="num"><b>${n2(soma(fl, "base"))}</b></td><td class="num"><b>${n2(soma(fl, "valor"))}</b></td></tr></tbody></table>`;
+  abrirRelatorio("Notas fiscais", `<style>.rel-t.nf-t{table-layout:fixed;width:100%;margin:2px 0 6px}.rel-t.nf-t th,.rel-t.nf-t td{padding:1.5px 5px;font-size:10.5px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+    .rel-t.nf-t tr.nf-g td{border-top:2px solid #222}.rel-t.nf-t tr.nf-sub td,.rel-t.nf-t tr.nf-tot td{border-top:.5px dotted #aaa}.rel-t.nf-t tr.nf-tot td{background:#f3f3f3}
+    .rel-t.nf-t td[rowspan]{vertical-align:middle}.rel-t.nf-t tr td.nf-cont{border-top:0!important;border-bottom:0}.rel-t.nf-t .nw{white-space:nowrap}.rel-t.nf-t tr.nf-geral td,.rel-t.nf-res tr.nf-geral td{border-top:2px solid #222;background:#eef2f9}
+    .rel-t.nf-t tr{break-inside:avoid}.nf-sec{font-size:12px;margin:8px 0 0;color:#1a2d6b}.rel-t.nf-res{width:auto;min-width:50%;margin-top:10px;break-inside:avoid}.rel-t.nf-res td,.rel-t.nf-res th{font-size:11px;padding:2px 8px}</style>
     <div class="rel-tit"><b>Notas fiscais a emitir · ${esc(mesTxt(S.mes))}</b><span>emitido em ${dt(hoje())}</span></div>
-    <table class="rel-t nf-t"><colgroup><col style="width:3%"><col style="width:21%"><col style="width:11%"><col style="width:10%"><col style="width:31%"><col style="width:9%"><col style="width:8%"><col style="width:7%"></colgroup><thead><tr><th>#</th><th>Tomador</th><th>CPF/CNPJ</th><th>Descrição</th><th>Imóvel / venda</th><th class="num">Aluguel</th><th class="num">Comissão</th><th>Nº da nota</th></tr></thead>
-    <tbody>${linhas}</tbody>
-    <tfoot><tr><td colspan="5"><b>Total geral (${fl.length} nota${fl.length === 1 ? "" : "s"})</b></td><td class="num"><b>${n2(fl.reduce((a, x) => a + (+x.base || 0), 0))}</b></td><td class="num"><b>${n2(fl.reduce((a, x) => a + (+x.valor || 0), 0))}</b></td><td></td></tr></tfoot></table>`, { paisagem: true });
+    ${tabela("Aluguéis", alu, "Imóvel")}${tabela("Vendas", ven, "Venda")}${fl.length ? resumo : `<p>Nenhuma nota na lista.</p>`}`, { paisagem: true, compacto: true });
 };
 const btnCopiar = (rot, v) => `<div class="cp-l"><span class="cp-r">${esc(rot)}</span><span class="cp-v">${esc(v || "—")}</span>${v ? `<button type="button" class="btn sm" data-copiar="${esc(v)}">Copiar</button>` : ""}</div>`;
 ACT["nf-ed"] = el => {
@@ -6853,7 +6959,7 @@ async function escolherContrato(titulo, filtro) {
   return r ? r.v : null;
 }
 /* ---------- v20: termos de contratos antigos, encerrados ou sem cadastro (dados à mão ou importados do contrato) ---------- */
-const NOME_TERMO = { entrega: "Entrega de chaves", caucao: "Devolução de caução", moradia: "Declaração de moradia", quitacao: "Declaração de quitação" };
+const NOME_TERMO = { entrega: "Entrega de chaves", caucao: "Devolução de caução", moradia: "Declaração de moradia", quitacao: "Declaração de quitação", cond_ficha: "Ficha cadastral do condomínio", cond_mudanca: "Mudança (condomínio)" };
 const itemCttTermo = c => { const im = imvDoCtt(c);
   return { v: { c }, busca: [c.codigo, c.locatario, c.endereco, im && im.endereco, im && (im.ficha || {}).etiqueta].join(" "), html: `<span class="mono esc-cod">${esc(c.codigo)}</span><span class="tag ${SIT_CTT[c.situacao] || "idle"}">${esc(sitTxt(c.situacao))}</span>${im ? tagImv(im.endereco) : c.endereco ? `<span class="etq etq-imv">🏠 ${esc(rotuloImv(c.endereco))}</span>` : ""}${tagPes(nomesCtt(c, "lct").length ? nomesCtt(c, "lct") : separaNomes(c.locatario), "etq-lct", "", 2)}` }; };
 const itemImvTermo = i => ({ v: { i }, busca: [i.endereco, i.locatario, i.locador, (i.ficha || {}).etiqueta, "sem contrato"].join(" "),
@@ -6968,11 +7074,13 @@ async function abrirTermoNativo(tipo, codigo, opts) {
   opts = opts || {};
   try {
     if (!CTT.length) CTT = await fetchAll("contratos", b => b.order("codigo", { ascending: false }));
+    if (/^cond_/.test(tipo)) await carregarConds();
     let c = opts.ctt || (codigo ? CTT.find(x => x.codigo === codigo) || await q(sb.from("contratos").select("*").eq("codigo", codigo).maybeSingle()) : null);
     // v20: contrato sem os dados do locatário (planilha antiga) → completa à mão; sem contrato → lista com encerrados, imóveis sem contrato e "à mão"
     if (c && !c._manual && !fichaCompleta(c)) c = await contratoParaTermo(tipo, { c });
     else if (!c) c = await contratoParaTermo(tipo, await escolherParaTermo(tipo, opts.filtro));
     if (!c) return;
+    if (/^cond_/.test(tipo)) return abrirTermoCond(tipo, c);
     const ref = c.codigo || rotuloImv(c.endereco || "") || "contrato fora do sistema";
     const f = fichaDe(c), end = esc(endImovelFicha(f, c) || c.endereco || ""), lct = nomesLct(f).length ? nomesLct(f) : [c.locatario || ""];
     const pl = lct.length > 1 && !/PJ/i.test(f.lct_qtd || "");
@@ -7031,12 +7139,285 @@ function pedirParams(titulo, corpo, ler, aoAbrir) {
   return new Promise(res => { let val = null; modal({ titulo, ok: "Gerar documento", corpo, aoAbrir: (f, d) => aoAbrir && aoAbrir(f, d), aoFechar: () => res(val),
     salvar: async f => { val = ler(f); } }); });
 }
+/* ---------- v21: termos de condomínio — ficha cadastral e aviso/termo de mudança, pelo modelo da ADMINISTRADORA ---------- */
+const MODELOS_ADM = {
+  trading: { t: "Ficha de moradores + aviso de mudança (modelo Trading)", mud: true },
+  summer: { t: "Ficha novo morador + termo de execução de mudança (modelo Summer)", mud: true },
+  instruseg: { t: "Ficha de cadastro para portaria (modelo Instruseg · sem termo de mudança)", mud: false }
+};
+const CONDS_PADRAO = {
+  adms: [{ id: "trading", nome: "TRADING", modelo: "trading" }, { id: "summer", nome: "SUMMER", modelo: "summer" }, { id: "instruseg", nome: "INSTRUSEG", modelo: "instruseg" }],
+  conds: [
+    ["Condomínio Villaggio Monte Mor", "Rua Dr. Carlos de Campos, nº 524", "trading"], ["Condomínio Bella Vida", "Rua Capitão Aguirre, nº 370", "trading"],
+    ["Condomínio Residencial Aliança", "Rua Dr. Carlos de Campos, nº 484", "trading"], ["Condomínio Edifício Residencial Flamboyant", "Rua José Inácio Barreto de Almeida, nº 63", "trading"],
+    ["Condomínio Edifício Florença", "Rua Afonso Aferri, nº 194", "trading"], ["Condomínio Jequitibá", "Alameda Almirante Barroso, nº 64", "trading"],
+    ["Condomínio Jacarandá", "Alameda Almirante Barroso, nº 56", "trading"], ["Condomínio Residencial Jardim dos Manacás", "Rua José Inácio Barreto de Almeida, nº 93", "trading"],
+    ["Condomínio Residencial Jatobá", "Rua Bom Jesus, nº 190", "summer"], ["Condomínio Montville", "Rua José Bueno de Oliveira, nº 197", "instruseg"],
+    ["Residencial Sinfonia", "Rua Alcíbio Ferreira Leme, nº 514", ""], ["Residencial Francisco Pontin", "Rua Mário Sproesser, nº 181", ""],
+    ["Condomínio Residencial Veneza", "Rua Osvaldo da Silva, nº 05", ""], ["Edifício Arezzo", "Rua Siqueira Campos, nº 812", ""],
+    ["Edifício Nuova Cittá", "Rua Ipiranga, nº 471", ""], ["Edifício Nossa Senhora do Patrocínio", "Rua Visconde do Rio Branco, nº 50", ""]
+  ].map(([nome, end, adm], k) => ({ id: "c" + (k + 1), nome, end, adm }))
+};
+let CONDS = null;
+async function carregarConds(forcar) {
+  if (CONDS && !forcar) return CONDS;
+  const r = await q(sb.from("config").select("valor").eq("chave", "condominios").maybeSingle()).catch(() => null);
+  let v = null; try { v = r && r.valor ? JSON.parse(r.valor) : null; } catch (e) { v = null; }
+  CONDS = v && Array.isArray(v.adms) && Array.isArray(v.conds) ? v : JSON.parse(JSON.stringify(CONDS_PADRAO));
+  return CONDS;
+}
+const chaveEnd = t => norm(String(t || "").split(/\s+-\s+/)[0]).replace(/\bn[º°o]\.?\s*/g, "").replace(/[^a-z0-9]/g, "");
+// partes do endereço do apartamento: rua, condomínio, bloco/torre e apto
+function partesApto(end) {
+  const ps = String(end || "").split(/\s+-\s+/).map(x => x.trim()), r = { rua: ps[0] || "", cond: "", bloco: "", apto: "" };
+  ps.slice(1).forEach(x => { let m;
+    if ((m = /^ap(?:to|\.|artamento)?\.?\s*(.+)$/i.exec(x))) r.apto = m[1];
+    else if ((m = /^(?:bloco|bl\.?|torre)\s*(.+)$/i.exec(x))) r.bloco = m[1];
+    else if (!r.cond) r.cond = x; });
+  return r;
+}
+const condDoEnd = end => { if (!CONDS || !end) return null; const k = chaveEnd(end); return k ? CONDS.conds.find(c => chaveEnd(c.end) === k) || null : null; };
+const admDe = cd => cd && CONDS ? CONDS.adms.find(a => a.id === cd.adm) || null : null;
+// contrato que usa a ficha do condomínio: coluna CONDOMÍNIO diferente de N/A e imóvel em condomínio
+const cttTemCond = c => String(fichaDe(c).st_condominio || "").trim().toUpperCase() !== "N/A" && (!!condDoEnd((imvDoCtt(c) || {}).endereco || c.endereco) || /\bap(to|\.|artamento)\b/i.test((imvDoCtt(c) || {}).endereco || c.endereco || ""));
+const SIT_COND = ["ATIVO", "PRONTO", "CORRIGIR", "RASCUNHO", "EM ELABORAÇÃO"];
+// dados para preencher: unidade, proprietário (cadastro do locador), moradores (locatários) e imobiliária
+function dadosCond(c) {
+  const f = fichaDe(c), im = c.imovel_id ? S.imovelPor[c.imovel_id] : imvDoCtt(c), end = (im && im.endereco) || c.endereco || f.end_rua || "";
+  const pa = partesApto(end), l = im && im.locador ? locResolve(im.locador) : null, fl = (l && l.ficha) || {};
+  const pj = /PJ/i.test(f.lct_qtd || ""), cts = Array.isArray(c.contatos) ? c.contatos : [];
+  const ctt = nome => cts.find(x => x && x.nome && norm(x.nome) === norm(nome)) || {};
+  const ft = t => t ? fmtTel(t) : "";
+  const pes = (src, p) => ({ nome: src[p + "_nome"] || "", cpf: src[p + "_cpf"] || "", rg: [src[p + "_rg"], src[p + "_oe"]].filter(Boolean).join(" "), tel: ft(src[p + "_tel"]), email: src[p + "_email"] || "", est_civil: src[p + "_est_civil"] || "" });
+  const lp = fl.lcd1_nome ? fl : f, prop = pes(lp, "lcd1"); if (!prop.nome) prop.nome = l ? tiraPrefixo(l.nome) : (im && im.locador) || "";
+  const cid = String(lp.lcd_end1_cidade || "").split(/\s*[\/-]\s*/);
+  prop.rua = lp.lcd_end1_rua || ""; prop.bairro = lp.lcd_end1_bairro || ""; prop.cidade = cid[0] || ""; prop.uf = cid[1] || ""; prop.cep = lp.lcd_end1_cep || "";
+  const mor = (pj ? ["lct2"] : ["lct1", "lct2"]).map(p => pes(f, p)).filter(x => x.nome);
+  if (!mor.length) separaNomes(c.locatario || (im && im.locatario) || "").forEach(n => mor.push({ nome: n, cpf: "", rg: "", tel: "", email: "" }));
+  mor.forEach(m => { const x = ctt(m.nome); if (!m.tel) m.tel = ft(x.tel); if (!m.email) m.email = x.email || ""; });
+  const fone = (String(TIMBRE.rodape[1] || "").match(/\(\d{2}\)\s*[\d.-]+/) || [""])[0], mail = (String(TIMBRE.rodape[2] || "").match(/[\w.+-]+@[\w.-]+/) || [""])[0];
+  return { c, im, end, pa, prop, mor, imob: { nome: TIMBRE.nome, fone, email: mail }, cond: condDoEnd(end) };
+}
+const cfL = (v, w, cls) => `<span class="cf-l${cls ? " " + cls : ""}" style="min-width:${w || "6em"}">${v ? esc(v) : "&nbsp;"}</span>`;
+const cfX = on => `(${on ? "<b>X</b>" : "&nbsp;&nbsp;&nbsp;"})`;
+const unidadeTxt = pa => [pa.apto ? "Apto " + pa.apto : "", pa.bloco ? "Bloco/Torre " + pa.bloco : ""].filter(Boolean).join(" · ");
+const dataPartes = d => d ? [d.slice(8, 10), MESES[+d.slice(5, 7) - 1], d.slice(0, 4)] : ["", "", ""];
+// ---- modelo TRADING (igual ao do Villaggio; só muda o título) ----
+function fichaTrading(D, P) {
+  const m = k => D.mor[k] || {};
+  return `<div class="cf-pg cf-trd"><div class="cf-in">
+    <div class="trd-h">${esc(D.cond ? D.cond.nome : P.condNome)}</div>
+    <p class="trd-t">FICHA CADASTRAL DE MORADORES</p>
+    <p>Apartamento Nº ${cfL(unidadeTxt(D.pa), "11em")} <span class="cf-sp"></span> Vagas de garagem Nºs ${cfL("", "9em")}</p>
+    <p>Proprietário ${cfL(D.prop.nome, "23em")} Tel. ${cfL(D.prop.tel, "9em")}</p>
+    <p>E-mail: ${cfL(D.prop.email, "21em")} Morador ${cfX(false)} ou Locador ${cfX(true)}</p>
+    <p><u>Moradores:</u></p>
+    ${[0, 1, 2, 3, 4].map(k => `<p>${k + 1}. ${cfL(m(k).nome, "15em")}CPF: ${cfL(m(k).cpf, "9.5em")}Parentesco ${cfL(k === 0 && m(k).nome ? "Titular" : "", "6.5em")}</p>`).join("")}
+    <p>Telefone Fixo: ${cfL("", "11em")}Celular: ${cfL(m(0).tel, "9em")}</p>
+    <p>E-mail: ${cfL(m(0).email, "24em")}</p>
+    <p class="trd-esp">Empregada: ${cfL("", "17em")} <span class="cf-sp"></span> CPF: ${cfL("", "9em")}</p>
+    <p>Animal Espécie: ${cfL("", "8em")}Raça: ${cfL("", "8em")}Cor: ${cfL("", "6em")}</p>
+    <p>Em caso de emergência ligar para ${cfL("", "11em")}Tel: ${cfL("", "8em")}</p>
+    <p class="trd-esp">Veículos:</p>
+    ${[1, 2, 3, 4].map(k => `<p>${k}. Marca ${cfL("", "5em")}Modelo ${cfL("", "7em")}Cor: ${cfL("", "5em")}Placa ${cfL("", "5em")}</p>`).join("")}
+    <p class="trd-esp">Imobiliária responsável pela locação: ${cfL(D.imob.nome, "11em")}Contato: ${cfL(D.imob.fone, "8em")}</p>
+    <p>E-mail da Imobiliária: ${cfL(D.imob.email, "17em")}</p>
+    <div class="trd-rod"></div></div></div>`;
+}
+function mudancaTrading(D, P) {
+  const m = D.mor[0] || {}, [dd, mm, aa] = P.data ? [P.data.slice(8, 10), P.data.slice(5, 7), P.data.slice(0, 4)] : ["", "", ""];
+  return `<div class="cf-pg cf-avi"><div class="cf-in">
+    <h1>AVISO MUDANÇA</h1>
+    <p>Caro Síndico,</p>
+    <p>Eu, ${cfL(m.nome, "17em")}, CPF: ${cfL(m.cpf, "9em")} unidade ${cfL(unidadeTxt(D.pa), "6em")},</p>
+    <p>Venho por meio desta, solicitar autorização para executar minha mudança na data de ${cfL(dd, "2em")}/${cfL(mm, "3em")}/${cfL(aa, "3em")} no período manhã ${cfX(P.periodo === "manha")} ou Tarde ${cfX(P.periodo === "tarde")}.</p>
+    <p>Haverá içamento externo de móveis? Sim ${cfX(P.icamento === "sim")} não ${cfX(P.icamento === "nao")}</p>
+    <p>Declaro que estou ciente das regras previstas no regulamento Interno, me comprometendo a respeitá-las integralmente.</p>
+    <p>Mudança Aprovada pelo Síndico ou Administradora</p>
+    <p>${cfX(false)} Sim <span class="cf-sp4"></span> ${cfX(false)} Não</p>
+    <p>Em caso de negativa, o que deve ser modificado para obter a aprovação?</p>
+    <table class="avi-box"><tr><td>&nbsp;</td></tr><tr><td>&nbsp;</td></tr></table>
+    <p class="avi-st"><u>Aviso ao novo morador</u></p>
+    <p class="avi-j">Algumas providencias precisarão ser tomadas pelo zelador, como proteção do elevador e das áreas por onde passarão móveis. Também em relação á segurança algumas medidas precisarão ser tomadas, já que haverá muita circulação e abertura de portões. Informe também se haverá içamento de móveis, que demanda isolamento do local.</p>
+    <p class="avi-j">Duas mudanças no mesmo dia atrapalham-se causam transtorno ao condomínio, devido ao uso de elevadores e disponibilidade de espaço para o caminhão de mudanças próximo ao portão.</p>
+    <p class="avi-j">Novos moradores devem estar munidos dos seus respectivos controles eletrônico, para o portão de automóveis, obrigatoriamente fornecido pelo proprietário do imóvel no caso locadores ou pelo antigo proprietário em caso de venda do imóvel.</p>
+    <div class="avi-ass"><div class="cf-ass-l"></div><b>Nome do condômino e data</b></div></div></div>`;
+}
+// ---- modelo SUMMER (papel da administradora ao fundo) ----
+function fichaSummer(D, P) {
+  const m = k => D.mor[k] || {}, [d1, d2, d3] = P.data ? [P.data.slice(8, 10), P.data.slice(5, 7), P.data.slice(0, 4)] : ["", "", ""];
+  const mor = k => `<p><b>0${k + 1}-</b> Nome: ${cfL(m(k).nome, "30em", "cf-dot")}</p><p>Telefone: ${cfL(m(k).tel, "9em", "cf-dot")} E-mail: ${cfL(m(k).email, "16em", "cf-dot")}</p>`;
+  const nome = esc(String(D.cond ? D.cond.nome : P.condNome).toUpperCase());
+  return `<div class="cf-pg cf-sum"><img class="cf-bg" src="img/cond-summer.jpg" alt=""><div class="cf-in">
+    <div class="sum-h"><b>FICHA CADASTRAL NOVO MORADOR</b><span>DATA: ${cfL(d1, "2.5em", "cf-dot")} / ${cfL(d2, "2.5em", "cf-dot")} / ${cfL(d3, "3.5em", "cf-dot")}</span></div>
+    <h2 class="sum-t">${nome}</h2>
+    <p>Bloco: ${cfL(D.pa.bloco, "4em", "cf-dot")} Apartamento: ${cfL(D.pa.apto, "4em", "cf-dot")}</p>
+    <p class="sum-s">DADOS DO PROPRIETÁRIO:</p>
+    <p>Nome: ${cfL(D.prop.nome, "31em", "cf-dot")}</p>
+    <p>RG: ${cfL(D.prop.rg, "14em", "cf-dot")} CPF: ${cfL(D.prop.cpf, "14em", "cf-dot")}</p>
+    <p>Data de Nascimento ${cfL("", "8em", "cf-dot")} Estado Civil: ${cfL(D.prop.est_civil, "10em", "cf-dot")}</p>
+    <p>E- mail: ${cfL(D.prop.email, "30em", "cf-dot")}</p>
+    <p>Telefone: ${cfL("", "11em", "cf-dot")} CELULAR: ${cfL(D.prop.tel, "11em", "cf-dot")}</p>
+    <p class="sum-s">Endereço para Correspondência:</p>
+    <p>Rua: ${cfL(D.prop.rua, "31em", "cf-dot")}</p>
+    <p>Bairro: ${cfL(D.prop.bairro, "16em", "cf-dot")} Complemento ${cfL("", "8em", "cf-dot")}</p>
+    <p>CEP ${cfL(D.prop.cep, "9em", "cf-dot")} Cidade: ${cfL(D.prop.cidade, "10em", "cf-dot")} Estado ${cfL(D.prop.uf, "3em", "cf-dot")}</p>
+    <p class="sum-s">MORADORES (INQUILINOS):</p>${mor(0)}${mor(1)}</div></div>
+  <div class="cf-pg cf-sum"><img class="cf-bg" src="img/cond-summer.jpg" alt=""><div class="cf-in sum-p2">${mor(2)}${mor(3)}${mor(4)}
+    <p class="sum-s">Dados Veiculares:</p>
+    <p><b>Possui Veículo Sim ${cfX(false)} Não ${cfX(false)}</b></p>
+    <p>Veículo: ${cfL("", "13em", "cf-dot")} Marca: ${cfL("", "12em", "cf-dot")}</p>
+    <p>Cor: ${cfL("", "13em", "cf-dot")} Placa: ${cfL("", "12em", "cf-dot")}</p>
+    <div class="sum-ass"><div class="cf-ass-l"></div></div>
+    <p class="sum-dt">${esc(TIMBRE.cidade)}, ${cfL(d1, "2.5em")} de ${cfL(d2 ? MESES[+d2 - 1] : "", "6em")} de ${cfL(d3, "3em")}.</p></div></div>`;
+}
+function mudancaSummer(D, P) {
+  const m = D.mor[0] || {}, [d1, d2, d3] = dataPartes(P.data), [h1, h2, h3] = dataPartes(hoje());
+  const nome = D.cond ? D.cond.nome : P.condNome;
+  return `<div class="cf-pg cf-sum"><img class="cf-bg" src="img/cond-summer.jpg" alt=""><div class="cf-in sum-mud">
+    <div class="sum-h"><b>TERMO DE EXECUÇÃO DE MUDANÇA</b></div>
+    <p class="sum-es">Entrada ${cfX(P.tipo !== "saida")} Saída ${cfX(P.tipo === "saida")}</p>
+    <p>Eu, ${cfL(m.nome, "28em")},</p>
+    <p>RG: ${cfL(m.rg, "12em")} e CPF: ${cfL(m.cpf, "12em")}</p>
+    <p>(proprietário/inquilino) ${cfL("INQUILINO", "11em")} do Bloco ${cfL(D.pa.bloco, "5em")}</p>
+    <p class="sum-j">Apartamento ${cfL(D.pa.apto, "5em")}, venho por meio desta solicitar a autorização da empresa ou responsável pelo transporte para realização da mudança que ocorrerá na data ${cfL(d1, "3em")} de ${cfL(d2, "7em")} ${d3 ? cfL(d3, "3em") : "20" + cfL("", "2em")}. <b>Somente serão permitidas mudanças de segunda a sexta-feira</b>, das 08h00min às 17h00min, e aos <b>sábados</b>, das 08h00min às 12h00min. O responsável pela unidade que desejar se mudar ou alugar seu imóvel deverá comunicar com <b>antecedência mínima de 48hs</b> a administradora.</p>
+    <p>Transportadora: ${cfL(P.transp, "28em")}</p>
+    <p>CNPJ ou CPF: ${cfL("", "11em")} Telefone: ${cfL("", "10em")}</p>
+    <p>Email: ${cfL("", "30em")}</p>
+    <p><b>Cadastro de funcionários (ajudantes):</b></p>
+    <p>Nome: ${cfL("", "28em")}</p><p>CPF e/ou RG: ${cfL("", "24em")}</p>
+    <p>Nome: ${cfL("", "28em")}</p><p>CPF e/ou RG: ${cfL("", "24em")}</p>
+    <p>Veículo: ${cfL("", "8em")} Modelo: ${cfL("", "8em")} Placa: ${cfL("", "7em")}</p>
+    <p class="sum-j">“Comprometo-me da veracidade das informações acima e me responsabilizo por qualquer dano patrimonial que a empresa venha a causar no ${esc(nome)}, bem como a fiscalização por condutas dúbias vindas dos funcionários cadastrados previamente.”</p>
+    <div class="sum-ass"><div class="cf-ass-l"></div></div>
+    <p class="sum-dt">${esc(TIMBRE.cidade)}, ${cfL(h1, "2.5em")} de ${cfL(h2, "7em")} de ${cfL(h3, "3em")}</p></div></div>`;
+}
+// ---- modelo INSTRUSEG (Montville): folha deitada, duas metades ----
+function fichaInstruseg(D, P) {
+  const m = k => D.mor[k] || {}, td = (v, cs) => `<td${cs ? ` colspan="${cs}"` : ""}>${v || "&nbsp;"}</td>`, lb = (t, v) => `<span class="ins-r">${t}</span> ${esc(v || "")}`;
+  const vazio = (n, cols) => Array.from({ length: n }, () => `<tr>${cols.map(c => typeof c === "string" ? `<td class="ins-pq">${c}</td>` : td("", c)).join("")}</tr>`).join("");
+  const nome = D.cond ? D.cond.nome : P.condNome;
+  return `<div class="cf-pg pais cf-ins"><div class="cf-in ins-g">
+    <div class="ins-m"><img class="ins-logo" src="img/cond-instruseg.png" alt=""><table class="ins-t">
+      <tr><th colspan="6" class="ins-tt">FICHA DE CADASTRO PARA PORTARIA</th></tr>
+      <tr>${td(lb("NOME DO CONDOMÍNIO:", nome), 6)}</tr>
+      <tr><th colspan="6" class="ins-s">1. INFORMAÇÃO DO RESPONSAVEL DA UNIDADE</th></tr>
+      <tr>${td(lb("Nº Apartamento/Casa:", D.pa.apto), 2)}${td(lb("Bloco:", D.pa.bloco), 2)}${td(`${cfX(false)} Proprietário ${cfX(true)} Locatário`, 2)}</tr>
+      <tr>${td(lb("Nome Completo:", m(0).nome), 6)}</tr>
+      <tr>${td(lb("RG:", m(0).rg), 2)}${td(lb("CPF:", m(0).cpf), 2)}${td(lb("Data Nasc:", ""), 2)}</tr>
+      <tr>${td(lb("Telefone celular:", m(0).tel), 3)}${td(lb("Telefone residencial:", ""), 3)}</tr>
+      <tr>${td(lb("E-mail para Contato:", m(0).email), 6)}</tr>
+      <tr>${td(lb("Obs:", ""), 6)}</tr>
+      <tr><th colspan="6" class="ins-s">2. EM CASO DE LOCATÁRIO PREENCHA O CAMPO ABAIXO COM OS DADOS DO PROPRIETÁRIO</th></tr>
+      <tr>${td(lb("Nome Completo:", D.prop.nome), 4)}${td(lb("Nasc:", ""), 2)}</tr>
+      <tr>${td(lb("CPF:", D.prop.cpf), 2)}${td(lb("RG:", D.prop.rg), 2)}${td(lb("Telefone residencial:", ""), 2)}</tr>
+      <tr>${td(lb("Telefone comercial:", ""), 3)}${td(lb("Telefone celular:", D.prop.tel), 3)}</tr>
+      <tr>${td(lb("E-mail para Contato:", D.prop.email), 3)}${td(lb("Nome da Imobiliária:", D.imob.nome), 3)}</tr>
+      <tr><th colspan="6" class="ins-s">3.MORADORES (esposa, filhos, dependetes, etc.)</th></tr>
+      <tr class="ins-cab"><td>Nome Completo:</td><td>CPF:</td><td>RG:</td><td>Nasc:</td><td>Parentesco</td><td>Tel:</td></tr>
+      ${[0, 1, 2, 3, 4, 5, 6, 7].map(k => `<tr>${td(esc(m(k).nome))}${td(esc(m(k).cpf))}${td(esc(m(k).rg))}${td("")}${td(k === 0 && m(k).nome ? "Titular" : "")}${td(esc(m(k).tel))}</tr>`).join("")}
+      <tr><th colspan="6" class="ins-s">4. EMPREGADOS</th></tr>
+      <tr class="ins-cab"><td>Nome Completo:</td><td>CPF:</td><td>RG:</td><td>Jornada:</td><td>Tel:</td><td class="ins-pq">${cfX(false)} Anunciar ${cfX(false)} Liberar</td></tr>
+      ${vazio(2, [1, 1, 1, 1, 1, `${cfX(false)} Anunciar ${cfX(false)} Liberar`])}
+    </table></div>
+    <div class="ins-m"><img class="ins-logo" src="img/cond-instruseg.png" alt=""><table class="ins-t">
+      <tr><th colspan="4" class="ins-s">6.VEICÚLOS (Carros, Motos, Bicicletas, outros) - OUTROS: ________________</th></tr>
+      <tr class="ins-cab"><td>Marca/Modelo:</td><td>Cor:</td><td>Placa:</td><td class="ins-p">${cfX(false)}TÉRREO ${cfX(false)}SUBSOLO ${cfX(false)} OUTROS N° DA VAGA:</td></tr>
+      ${vazio(5, [1, 1, 1, 1])}
+      <tr><th colspan="4" class="ins-s">7.EM CASO DE EMERGÊNCIA</th></tr>
+      <tr class="ins-cab"><td>Nome Completo:</td><td colspan="2">Parentesco:</td><td>Telefone para Contato:</td></tr>
+      ${vazio(4, [1, 2, 1])}
+      <tr><th colspan="4" class="ins-s">8.VISITANTES FREQUENTES (Pai, Mãe, Filhos e Outros Parentesco)<br><small>(Informar no último campo se é para anunciar ou liberar direto visitante)</small></th></tr>
+      <tr class="ins-cab"><td>Nome Completo:</td><td>Parentesco:</td><td>CPF:</td><td><span class="ins-dv">RG:</span> ${cfX(false)} ANUNCIAR ${cfX(false)} LIBERAR</td></tr>
+      ${vazio(7, [1, 1, 1, `${cfX(false)} ANUNCIAR ${cfX(false)} LIBERAR`])}
+      <tr><th colspan="4" class="ins-s ins-vz">&nbsp;</th></tr>
+      <tr><td colspan="4" class="ins-c"><b>MANTENHA SEU CADASTRO SEMPRE ATUALIZADO E COLABORE COM O DIA A DIA DO SEU CONDOMÍNIO</b></td></tr>
+      <tr>${td("")}${td("", 3)}</tr>
+      <tr>${td(lb("Data:", dt(P.data || hoje())))}${td(lb("Assinatura:", ""), 3)}</tr>
+    </table></div></div></div>`;
+}
+const GERA_COND = { trading: { ficha: fichaTrading, mud: mudancaTrading }, summer: { ficha: fichaSummer, mud: mudancaSummer }, instruseg: { ficha: fichaInstruseg } };
+// janela do formulário: folhas A4 editáveis + imprimir (ou salvar em PDF pela impressão)
+function abrirFormCond(titulo, paginas, paisagem) {
+  modal({ titulo, xl: true, semOk: true, extra: `<button type="button" class="btn pri" data-imp>🖨 Imprimir / salvar PDF</button>`,
+    corpo: `<p class="hint" data-dica>✏️ Clique na folha para corrigir ou completar (as alterações não ficam salvas no sistema). Para PDF, use <b>Imprimir</b> e escolha “Salvar como PDF”, com margens <b>Nenhuma</b>.</p><div class="cf-prev">${paginas}</div>`,
+    aoAbrir: (f, d) => { $$(".cf-pg", d).forEach(p => { p.contentEditable = "true"; p.spellcheck = false; });
+      $("[data-imp]", d).addEventListener("click", () => { const cl = $(".cf-prev", d).cloneNode(true); $$("[contenteditable]", cl).forEach(x => x.removeAttribute("contenteditable")); imprimir(`<div class="cf-print">${cl.innerHTML}</div>`, paisagem, "0"); }); } });
+}
+async function abrirTermoCond(tipo, c) {
+  await carregarConds();
+  const D = dadosCond(c), cd0 = D.cond;
+  const optsCond = CONDS.conds.slice().sort((a, b) => COLL.compare(a.nome, b.nome)).map(x => { const a = admDe(x); return opt(x.id, `${x.nome} · ${a ? a.nome : "sem administradora"}`, cd0 && cd0.id === x.id); }).join("");
+  const mud = tipo === "cond_mudanca";
+  const prm = await pedirParams(`${mud ? "Mudança" : "Ficha do condomínio"} · ${rotuloImv(D.end) || c.codigo || ""}`,
+    `<div class="box">${tagImv(D.end)} ${c.codigo ? tagCtt(c.codigo) : ""} ${D.mor.length ? tagPes(D.mor.map(x => x.nome), "etq-lct", "", 2) : ""}<br><small class="muted">${esc(unidadeTxt(D.pa) || "unidade não encontrada no endereço")}</small></div>
+    <label class="fl"><span>Condomínio (a administradora define o modelo)</span><select name="cond">${cd0 ? "" : `<option value="">— escolha —</option>`}${optsCond}</select></label>
+    <p class="hint" data-cond-adm></p>
+    ${mud ? `<div class="row"><label class="fl"><span>Mudança</span><select name="tipo">${opt("entrada", "Entrada (chegando)", true)}${opt("saida", "Saída", false)}</select></label>
+      <label class="fl"><span>Data da mudança (opcional)</span><input type="date" name="data"></label>
+      <label class="fl" data-trd><span>Período</span><select name="periodo">${opt("", "— em branco —", true)}${opt("manha", "Manhã", false)}${opt("tarde", "Tarde", false)}</select></label>
+      <label class="fl" data-trd><span>Içamento externo?</span><select name="icamento">${opt("", "— em branco —", true)}${opt("sim", "Sim", false)}${opt("nao", "Não", false)}</select></label>
+      <label class="fl" data-sum><span>Transportadora (opcional)</span><input name="transp"></label></div>`
+      : `<div class="row"><label class="fl" style="max-width:200px"><span>Data da ficha</span><input type="date" name="data" value="${hoje()}"></label></div>`}
+    <p class="hint">Os dados vêm do contrato (locatários), do cadastro do locador (proprietário) e do imóvel (apto e bloco). O que faltar fica em branco para preencher à mão — ou complete na própria folha antes de imprimir.</p>`,
+    fm => { const cd = CONDS.conds.find(x => x.id === fm.cond.value); if (!cd) throw new Error("Escolha o condomínio."); const a = admDe(cd);
+      if (!a || !GERA_COND[a.modelo]) throw new Error(`O ${cd.nome} está sem administradora com modelo. Cadastre em Configurações › Condomínios.`);
+      if (mud && !GERA_COND[a.modelo].mud) throw new Error(`A ${a.nome} não tem termo de mudança cadastrado (só a ficha de portaria).`);
+      return { cd, a, data: fm.data.value || "", tipo: fm.tipo ? fm.tipo.value : "", periodo: fm.periodo ? fm.periodo.value : "", icamento: fm.icamento ? fm.icamento.value : "", transp: fm.transp ? fm.transp.value.trim() : "" }; },
+    (fm, d) => { const ver = () => { const cd = CONDS.conds.find(x => x.id === fm.cond.value), a = admDe(cd), mo = a && a.modelo;
+        $("[data-cond-adm]", d).innerHTML = !cd ? "Escolha o condomínio." : a ? `Administradora <b>${esc(a.nome)}</b> · ${esc((MODELOS_ADM[mo] || {}).t || "sem modelo")}${mud && mo && !(MODELOS_ADM[mo] || {}).mud ? ` · <b class="neg">sem termo de mudança</b>` : ""}` : `<b class="neg">Sem administradora cadastrada</b> (Configurações › Condomínios).`;
+        $$("[data-trd]", d).forEach(x => (x.hidden = mo !== "trading")); $$("[data-sum]", d).forEach(x => (x.hidden = mo !== "summer")); };
+      fm.cond.addEventListener("change", ver); ver(); });
+  if (!prm) return;
+  D.cond = prm.cd;
+  const g = GERA_COND[prm.a.modelo], html = (mud ? g.mud : g.ficha)(D, Object.assign({ condNome: prm.cd.nome }, prm));
+  abrirFormCond(`${mud ? (prm.a.modelo === "summer" ? "Termo de mudança" : "Aviso de mudança") : "Ficha cadastral"} · ${prm.cd.nome} · ${unidadeTxt(D.pa) || c.codigo || ""}`, html, prm.a.modelo === "instruseg");
+}
+// ---- Configurações › Condomínios (administradoras e condomínios) ----
+function condCfgHTML() {
+  const C = CONDS || CONDS_PADRAO, cont = id => { const cd = C.conds.find(x => x.id === id); return cd ? S.imoveis.filter(i => chaveEnd(i.endereco) === chaveEnd(cd.end)).length : 0; };
+  const optAdm = sel => opt("", "— sem administradora —", !sel) + C.adms.map(a => opt(a.id, a.nome, a.id === sel)).join("");
+  return `<div class="card"><h2>Administradoras de condomínio</h2>
+      <p class="hint">Cada administradora usa um modelo de ficha (e de termo de mudança). Quando um condomínio trocar de administradora, é só mudar abaixo.</p>
+      <table class="compacta cond-t"><thead><tr><th>Administradora</th><th>Modelo dos termos</th><th></th></tr></thead><tbody data-adm-ls>
+      ${C.adms.map(a => `<tr data-adm="${esc(a.id)}"><td><input data-k="nome" value="${esc(a.nome)}"></td><td><select data-k="modelo">${Object.entries(MODELOS_ADM).map(([k, m]) => opt(k, m.t, a.modelo === k)).join("")}</select></td><td><button type="button" class="btn sm ghost" data-del-adm title="Tirar">✕</button></td></tr>`).join("")}</tbody></table>
+      <button type="button" class="btn sm" data-add-adm>+ Administradora</button></div>
+    <div class="card"><h2>Condomínios</h2>
+      <p class="hint">O <b>endereço</b> é a primeira parte do endereço dos imóveis (rua e número, antes do primeiro “ - ”): é assim que o sistema sabe de qual condomínio é cada apartamento. O <b>nome</b> sai no título da ficha.</p>
+      <table class="compacta cond-t"><thead><tr><th>Nome (título da ficha)</th><th>Endereço (rua e nº, como no imóvel)</th><th>Administradora</th><th class="num">Imóveis</th><th></th></tr></thead><tbody data-cond-ls>
+      ${C.conds.map(cd => `<tr data-cond="${esc(cd.id)}"><td><input data-k="nome" value="${esc(cd.nome)}"></td><td><input data-k="end" value="${esc(cd.end)}"></td><td><select data-k="adm">${optAdm(cd.adm)}</select></td><td class="num">${cont(cd.id) || `<span class="neg" title="Nenhum imóvel com este endereço">0</span>`}</td><td><button type="button" class="btn sm ghost" data-del-cond title="Tirar">✕</button></td></tr>`).join("")}</tbody></table>
+      <button type="button" class="btn sm" data-add-cond>+ Condomínio</button></div>
+    <div class="filters"><button class="btn pri" data-cond-salvar>Salvar condomínios</button><span class="hint">Grava para todos os usuários.</span></div>`;
+}
+function ligarCondCfg(pg) {
+  pg = $("[data-cond-cfg]", pg); if (!pg) return;
+  const nid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const lsA = $("[data-adm-ls]", pg), lsC = $("[data-cond-ls]", pg); if (!lsA) return;
+  const optAdm = sel => opt("", "— sem administradora —", !sel) + $$("tr[data-adm]", lsA).map(tr => opt(tr.dataset.adm, $("[data-k=nome]", tr).value || "?", tr.dataset.adm === sel)).join("");
+  const refaz = () => $$("tr[data-cond] select[data-k=adm]", lsC).forEach(s => { const v = s.value; s.innerHTML = optAdm(v); });
+  pg.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.matches("[data-del-adm]")) { b.closest("tr").remove(); refaz(); }
+    else if (b.matches("[data-del-cond]")) b.closest("tr").remove();
+    else if (b.matches("[data-add-adm]")) { lsA.insertAdjacentHTML("beforeend", `<tr data-adm="${nid("a")}"><td><input data-k="nome" placeholder="Nome da administradora"></td><td><select data-k="modelo">${Object.entries(MODELOS_ADM).map(([k, m]) => opt(k, m.t, k === "trading")).join("")}</select></td><td><button type="button" class="btn sm ghost" data-del-adm>✕</button></td></tr>`); $("tr:last-child input", lsA).focus(); }
+    else if (b.matches("[data-add-cond]")) { lsC.insertAdjacentHTML("beforeend", `<tr data-cond="${nid("c")}"><td><input data-k="nome" placeholder="Condomínio …"></td><td><input data-k="end" placeholder="Rua …, nº …"></td><td><select data-k="adm">${optAdm("")}</select></td><td></td><td><button type="button" class="btn sm ghost" data-del-cond>✕</button></td></tr>`); $("tr:last-child input", lsC).focus(); }
+    else if (b.matches("[data-cond-salvar]")) (async () => {
+      const adms = $$("tr[data-adm]", lsA).map(tr => ({ id: tr.dataset.adm, nome: $("[data-k=nome]", tr).value.trim(), modelo: $("[data-k=modelo]", tr).value })).filter(a => a.nome);
+      const conds = $$("tr[data-cond]", lsC).map(tr => ({ id: tr.dataset.cond, nome: $("[data-k=nome]", tr).value.trim(), end: $("[data-k=end]", tr).value.trim(), adm: $("[data-k=adm]", tr).value })).filter(c => c.nome);
+      if (conds.some(c => !c.end)) return toast("Todo condomínio precisa do endereço (rua e nº).", true);
+      try { await q(sb.from("config").upsert({ chave: "condominios", valor: JSON.stringify({ adms, conds }) })); CONDS = { adms, conds }; toast("Condomínios salvos."); desenharConfig(); } catch (x) { falha(x); }
+    })();
+  });
+  lsA.addEventListener("input", e => { if (e.target.matches("[data-k=nome]")) refaz(); });
+}
 // lista de termos de contratos (sem o gerador: ele tem botão próprio)
 const TERMOS_CTT = [
   { ic: "🔑", k: "entrega", t: "Entrega de chaves", d: "locatário devolve as chaves (pode marcar acertos em aberto)" },
   { ic: "💰", k: "caucao", t: "Devolução de caução", d: "locatário recebe a caução de volta" },
   { ic: "🏠", k: "moradia", t: "Declaração de moradia", d: "comprova que o locatário reside no imóvel" },
-  { ic: "✅", k: "quitacao", t: "Declaração de quitação", d: "aluguéis pagos, para o locatário comprovar" }
+  { ic: "✅", k: "quitacao", t: "Declaração de quitação", d: "aluguéis pagos, para o locatário comprovar" },
+  { ic: "🏢", k: "cond_ficha", t: "Ficha cadastral do condomínio", d: "apartamentos: ficha no modelo da administradora do condomínio" },
+  { ic: "🚚", k: "cond_mudanca", t: "Aviso / termo de mudança (condomínio)", d: "autorização de mudança, no modelo da administradora" }
 ];
 ACT["ctt-termo"] = el => menuTermos(el, "Termos", TERMOS_CTT.map(x => ({ ic: x.ic, t: x.t, d: x.d, fn: () => abrirTermoNativo(x.k, "", { filtro: FILTRO_TERMO[x.k] }) })));
 // cobrança: termos com escolha do locatário/devedor
@@ -8090,7 +8471,8 @@ PAGES.termos = async pg => {
     ${pode.ver("atrasados") || pode.ver("devedores") ? grupo("Cobrança", TERMOS_COB_IC.map(x => Object.assign({}, x, { k: "cob:" + x.k }))) : ""}
     ${pode.ver("vendas") ? grupo("Vendas", TERMOS_VEN.map(x => Object.assign({}, x, { k: "ven:" + x.k }))) : ""}</div>`;
 };
-const FILTRO_TERMO = { entrega: c => c.situacao === "ATIVO", moradia: c => c.situacao === "ATIVO", caucao: c => garDe(c) === "caucao" && c.situacao !== "RASCUNHO", quitacao: c => ["ATIVO", "ENCERRADO", "DÉBITO EM ABERTO"].includes(c.situacao) };
+const FILTRO_TERMO = { entrega: c => c.situacao === "ATIVO", moradia: c => c.situacao === "ATIVO", caucao: c => garDe(c) === "caucao" && c.situacao !== "RASCUNHO", quitacao: c => ["ATIVO", "ENCERRADO", "DÉBITO EM ABERTO"].includes(c.situacao),
+  cond_ficha: c => SIT_COND.includes(c.situacao) && cttTemCond(c), cond_mudanca: c => SIT_COND.includes(c.situacao) && cttTemCond(c) };
 ACT["termo-pg"] = async el => {
   const [g, k] = el.dataset.k.split(":");
   if (g === "doc" && k === "intermediacao") { const l = await escolherLocadorInt(); if (l) gerarIntermediacao(l).catch(falha); return; }
