@@ -769,6 +769,24 @@ dialog .tw{scrollbar-gutter:stable}
   .cf-print .cf-pg{box-shadow:none;margin:0;height:296.6mm;page-break-after:always;break-after:page}.cf-print .cf-pg.pais{height:209.6mm}
   .cf-print .cf-pg:last-child{page-break-after:auto;break-after:auto}
 }
+/* v22 */
+.filters.acoes-dir{justify-content:flex-end;margin-top:-4px}
+.rp-t tr.rp-prog td{background:color-mix(in srgb,#8e5bd6 10%,var(--surface))}.rp-t tr.rp-apl td{background:color-mix(in srgb,#2e8b57 9%,var(--surface))}
+.rp-tprog{background:#ece0ff;color:#5b2a9e;border-color:#cdb5f2}.rp-ck{display:inline-flex;gap:6px;align-items:center}
+.rp-leg{display:inline-block;padding:0 6px;border-radius:4px;font-size:.85em}.rp-leg.rp-prog{background:#ece0ff;color:#5b2a9e}.rp-leg.rp-apl{background:#e2f3e6;color:#1e6b34}
+.ir-g .ir-l{grid-template-columns:auto minmax(0,1fr) 21ch auto auto}.ir-g .ir-l input{width:100%;min-width:0}.ir-g .ir-l .btn{width:auto;justify-self:start;white-space:nowrap}
+tr.ct-elab2>td{background:var(--warn-soft)!important}
+.ven-etapa{display:flex;gap:8px;align-items:center;margin:0 0 8px}.ven-etapa small{color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;font-size:.72rem}.ven-etapa .seg button.canc.on{background:var(--bad);border-color:var(--bad)}
+.cad-box{margin:0 0 8px}.cad-box .btn{margin-left:6px}.iv-det{margin-top:8px}.iv-det summary{cursor:pointer;padding:6px 0}
+.nf-sp{display:inline-block;line-height:1.1;font-size:.82rem;vertical-align:middle}
+.rec-aj-outro{border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:6px 0;background:var(--surface-2,#f6f8fb)}.rec-aj-t{font-weight:700;font-size:.85rem;margin-bottom:2px}
+.cf-gr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 10px;align-items:end}.cf-gr3{grid-template-columns:repeat(4,minmax(0,1fr));margin:6px 0}
+.cf-gr .fl>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cf-dh{display:flex;gap:4px}.cf-dh input{flex:1;min-width:0}
+.cf-falta input{background:var(--warn-soft);border-color:#e5c45a}.cf-falta small{color:#8a6d00}.cf-sub{font-weight:700;font-size:.8rem;margin:8px 0 2px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}.cf-dados summary{cursor:pointer;margin:6px 0}
+@media (max-width:700px){.cf-gr,.cf-gr3{grid-template-columns:1fr 1fr}}
+.condp-t select{max-width:190px}.condp-t select+select{margin-top:3px;display:block;font-size:.8rem}.condp-t input[data-k=cond_valor]{width:100px;text-align:right}.condp-t input[data-k=cond_dia]{width:56px}
+.condp-t td{vertical-align:middle}.condp-t td:nth-child(4){max-width:240px}.condp-t select{max-width:165px}
+/*v22end*/
 </style>
 </head>
 <body>
@@ -839,20 +857,20 @@ dialog .tw{scrollbar-gutter:stable}
       <div class="nav-h">Financeiro <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa</span><span class="nav-c" data-c="caixa"></span></a>
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pagto aluguel</span><span class="nav-c" data-c="alugueis"></span></a>
-      <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3l9 5H3z"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
       <div class="nav-h">Cadastros · Locação</div>
       <a href="#interessados_loc" data-p="interessados_loc"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span></a>
-      <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
+      <a href="#cadastros" data-p="cadastros"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 16l4 4h8l4-4M9 9l3 3 3-3M12 5v7"/></svg><span class="nav-t">Cadastros recebidos</span><span class="nav-c" data-c="cadastros"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
+      <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
       <div class="nav-h">Cadastros · Vendas</div>
       <a href="#interessados_ven" data-p="interessados_ven"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_ven"></span></a>
-      <a href="#imoveis_venda" data-p="imoveis_venda"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis_venda"></span></a>
       <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="vendas"></span></a>
+      <a href="#imoveis_venda" data-p="imoveis_venda"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis_venda"></span></a>
       <div class="nav-h">Gestão</div>
       <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>

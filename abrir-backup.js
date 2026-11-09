@@ -20,11 +20,11 @@ $("#abrir").addEventListener("click", async () => {
   msg("Abrindo…");
   try {
     let o = JSON.parse(await f.text());
-    if (o.formato === "financeiro-imobiliaria-cripto") {
+    if (o.formato === "imob-one-cripto" || o.formato === "financeiro-imobiliaria-cripto") {
       if (!$("#senha").value) return msg("Este arquivo é protegido: informe a senha.", "bad");
       try { o = JSON.parse(await decifrar(o, $("#senha").value)); } catch (e) { return msg("Senha incorreta ou arquivo corrompido.", "bad"); }
     }
-    if (o.formato !== "financeiro-imobiliaria" || !o.tabelas) return msg("Este arquivo não é um backup do Financeiro.", "bad");
+    if ((o.formato !== "imob-one" && o.formato !== "financeiro-imobiliaria") || !o.tabelas) return msg("Este arquivo não é um backup do ImobOne.", "bad");
     pacote = o;
     $("#lista").innerHTML = "";
     Object.entries(o.tabelas).forEach(([t, l]) => { const li = document.createElement("li"); li.textContent = `${t}: ${l.length} linhas`; $("#lista").appendChild(li); });
@@ -38,7 +38,7 @@ $("#xlsx").addEventListener("click", () => {
     const rows = linhas.map(l => { const o = {}; for (const [k, v] of Object.entries(l)) o[k] = v != null && typeof v === "object" ? JSON.stringify(v) : v; return o; });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{ vazio: "" }]), t.slice(0, 31));
   }
-  XLSX.writeFile(wb, "backup-financeiro-" + pacote.gerado_em.slice(0, 10) + ".xlsx");
+  XLSX.writeFile(wb, "backup-imob-one-" + pacote.gerado_em.slice(0, 10) + ".xlsx");
 });
-$("#json").addEventListener("click", () => baixar("backup-financeiro-" + pacote.gerado_em.slice(0, 10) + ".json", JSON.stringify(pacote), "application/json"));
+$("#json").addEventListener("click", () => baixar("backup-imob-one-" + pacote.gerado_em.slice(0, 10) + ".json", JSON.stringify(pacote), "application/json"));
 })();
