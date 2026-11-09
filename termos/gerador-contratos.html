@@ -619,6 +619,14 @@ header p { font-size: 0.75rem; color: #a8bce8; font-weight: 300; margin-top: 2px
 }
 
 /* ===== Import Especial ===== */
+.busca-imv { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.busca-imv .busca-resultado-sub { flex-basis:100%; }
+.etq-imv, .etq-lcd, .etq-st { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid; }
+.etq-imv { background:#eef2f8; border-color:#b9c6da; color:#1f3556; }
+.etq-lcd { background:#f1ecfb; border-color:#cdbdf0; color:#4b2a8a; }
+.etq-st { background:#f3f4f6; border-color:#d1d5db; color:#374151; font-weight:600; }
+.etq-st.st-livre { background:#e8f6ec; border-color:#a7d9b5; color:#1e6b34; }
+.etq-st.st-alugado { background:#e8f0fb; border-color:#a9c2e8; color:#1d4f91; }
 .btn-import-especial {
   padding: 7px 16px;
   border: 1.5px solid var(--primario);
@@ -6254,6 +6262,9 @@ function normalizarEstadoCivilCadastro(t) {
 
 let cadastroDados = null;
 let cadastroCarregandoPromise = null;
+// v22: a busca normal usa os IMÓVEIS cadastrados no sistema (imóvel + locador do cadastro);
+// os contratos ficam só para o Import Especial (locador vira locatário etc.)
+let cadastroImoveis = null;
 
 function processarLinhaCadastro(row) {
   const campos = {};
@@ -6505,7 +6516,17 @@ async function carregarCadastroContratos() {
       }
 
       cadastroDados = dados;
-      if (status) status.textContent = dados.length ? `${dados.length} contrato(s) disponível(is) para busca.` : '⚠️ Cadastro encontrado, mas sem contratos com dados preenchidos.';
+      const wsI = wb.Sheets['Imóveis'];
+      if (wsI) {
+        const li = XLSX.utils.sheet_to_json(wsI, { header: 1, raw: false, defval: '' }), imvs = [];
+        for (let i = 3; i < li.length; i++) { const row = li[i]; if (!row || row.every(c => !c)) continue;
+          const it = processarLinhaCadastro(row); if (!it) continue;
+          const [st, rot, loc] = String(row[0] || '').split('\t'); it.ehImovel = true; it.status = st || ''; it.rotulo = rot || it.enderecoImovel; it.locTag = loc || it.nomeLocador; it.contractId = '';
+          imvs.push(it); }
+        cadastroImoveis = imvs; modoCadastroImoveis();
+      }
+      if (status) status.textContent = cadastroImoveis ? `${cadastroImoveis.length} imóvel(is) do cadastro para busca · ${dados.length} contrato(s) no ✨ Import Especial.`
+        : dados.length ? `${dados.length} contrato(s) disponível(is) para busca.` : '⚠️ Cadastro encontrado, mas sem contratos com dados preenchidos.';
       return cadastroDados;
     } catch (e) {
       console.error(e);
@@ -6521,6 +6542,16 @@ async function carregarCadastroContratos() {
   })();
 
   return cadastroCarregandoPromise;
+}
+// v22: com o cadastro de imóveis, a busca só traz Imóvel e Locador (o resto é do contrato novo)
+function modoCadastroImoveis() {
+  document.querySelectorAll('#buscaCategorias .categoria-btn').forEach(b => {
+    const ok = b.dataset.categoria === 'IMOVEL' || b.dataset.categoria === 'LOCADOR';
+    b.style.display = ok ? '' : 'none'; b.classList.toggle('selecionada', ok);
+  });
+  const t = document.querySelector('.busca-cadastro-titulo'); if (t) t.textContent = '🏠 Buscar imóvel cadastrado';
+  const sb = document.querySelector('.busca-cadastro-sub'); if (sb) sb.textContent = 'Os dados do imóvel e do locador vêm do cadastro do sistema (Imóveis e Cadastros › Locadores). Para trazer uma pessoa de outro contrato (ex.: locador que vira locatário), use ✨ Import Especial.';
+  const inp = document.getElementById('busca_cadastro'); if (inp) inp.placeholder = 'Endereço, condomínio, apto, locador ou código do site...';
 }
 carregarCadastroContratos(); // dispara o carregamento em segundo plano, sem travar o app
 
@@ -6548,6 +6579,11 @@ function renderizarResultadosBusca(itens) {
     el.innerHTML = '<div class="busca-resultado-vazio">Nenhum resultado encontrado.</div>';
   } else {
     el.innerHTML = itens.map((item, idx) => {
+      if (item.ehImovel) return '<div class="busca-resultado-item busca-imv" data-idx="' + idx + '">' +
+        '<span class="etq-imv">🏠 ' + escapeHtmlBusca(item.rotulo) + '</span>' +
+        (item.status ? '<span class="etq-st st-' + escapeHtmlBusca(item.status.toLowerCase()) + '">' + escapeHtmlBusca(item.status) + '</span>' : '') +
+        (item.locTag ? '<span class="etq-lcd">' + escapeHtmlBusca(item.locTag) + '</span>' : '') +
+        '<span class="busca-resultado-sub">' + escapeHtmlBusca(item.enderecoImovel || '') + (item.nomeLocador && item.nomeLocador !== item.locTag ? ' · ' + escapeHtmlBusca(item.nomeLocador) : '') + '</span></div>';
       const pessoas = [
         item.nomeLocador,
         [item.nomeLocatario, item.nomeLocatario2].filter(Boolean).join(' e '),
@@ -6683,7 +6719,7 @@ function importarResultadoSelecionado() {
     atualizarAvisoPendencias();
   }
 
-  document.getElementById('busca_cadastro').value = (item.contractId ? item.contractId + ' — ' : '') + item.enderecoImovel;
+  document.getElementById('busca_cadastro').value = item.ehImovel ? item.rotulo : (item.contractId ? item.contractId + ' — ' : '') + item.enderecoImovel;
   document.getElementById('busca_cadastro_resultados').style.display = 'none';
   resultadoSelecionadoIdx = null;
   atualizarBotaoImportar();
@@ -6698,8 +6734,10 @@ document.getElementById('busca_cadastro').addEventListener('input', async functi
   const termo = this.value.trim().toLowerCase();
   const resultadosEl = document.getElementById('busca_cadastro_resultados');
   if (!termo) { resultadosEl.style.display = 'none'; resultadoSelecionadoIdx = null; atualizarBotaoImportar(); return; }
-  const dados = await carregarCadastroContratos();
+  const dados0 = await carregarCadastroContratos(), dados = cadastroImoveis || dados0;
+  const tn = ieNormalizar(termo);
   const filtrados = dados.filter(item =>
+    (item.ehImovel && ieNormalizar([item.rotulo, item.status, item.locTag].join(' ')).includes(tn)) ||
     (item.contractId || '').toLowerCase().includes(termo) ||
     (item.enderecoImovel || '').toLowerCase().includes(termo) ||
     (item.nomeLocador || '').toLowerCase().includes(termo) ||
