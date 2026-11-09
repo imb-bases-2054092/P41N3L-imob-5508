@@ -619,6 +619,14 @@ header p { font-size: 0.75rem; color: #a8bce8; font-weight: 300; margin-top: 2px
 }
 
 /* ===== Import Especial ===== */
+.conf-cad-ov { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
+.conf-cad { background:#fff; border-radius:12px; max-width:860px; width:100%; max-height:88vh; display:flex; flex-direction:column; padding:18px 20px; box-shadow:0 20px 50px rgba(0,0,0,.3); }
+.conf-cad h3 { margin:0 0 6px; color:#1f3556; } .conf-cad p { margin:0 0 10px; font-size:13px; color:#374151; }
+.conf-cad-t { overflow:auto; border:1px solid #e5e7eb; border-radius:8px; } .conf-cad table { width:100%; border-collapse:collapse; font-size:13px; }
+.conf-cad th, .conf-cad td { padding:6px 8px; border-bottom:1px solid #eef0f3; text-align:left; vertical-align:top; } .conf-cad th { background:#f3f5f9; font-size:12px; }
+.conf-cad .v-old { color:#9ca3af; text-decoration:line-through; } .conf-cad .v-new { color:#14532d; }
+.conf-cad-b { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; } .conf-cad-b button { padding:8px 14px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-weight:600; }
+.conf-cad-b .btn-pri { background:#1f3556; color:#fff; border-color:#1f3556; }
 .busca-imv { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .busca-imv .busca-resultado-sub { flex-basis:100%; }
 .etq-imv, .etq-lcd, .etq-st { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid; }
@@ -6521,12 +6529,11 @@ async function carregarCadastroContratos() {
         const li = XLSX.utils.sheet_to_json(wsI, { header: 1, raw: false, defval: '' }), imvs = [];
         for (let i = 3; i < li.length; i++) { const row = li[i]; if (!row || row.every(c => !c)) continue;
           const it = processarLinhaCadastro(row); if (!it) continue;
-          const [st, rot, loc] = String(row[0] || '').split('\t'); it.ehImovel = true; it.status = st || ''; it.rotulo = rot || it.enderecoImovel; it.locTag = loc || it.nomeLocador; it.contractId = '';
+          const [st, rot, loc, cods] = String(row[0] || '').split('\t'); it.ehImovel = true; it.status = st || ''; it.rotulo = rot || it.enderecoImovel; it.locTag = loc || it.nomeLocador; it.contractId = ''; it.contratos = String(cods || '').split(',').filter(Boolean);
           imvs.push(it); }
-        cadastroImoveis = imvs; modoCadastroImoveis();
+        cadastroImoveis = imvs; // v23: só para conferir imóvel e locador com o cadastro do sistema
       }
-      if (status) status.textContent = cadastroImoveis ? `${cadastroImoveis.length} imóvel(is) do cadastro para busca · ${dados.length} contrato(s) no ✨ Import Especial.`
-        : dados.length ? `${dados.length} contrato(s) disponível(is) para busca.` : '⚠️ Cadastro encontrado, mas sem contratos com dados preenchidos.';
+      if (status) status.textContent = dados.length ? `${dados.length} contrato(s) disponível(is) para busca.` : '⚠️ Cadastro encontrado, mas sem contratos com dados preenchidos.';
       return cadastroDados;
     } catch (e) {
       console.error(e);
@@ -6728,13 +6735,46 @@ function importarResultadoSelecionado() {
   if (qtd) partesToast.push(`${qtd} campo(s) preenchido(s) (${categorias.length} categoria(s))`);
   if (obsMarcadas.length) partesToast.push(obsAdicionadas ? `${obsAdicionadas} observação(ões) adicionada(s)` : 'observações já estavam no texto');
   mostrarToast('🔍 ' + partesToast.join(' + ') + ' a partir do cadastro!');
+  if (categorias.includes('IMOVEL') || categorias.includes('LOCADOR')) conferirComCadastroSistema(item, categorias);
+}
+
+// v23: depois de importar de outro contrato, confere IMÓVEL e LOCADOR com o cadastro atual do sistema
+function imovelDoCadastroPara(item) {
+  if (!cadastroImoveis || !item) return null;
+  const n = t => ieNormalizar(String(t || '')).replace(/\bn[º°o]\.?\s*/g, '').replace(/[^a-z0-9]/g, '');
+  return cadastroImoveis.find(x => item.contractId && x.contratos && x.contratos.includes(item.contractId))
+    || cadastroImoveis.find(x => n(x.campos.imv_rua || x.enderecoImovel) && n(x.campos.imv_rua || x.enderecoImovel) === n(item.campos.imv_rua || item.enderecoImovel)) || null;
+}
+function conferirComCadastroSistema(item, categorias) {
+  const im = imovelDoCadastroPara(item);
+  if (!im) { mostrarToast('ℹ️ Imóvel deste contrato não encontrado no cadastro do sistema: confira os dados à mão.'); return; }
+  const ids = [];
+  categorias.filter(c => c === 'IMOVEL' || c === 'LOCADOR').forEach(c => (CAMPOS_POR_CATEGORIA[c] || []).forEach(id => ids.push(id)));
+  const val = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  const igual = (a, b) => ieNormalizar(String(a || '')).replace(/[^a-z0-9]/g, '') === ieNormalizar(String(b || '')).replace(/[^a-z0-9]/g, '');
+  const difs = ids.filter(id => document.getElementById(id) && String(im.campos[id] || '').trim() && !igual(val(id), im.campos[id]));
+  if (!difs.length) { mostrarToast('✔ Imóvel e locador conferem com o cadastro do sistema.'); return; }
+  const rot = id => { const l = document.querySelector('label[for="' + id + '"]'); return (l ? l.textContent : id).replace(/[:*]/g, '').trim(); };
+  const esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const ov = document.createElement('div'); ov.className = 'conf-cad-ov';
+  ov.innerHTML = '<div class="conf-cad"><h3>Diferenças com o cadastro do sistema</h3><p>O contrato importado tem dados de <b>imóvel/locador</b> diferentes do cadastro atual (' + esc2(im.rotulo) + ' · ' + esc2(im.locTag) + '). O cadastro é o mais atualizado (ex.: inscrição corrigida, medidor trocado). Marque o que deve vir do cadastro:</p>' +
+    '<div class="conf-cad-t"><table><thead><tr><th>Usar cadastro</th><th>Campo</th><th>No contrato importado</th><th>No cadastro</th></tr></thead><tbody>' +
+    difs.map((id, k) => '<tr><td><input type="checkbox" data-cc="' + k + '" checked></td><td>' + esc2(rot(id)) + '</td><td class="v-old">' + esc2(val(id) || '—') + '</td><td class="v-new"><b>' + esc2(im.campos[id]) + '</b></td></tr>').join('') +
+    '</tbody></table></div><div class="conf-cad-b"><button type="button" class="btn-sec" data-cc-nao>Manter o do contrato</button><button type="button" class="btn-pri" data-cc-sim>Usar o cadastro nos marcados</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('[data-cc-nao]').onclick = () => ov.remove();
+  ov.querySelector('[data-cc-sim]').onclick = () => {
+    const d = {}; ov.querySelectorAll('[data-cc]:checked').forEach(c => { const id = difs[+c.dataset.cc]; d[id] = im.campos[id]; });
+    if (Object.keys(d).length) { aplicarDadosFormulario(d); reformatarCamposImportados(d); }
+    ov.remove(); mostrarToast('✔ ' + Object.keys(d).length + ' campo(s) atualizado(s) com o cadastro do sistema.');
+  };
 }
 
 document.getElementById('busca_cadastro').addEventListener('input', async function () {
   const termo = this.value.trim().toLowerCase();
   const resultadosEl = document.getElementById('busca_cadastro_resultados');
   if (!termo) { resultadosEl.style.display = 'none'; resultadoSelecionadoIdx = null; atualizarBotaoImportar(); return; }
-  const dados0 = await carregarCadastroContratos(), dados = cadastroImoveis || dados0;
+  const dados = await carregarCadastroContratos();
   const tn = ieNormalizar(termo);
   const filtrados = dados.filter(item =>
     (item.ehImovel && ieNormalizar([item.rotulo, item.status, item.locTag].join(' ')).includes(tn)) ||
