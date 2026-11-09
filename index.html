@@ -605,12 +605,6 @@ tr.prev-atras>td{background:color-mix(in srgb,var(--c2) 18%,var(--surface))}
 tr.prev-atras td:first-child{box-shadow:inset 3px 0 0 var(--c2)}
 tr.interno td{color:var(--muted);font-size:.95em}
 .ult-alg td{background:var(--info-soft);color:var(--info);font-size:12.5px}
-tr.ct-ativo>td{background:var(--ok-soft)}
-tr.ct-pend>td{background:var(--warn-soft)}
-tr.ct-elab>td{background:color-mix(in srgb,var(--c2) 12%,var(--surface))}
-tr.ct-enc>td{background:var(--info-soft)}
-tr.ct-deb>td{background:var(--bad-soft)}
-tr.ct-canc>td{background:var(--idle-soft);color:var(--muted)}
 .chips.sub{padding-left:14px;border-left:3px solid var(--line);margin-top:4px}
 .chips.sub .chip{padding:2px 9px;font-size:12.5px}
 .leg-ct{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
@@ -736,7 +730,7 @@ dialog .tw{scrollbar-gutter:stable}
 /* v21 */
 .rp-t{width:100%}.ir-g .seg{display:inline-flex;width:auto;max-width:100%;align-self:flex-start}.rp-bar{display:flex;gap:6px;align-items:center;margin:4px 0 6px}.rp-t tr.rp-ja td{background:color-mix(in srgb,#2e8b57 8%,var(--surface))}.rp-t .rp-val{color:#2e7d4f}
 .ir-g{grid-template-columns:130px minmax(0,1.25fr) minmax(0,1fr)}.ir-g .ir-outros{grid-column:1/-1}.ir-vl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.ir-vl .seg{margin:2px 0}.ir-vl input{width:130px}
-.ir-l{grid-template-columns:auto minmax(0,2fr) minmax(0,1fr) auto auto;align-items:center}.ir-l .ir-tag:empty{display:none}.ir-l input[readonly]{background:var(--surface-2,#f3f5f9);color:var(--muted)}
+.ir-l{grid-template-columns:auto minmax(0,2fr) minmax(0,1fr) auto auto;align-items:center}.ir-l .ir-tag:empty{display:block;width:0}.ir-l input[readonly]{background:var(--surface-2,#f3f5f9);color:var(--muted)}
 @media (max-width:700px){.ir-g{grid-template-columns:1fr 1fr}.ir-g [data-ir-quem],.ir-g [data-ir-vq]{grid-column:1/-1}}
 .sai-prev .seg{margin:2px 0}.sai-prev .ir-vl input{width:130px}
 .info-cob .reaj-av{flex:1 1 100%;order:6}
@@ -775,7 +769,6 @@ dialog .tw{scrollbar-gutter:stable}
 .rp-tprog{background:#ece0ff;color:#5b2a9e;border-color:#cdb5f2}.rp-ck{display:inline-flex;gap:6px;align-items:center}
 .rp-leg{display:inline-block;padding:0 6px;border-radius:4px;font-size:.85em}.rp-leg.rp-prog{background:#ece0ff;color:#5b2a9e}.rp-leg.rp-apl{background:#e2f3e6;color:#1e6b34}
 .ir-g .ir-l{grid-template-columns:auto minmax(0,1fr) 21ch auto auto}.ir-g .ir-l input{width:100%;min-width:0}.ir-g .ir-l .btn{width:auto;justify-self:start;white-space:nowrap}
-tr.ct-elab2>td{background:var(--warn-soft)!important}
 .ven-etapa{display:flex;gap:8px;align-items:center;margin:0 0 8px}.ven-etapa small{color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;font-size:.72rem}.ven-etapa .seg button.canc.on{background:var(--bad);border-color:var(--bad)}
 .cad-box{margin:0 0 8px}.cad-box .btn{margin-left:6px}.iv-det{margin-top:8px}.iv-det summary{cursor:pointer;padding:6px 0}
 .nf-sp{display:inline-block;line-height:1.1;font-size:.82rem;vertical-align:middle}
@@ -786,6 +779,21 @@ tr.ct-elab2>td{background:var(--warn-soft)!important}
 @media (max-width:700px){.cf-gr,.cf-gr3{grid-template-columns:1fr 1fr}}
 .condp-t select{max-width:190px}.condp-t select+select{margin-top:3px;display:block;font-size:.8rem}.condp-t input[data-k=cond_valor]{width:100px;text-align:right}.condp-t input[data-k=cond_dia]{width:56px}
 .condp-t td{vertical-align:middle}.condp-t td:nth-child(4){max-width:240px}.condp-t select{max-width:165px}
+/* v23 */
+.ct-cod{font-weight:800}tr.ct-ativo .ct-cod,.lc-ativo{color:#1e8a45}tr.ct-elab .ct-cod,.lc-elab{color:#c48a00}tr.ct-enc .ct-cod,.lc-enc{color:#2563c9}tr.ct-deb .ct-cod,.lc-deb{color:#d12f2f}tr.ct-canc .ct-cod,.lc-canc{color:#a3a9b3}
+.leg-cod{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}.leg-cod b{font-weight:800}
+.ficha-g input:disabled,.ficha-g select:disabled,.ficha-g textarea:disabled{background:transparent!important;border:0!important;border-bottom:1px dotted var(--line)!important;border-radius:0!important;box-shadow:none!important;padding-left:2px!important;color:var(--text)!important;opacity:1!important;-webkit-text-fill-color:var(--text);appearance:none;-webkit-appearance:none;cursor:default}
+.ficha-g select:disabled{background-image:none!important}
+.tag.et-and{background:#fff3c4;color:#8a6300;border-color:#ecd27a}.tag.et-ass{background:#e3edfb;color:#1d4f91;border-color:#a9c2e8}.tag.et-qui{background:#e2f3e6;color:#1e6b34;border-color:#a7d9b5}.tag.et-can{background:#eceef1;color:#7a828e;border-color:#d1d5db}
+.ven-etapa .seg button[data-etapa=ANDAMENTO].on{background:#e0a800;border-color:#e0a800}.ven-etapa .seg button[data-etapa=ASSINADO].on{background:#2563c9;border-color:#2563c9}.ven-etapa .seg button[data-etapa=QUITADO].on{background:#1e8a45;border-color:#1e8a45}.ven-etapa .seg button[data-etapa=CANCELADO].on{background:#8b929c;border-color:#8b929c}
+.etq-iv{background:#fff6e5;border-color:#efcf8f;color:#7a4c00}.etq-loc2{font-size:.72em;padding:1px 6px;margin-left:2px}
+.sai-acerto{display:flex;flex-direction:column;gap:4px;align-items:flex-start}.sai-av{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+tr.dp-ok>td{background:var(--ok-soft)}tr.dp-atr>td{background:var(--bad-soft)}tr.dp-pend>td{background:var(--warn-soft)}
+.pdl-forn{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pdl-forn .chip b{margin-left:4px}.pl-t td{vertical-align:middle}.pl-t input[data-pl-d]{width:100%}
+.rec-mes{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0;background:var(--surface)}.rec-mes-t{font-weight:800;font-size:.95rem;color:var(--c1,#1f3556);margin-bottom:4px}.rec-mes-t small{font-weight:500;color:var(--muted);margin-left:6px}
+.rec-total{border:2px solid var(--c1,#1f3556);background:color-mix(in srgb,var(--c1,#1f3556) 6%,var(--surface))}.rec-total .rec-tot-t{font-weight:800;margin-bottom:4px}.rec-total table{width:auto;min-width:320px}.rec-total tr.tot td{border-top:2px solid var(--line);font-size:1.05rem}
+.rec-aj-outro{background:var(--surface)}
+.cob-f .chips{gap:4px}.cob-f .chip{padding:3px 8px;font-size:.8rem}.cob-f .chip .c{margin-left:3px}.cob-f{gap:6px}
 /*v22end*/
 </style>
 </head>
@@ -856,7 +864,7 @@ tr.ct-elab2>td{background:var(--warn-soft)!important}
     <nav class="nav" id="nav">
       <div class="nav-h">Financeiro <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa</span><span class="nav-c" data-c="caixa"></span></a>
-      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pagto aluguel</span><span class="nav-c" data-c="alugueis"></span></a>
+      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pagamentos</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
