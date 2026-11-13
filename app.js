@@ -5029,7 +5029,7 @@ function desenharConfig(pg) {
   if (aba === "prestadores") desenharForn($("#cfg-forn", pg));
   if (aba === "condominios") ligarCondCfg(pg);
   $$("[data-copiar]", pg).forEach(b => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText(b.dataset.copiar); const t = b.textContent; b.textContent = "✔ Copiado"; setTimeout(() => (b.textContent = t), 1200); } catch (e) { toast("Não consegui copiar: selecione e use Ctrl+C.", true); } }));
-  const dsv = $("[data-drive-salvar]", pg); if (dsv) dsv.addEventListener("click", async () => { const v = $("[data-drive-url]", pg).value.trim();
+  const dsv = $("[data-drive-salvar]", pg); if (dsv) dsv.addEventListener("click", async () => { const v = $("[data-drive-url]", dsv.closest(".card") || document).value.trim();
     if (v && !/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(v)) return toast("Cole o endereço do app da Web (começa com https://script.google.com e termina em /exec).", true);
     try { await q(sb.from("config").upsert({ chave: "drive_url", valor: v })); S.driveUrl = v; toast("Salvo."); desenharConfig(); } catch (e) { falha(e); } });
   const dts = $("[data-drive-testar]", pg); if (dts) dts.addEventListener("click", async () => { try { const r = await fetch(S.driveUrl); const j = await r.json(); toast(j.ok ? "O programa do Google respondeu. ✔" : "Respondeu com erro: " + (j.erro || ""), !j.ok); } catch (e) { toast("Não respondeu: confira o endereço e se a implantação é 'Qualquer pessoa'.", true); } });
