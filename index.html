@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <!-- Segurança: o navegador só executa scripts deste site e só conversa com o Supabase -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://script.googleusercontent.com; frame-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <title>FICA ImobOne</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a2d6b'/%3E%3Cpath d='M7 16l9-8 9 8M10 14v10h12V14' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@500&family=Poppins:wght@400;500;600;700&display=swap">
@@ -795,6 +795,22 @@ tr.dp-ok>td{background:var(--ok-soft)}tr.dp-atr>td{background:var(--bad-soft)}tr
 .rec-aj-outro{background:var(--surface)}
 .cob-f .chips{gap:4px}.cob-f .chip{padding:3px 8px;font-size:.8rem}.cob-f .chip .c{margin-left:3px}.cob-f{gap:6px}
 /*v22end*/
+/* v24 */
+.nav-c+.nav-c{margin-left:4px}.nav-c{white-space:nowrap}
+.tag.reemb{background:#ffe3c2;color:#8a4500}[data-theme=dark] .tag.reemb{background:#5a3610;color:#ffd3a1}
+.tag.soc{background:#ede7ff;color:#5b3fb5}[data-theme=dark] .tag.soc{background:#3a2d66;color:#d9ccff}
+.btn.warnb{background:#ffe3c2;border-color:#f3b46b;color:#8a4500}
+.kcard .kg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kcard .kg2 .kt{display:block;font-size:12px;color:var(--muted)}.kcard .kg2 b{display:block;font-family:var(--font-mono);font-size:clamp(14px,1.2vw,18px)}.kcard .kg2 small{display:block;font-size:11.5px;color:var(--muted)}
+.kcard.k-bal .s{margin-top:6px;font-size:12.5px}
+i.fpad{color:#7b4fd6;font-style:italic}[data-theme=dark] i.fpad{color:#c3a6ff}
+td .etq-loc2{display:table;margin:3px 0 0 0}
+.rep-g{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:end;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}.rep-g .fl{min-width:280px;flex:0 1 420px}.rep-g .hint{flex:1 1 260px}
+.comp-in input[type=file]{padding:6px;border:1px dashed var(--line-2);border-radius:8px;background:var(--surface-2)}
+label.btn[data-comp-up]{cursor:pointer}
+.condp-t td:first-child,.condp-t th:first-child{width:30px;text-align:center}
+.condp-t td.nw{white-space:nowrap}
+.condp-t{table-layout:auto}.condp-t td{white-space:normal}.condp-t td:nth-child(2){max-width:230px}.condp-t td:nth-child(3){max-width:120px;font-size:12.5px}.condp-t td:nth-child(5){max-width:200px}.condp-t td:nth-child(5) .etq{max-width:190px}.condp-t select{max-width:170px}.condp-t input[data-k=cond_valor]{width:96px}.condp-t input[data-k=cond_dia]{width:52px}
+/*v24end*/
 </style>
 </head>
 <body>
@@ -862,31 +878,32 @@ tr.dp-ok>td{background:var(--ok-soft)}tr.dp-atr>td{background:var(--bad-soft)}tr
   <aside class="side" id="side">
     <div class="brand"><span class="brand-logo"><svg aria-hidden="true"><use href="#logo-casa"/></svg></span><span class="brand-app">FICA Imob<em>One</em><small id="brand-name">Imobiliária Bandeirantes</small></span></div>
     <nav class="nav" id="nav">
-      <div class="nav-h">Financeiro <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
-      <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa</span><span class="nav-c" data-c="caixa"></span></a>
-      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pagamentos</span><span class="nav-c" data-c="alugueis"></span></a>
+      <div class="nav-h">Gestão <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
+      <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
+      <a href="#interessados" data-p="interessados"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M16 3a4 4 0 0 1 0 8M22 21v-1a7 7 0 0 0-4-6.3"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span><span class="nav-c" data-c="interessados_ven"></span></a>
+      <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>
+      <div class="nav-h">Financeiro</div>
+      <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
+      <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
+      <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Condomínios</span><span class="nav-c" data-c="condominios"></span></a>
+      <a href="#desp_loc" data-p="desp_loc"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Despesas locadores</span><span class="nav-c" data-c="desp_loc"></span></a>
+      <a href="#desp_imob" data-p="desp_imob"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-t">Despesas imob.</span><span class="nav-c" data-c="desp_imob"></span></a>
+      <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto vendas</span><span class="nav-c" data-c="pag_vendas"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
-      <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos</span><span class="nav-c" data-c="recibos_lct"></span></a>
+      <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos e relatórios</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
       <div class="nav-h">Cadastros · Locação</div>
-      <a href="#interessados_loc" data-p="interessados_loc"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span></a>
       <a href="#cadastros" data-p="cadastros"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 16l4 4h8l4-4M9 9l3 3 3-3M12 5v7"/></svg><span class="nav-t">Cadastros recebidos</span><span class="nav-c" data-c="cadastros"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
       <div class="nav-h">Cadastros · Vendas</div>
-      <a href="#interessados_ven" data-p="interessados_ven"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_ven"></span></a>
       <a href="#vendas" data-p="vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="vendas"></span></a>
       <a href="#imoveis_venda" data-p="imoveis_venda"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis_venda"></span></a>
-      <div class="nav-h">Gestão</div>
-      <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
-      <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>
       <div class="nav-h">Sistema</div>
-      <a href="#backup" data-p="backup"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span class="nav-t">Backup e dados</span></a>
-      <a href="#config" data-p="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>Configurações</a>
-      <a href="#tutoriais" data-p="tutoriais"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg><span class="nav-t">Tutoriais</span><span class="nav-c" data-c="tutoriais"></span></a>
-      <a href="#termos" data-p="termos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/><path d="M8 9h2"/></svg><span class="nav-t">Termos</span><span class="nav-c" data-c="termos"></span></a>
+      <a href="#config" data-p="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg><span class="nav-t">Configurações</span></a>
+      <a href="#termos" data-p="termos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/><path d="M8 9h2"/></svg><span class="nav-t">Termos e tutoriais</span><span class="nav-c" data-c="tutoriais"></span></a>
     </nav>
     <div class="spacer"></div>
     <div class="me">
