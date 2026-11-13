@@ -811,6 +811,22 @@ label.btn[data-comp-up]{cursor:pointer}
 .condp-t td.nw{white-space:nowrap}
 .condp-t{table-layout:auto}.condp-t td{white-space:normal}.condp-t td:nth-child(2){max-width:230px}.condp-t td:nth-child(3){max-width:120px;font-size:12.5px}.condp-t td:nth-child(5){max-width:200px}.condp-t td:nth-child(5) .etq{max-width:190px}.condp-t select{max-width:170px}.condp-t input[data-k=cond_valor]{width:96px}.condp-t input[data-k=cond_dia]{width:52px}
 /*v24end*/
+/* v25 */
+td .sub.neg{color:var(--bad);font-weight:600}
+td .sub.hoje{color:#b35c00;font-weight:700}
+.tag.hoje{background:#ffd9a8;color:#7a3d00;box-shadow:inset 0 0 0 1px #f0a24a}[data-theme=dark] .tag.hoje{background:#6b3c08;color:#ffd7a8}
+table.grade tr.lin-hoje td{background:#fff4e2}[data-theme=dark] table.grade tr.lin-hoje td{background:#3d2a12}
+.aviso-hoje,.aviso-neg{padding:8px 12px;border-radius:10px;font-size:13.5px;line-height:1.45}
+.aviso-hoje{background:#fff4e2;border:1px solid #f0c27a;color:#6b3a00}[data-theme=dark] .aviso-hoje{background:#3d2a12;border-color:#7a5420;color:#ffd7a8}
+.aviso-neg{background:var(--bad-soft);border:1px solid var(--bad);color:var(--bad)}
+.condp-grp h3{margin:6px 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--c1);display:flex;align-items:center;gap:8px}.condp-grp h3 .c{font-size:11px;background:var(--surface-2);border-radius:999px;padding:1px 8px;color:var(--muted)}
+.condp-grp+.condp-grp{margin-top:6px;padding-top:12px;border-top:3px solid var(--c1)}
+.cad-p .row{gap:8px}.cad-p .fl{min-width:0}.cad-ph{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cad-docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px}.cad-dt{border:1px solid var(--line);border-radius:8px;padding:6px 10px}.cad-dt h4{margin:2px 0 4px;font-size:13px;color:var(--c1)}
+.cad-dt td{padding:4px 6px;vertical-align:top}.cad-dt td a{text-decoration:none;font-size:12.5px;word-break:break-all}.cad-dt .btn.sm{padding:2px 8px}
+.cad-sit{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip.cad-bad.on{background:var(--bad);border-color:var(--bad)}.chip.cad-warn.on{background:#b26a00;border-color:#b26a00}.chip.cad-ok.on{background:var(--ok);border-color:var(--ok)}.chip.cad-info.on{background:#2f6fb5;border-color:#2f6fb5}
+/*v25end*/
 </style>
 </head>
 <body>
@@ -885,9 +901,9 @@ label.btn[data-comp-up]{cursor:pointer}
       <div class="nav-h">Financeiro</div>
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
-      <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Condomínios</span><span class="nav-c" data-c="condominios"></span></a>
-      <a href="#desp_loc" data-p="desp_loc"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Despesas locadores</span><span class="nav-c" data-c="desp_loc"></span></a>
-      <a href="#desp_imob" data-p="desp_imob"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-t">Despesas imob.</span><span class="nav-c" data-c="desp_imob"></span></a>
+      <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Pgto Condomínio</span><span class="nav-c" data-c="condominios"></span></a>
+      <a href="#desp_loc" data-p="desp_loc"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Despesa locador</span><span class="nav-c" data-c="desp_loc"></span></a>
+      <a href="#desp_imob" data-p="desp_imob"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-t">Despesa imob</span><span class="nav-c" data-c="desp_imob"></span></a>
       <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto vendas</span><span class="nav-c" data-c="pag_vendas"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos e relatórios</span><span class="nav-c" data-c="recibos_lct"></span></a>
