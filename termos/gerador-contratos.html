@@ -624,7 +624,11 @@ header p { font-size: 0.75rem; color: #a8bce8; font-weight: 300; margin-top: 2px
 .conf-cad h3 { margin:0 0 6px; color:#1f3556; } .conf-cad p { margin:0 0 10px; font-size:13px; color:#374151; }
 .conf-cad-t { overflow:auto; border:1px solid #e5e7eb; border-radius:8px; } .conf-cad table { width:100%; border-collapse:collapse; font-size:13px; }
 .conf-cad th, .conf-cad td { padding:6px 8px; border-bottom:1px solid #eef0f3; text-align:left; vertical-align:top; } .conf-cad th { background:#f3f5f9; font-size:12px; }
-.conf-cad .v-old { color:#9ca3af; text-decoration:line-through; } .conf-cad .v-new { color:#14532d; }
+.conf-cad { position:relative; } .conf-x { position:absolute; top:10px; right:12px; border:0; background:none; font-size:18px; cursor:pointer; color:#6b7280; }
+.conf-cad th.c-cad, .conf-cad td.c-cad { background:#ecfdf5; } .conf-cad th.c-ctt, .conf-cad td.c-ctt { background:#fff7ed; }
+.conf-cad td.c-rot { font-weight:600; color:#1f3556; width:30%; } .conf-op { display:flex; gap:8px; align-items:flex-start; cursor:pointer; } .conf-op input { margin-top:3px; }
+.conf-cad tr.esc-cad td.c-cad span, .conf-cad tr.esc-ctt td.c-ctt span { font-weight:700; color:#111827; } .conf-cad tr.esc-cad td.c-ctt span, .conf-cad tr.esc-ctt td.c-cad span { color:#9ca3af; text-decoration:line-through; }
+.conf-tod { display:flex; gap:8px; margin-bottom:8px; } .conf-tod button { padding:5px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-size:12px; }
 .conf-cad-b { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; } .conf-cad-b button { padding:8px 14px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-weight:600; }
 .conf-cad-b .btn-pri { background:#1f3556; color:#fff; border-color:#1f3556; }
 .busca-imv { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -5273,6 +5277,14 @@ async function gerarContratoWord() {
       Object.assign(substituicoes, montarAssinaturasFiador(null, null));
       paragrafosParaRemover.push(...paragrafosParaRemoverAssinaturas(null, null));
     }
+
+    // v24 (igual ao gerador v97): quem "Não tem RG" não leva a linha de RG no quadro de assinaturas
+    const semRgAss = p => p && !p.ehPJ && naoTemRG(p.rg) && !ehEstrangeiro(p.nacionalidade);
+    [['Lcd', dadosLcd], ['Lct', dadosLct]].concat(isFiador ? [['Fdr', dadosFdr]] : []).forEach(([G, d]) => {
+      if (!d || d.ehPJ) { if (d && d.ehPJ && d.representante && naoTemRG(d.representante.rg)) {/* já tratado na assinatura de PJ */} return; }
+      if (semRgAss(d.pessoa1)) paragrafosParaRemover.push('#' + G + '5');
+      if (semRgAss(d.pessoa2)) paragrafosParaRemover.push('#' + G + '_5');
+    });
     Object.assign(substituicoes, montarLinhasVazias());
 
     // ---------- Testemunhas ----------
@@ -5673,7 +5685,7 @@ function aplicarDadosFormulario(dados) {
     if (CAMPOS_ESTADO_CIVIL.includes(id)) return;
     const el = document.getElementById(id);
     if (!el) return;
-    if (el.type === 'checkbox') el.checked = !!dados[id];
+    if (el.type === 'checkbox') el.checked = dados[id] === true || /^(true|on|sim|s|1|x|yes)$/i.test(String(dados[id] == null ? '' : dados[id]).trim());
     else el.value = dados[id];
   });
 
@@ -5691,7 +5703,10 @@ function aplicarDadosFormulario(dados) {
   // 3ª etapa: agora que os selects de Estado Civil já foram reconstruídos, aplica o valor salvo
   CAMPOS_ESTADO_CIVIL.forEach(id => {
     if (dados[id] !== undefined && document.getElementById(id)) {
-      document.getElementById(id).value = dados[id];
+      const el = document.getElementById(id);
+      el.value = dados[id];
+      // v24: aceita "casada" / "Casada" etc. (procura a opção sem diferenciar maiúsculas)
+      if (dados[id] && el.value !== dados[id] && el.options) { const n = String(dados[id]).trim().toLowerCase(); const o = [...el.options].find(x => x.value.toLowerCase() === n || x.text.trim().toLowerCase() === n); if (o) el.value = o.value; }
     }
   });
 
@@ -6735,7 +6750,8 @@ function importarResultadoSelecionado() {
   if (qtd) partesToast.push(`${qtd} campo(s) preenchido(s) (${categorias.length} categoria(s))`);
   if (obsMarcadas.length) partesToast.push(obsAdicionadas ? `${obsAdicionadas} observação(ões) adicionada(s)` : 'observações já estavam no texto');
   mostrarToast('🔍 ' + partesToast.join(' + ') + ' a partir do cadastro!');
-  if (categorias.includes('IMOVEL') || categorias.includes('LOCADOR')) conferirComCadastroSistema(item, categorias);
+  // espera os campos que se preenchem em 2 etapas (ex.: estado civil depende do sexo) antes de comparar
+  if (categorias.includes('IMOVEL') || categorias.includes('LOCADOR')) setTimeout(() => conferirComCadastroSistema(item, categorias), 700);
 }
 
 // v23: depois de importar de outro contrato, confere IMÓVEL e LOCADOR com o cadastro atual do sistema
@@ -6750,23 +6766,47 @@ function conferirComCadastroSistema(item, categorias) {
   if (!im) { mostrarToast('ℹ️ Imóvel deste contrato não encontrado no cadastro do sistema: confira os dados à mão.'); return; }
   const ids = [];
   categorias.filter(c => c === 'IMOVEL' || c === 'LOCADOR').forEach(c => (CAMPOS_POR_CATEGORIA[c] || []).forEach(id => ids.push(id)));
-  const val = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
-  const igual = (a, b) => ieNormalizar(String(a || '')).replace(/[^a-z0-9]/g, '') === ieNormalizar(String(b || '')).replace(/[^a-z0-9]/g, '');
-  const difs = ids.filter(id => document.getElementById(id) && String(im.campos[id] || '').trim() && !igual(val(id), im.campos[id]));
+  // v24: caixinhas (ex.: "Não tem RG") comparam marcado × desmarcado; "on" e "true" são a mesma coisa
+  const sim = v => /^(true|on|sim|s|1|x|yes)$/i.test(String(v == null ? '' : v).trim());
+  const ehChk = id => { const e = document.getElementById(id); return !!(e && e.type === 'checkbox'); };
+  const val = id => { const e = document.getElementById(id); return !e ? '' : e.type === 'checkbox' ? (e.checked ? 'true' : '') : String(e.value || '').trim(); };
+  const txt = (id, v) => ehChk(id) ? (sim(v) ? 'Sim (marcado)' : 'Não') : String(v || '').trim();
+  const igual = (id, a, b) => ehChk(id) ? sim(a) === sim(b) : ieNormalizar(String(a || '')).replace(/[^a-z0-9]/g, '') === ieNormalizar(String(b || '')).replace(/[^a-z0-9]/g, '');
+  const difs = ids.filter(id => document.getElementById(id) && (ehChk(id) ? im.campos[id] != null && im.campos[id] !== '' : String(im.campos[id] || '').trim()) && !igual(id, val(id), im.campos[id]));
   if (!difs.length) { mostrarToast('✔ Imóvel e locador conferem com o cadastro do sistema.'); return; }
-  const rot = id => { const l = document.querySelector('label[for="' + id + '"]'); return (l ? l.textContent : id).replace(/[:*]/g, '').trim(); };
+  const PAPEL = { imv: 'Imóvel', lcd1: 'Locador 1', lcd2: 'Locador 2', lcd: 'Locadores', end: 'Imóvel' };
+  const rot = id => {
+    const e = document.getElementById(id), l = document.querySelector('label[for="' + id + '"]') || (e && e.closest('label')) || (e && e.closest('.field') && e.closest('.field').querySelector('label'));
+    let t = (l ? l.textContent : id).replace(/[:*]/g, '').replace(/\s+/g, ' ').trim();
+    if (/_naotem$/.test(id)) t = /_rg_/.test(id) ? 'Não tem RG' : 'Sem esse dado (' + t + ')';
+    const pre = PAPEL[id.split('_')[0]] || '';
+    return (pre ? pre + ' · ' : '') + t;
+  };
   const esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const ov = document.createElement('div'); ov.className = 'conf-cad-ov';
-  ov.innerHTML = '<div class="conf-cad"><h3>Diferenças com o cadastro do sistema</h3><p>O contrato importado tem dados de <b>imóvel/locador</b> diferentes do cadastro atual (' + esc2(im.rotulo) + ' · ' + esc2(im.locTag) + '). O cadastro é o mais atualizado (ex.: inscrição corrigida, medidor trocado). Marque o que deve vir do cadastro:</p>' +
-    '<div class="conf-cad-t"><table><thead><tr><th>Usar cadastro</th><th>Campo</th><th>No contrato importado</th><th>No cadastro</th></tr></thead><tbody>' +
-    difs.map((id, k) => '<tr><td><input type="checkbox" data-cc="' + k + '" checked></td><td>' + esc2(rot(id)) + '</td><td class="v-old">' + esc2(val(id) || '—') + '</td><td class="v-new"><b>' + esc2(im.campos[id]) + '</b></td></tr>').join('') +
-    '</tbody></table></div><div class="conf-cad-b"><button type="button" class="btn-sec" data-cc-nao>Manter o do contrato</button><button type="button" class="btn-pri" data-cc-sim>Usar o cadastro nos marcados</button></div></div>';
+  ov.innerHTML = '<div class="conf-cad" role="dialog" aria-modal="true"><button type="button" class="conf-x" data-cc-x title="Fechar (Esc): fica tudo como foi importado">✕</button><h3>Conferir com o cadastro do sistema</h3>' +
+    '<p>O contrato importado tem <b>' + difs.length + '</b> dado(s) de imóvel/locador diferente(s) do cadastro atual (' + esc2(im.rotulo) + ' · ' + esc2(im.locTag) + '). O cadastro costuma ser o mais atualizado. Escolha, linha por linha, qual valor fica:</p>' +
+    '<div class="conf-tod"><button type="button" data-cc-tod="cad">Usar o cadastro em tudo</button><button type="button" data-cc-tod="ctt">Manter o contrato em tudo</button></div>' +
+    '<div class="conf-cad-t"><table><thead><tr><th>Campo</th><th class="c-cad">No cadastro do sistema</th><th class="c-ctt">No contrato importado</th></tr></thead><tbody>' +
+    difs.map((id, k) => '<tr><td class="c-rot">' + esc2(rot(id)) + '</td>' +
+      '<td class="c-cad"><label class="conf-op"><input type="radio" name="cc' + k + '" value="cad" checked> <span>' + esc2(txt(id, im.campos[id]) || '—') + '</span></label></td>' +
+      '<td class="c-ctt"><label class="conf-op"><input type="radio" name="cc' + k + '" value="ctt"> <span>' + esc2(txt(id, val(id)) || '— (vazio)') + '</span></label></td></tr>').join('') +
+    '</tbody></table></div><div class="conf-cad-b"><button type="button" class="btn-sec" data-cc-nao>Cancelar (fica como importado)</button><button type="button" class="btn-pri" data-cc-sim>Aplicar as escolhas</button></div></div>';
   document.body.appendChild(ov);
-  ov.querySelector('[data-cc-nao]').onclick = () => ov.remove();
+  const fechar = () => { document.removeEventListener('keydown', tecla, true); ov.remove(); };
+  const tecla = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(); } };
+  document.addEventListener('keydown', tecla, true);
+  ov.addEventListener('click', e => { if (e.target === ov) fechar(); });
+  const marca = () => ov.querySelectorAll('tbody tr').forEach(tr => { const c = tr.querySelector('input:checked'); tr.classList.toggle('esc-cad', !!c && c.value === 'cad'); tr.classList.toggle('esc-ctt', !!c && c.value === 'ctt'); });
+  ov.addEventListener('change', marca); marca();
+  ov.querySelectorAll('[data-cc-tod]').forEach(b => b.onclick = () => { ov.querySelectorAll('input[type=radio][value="' + b.dataset.ccTod + '"]').forEach(r => (r.checked = true)); marca(); });
+  ov.querySelector('[data-cc-x]').onclick = fechar;
+  ov.querySelector('[data-cc-nao]').onclick = fechar;
   ov.querySelector('[data-cc-sim]').onclick = () => {
-    const d = {}; ov.querySelectorAll('[data-cc]:checked').forEach(c => { const id = difs[+c.dataset.cc]; d[id] = im.campos[id]; });
+    const d = {};
+    difs.forEach((id, k) => { const r = ov.querySelector('input[name="cc' + k + '"]:checked'); if (r && r.value === 'cad') d[id] = ehChk(id) ? sim(im.campos[id]) : im.campos[id]; });
     if (Object.keys(d).length) { aplicarDadosFormulario(d); reformatarCamposImportados(d); }
-    ov.remove(); mostrarToast('✔ ' + Object.keys(d).length + ' campo(s) atualizado(s) com o cadastro do sistema.');
+    fechar(); mostrarToast('✔ ' + Object.keys(d).length + ' campo(s) com o valor do cadastro do sistema.');
   };
 }
 
