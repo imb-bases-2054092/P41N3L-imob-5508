@@ -17,9 +17,9 @@
       var url = String(u && u.url ? u.url : (u == null ? "" : u));
       var h = (o && o.headers) || {};
       var temChave = (typeof h.get === "function") ? h.get("X-App-Key") !== null : Object.prototype.hasOwnProperty.call(h, "X-App-Key");
-      if (temChave || /workers\.dev/i.test(url) || url === "") return Promise.resolve(new Response(cadastro.slice(0), { status: 200 }));
       var nome = decodeURIComponent(url.split("?")[0].split("#")[0].split("/").pop() || "");
-      if (arquivos && arquivos[nome]) return Promise.resolve(new Response(arquivos[nome].slice(0), { status: 200 }));
+      if (arquivos && arquivos[nome]) return Promise.resolve(new Response(arquivos[nome].slice(0), { status: 200 })); // v25: antes da chave (o formulário interno pede 2 planilhas)
+      if (temChave || /workers\.dev/i.test(url) || url === "") return Promise.resolve(new Response(cadastro.slice(0), { status: 200 }));
       if (/^https?:/i.test(url) && url.indexOf(location.origin) !== 0) return Promise.reject(new TypeError("Acesso externo bloqueado pelo sistema."));
       return orig ? orig(u, o) : Promise.reject(new TypeError("fetch indisponível"));
     };
@@ -31,6 +31,11 @@
     if (orig.__lico) return;
     var novo = function () {
       try { if (this.hasAttribute("download")) window.parent.postMessage({ tipo: "termo-baixado", arquivo: this.getAttribute("download") || "" }, "*"); } catch (e) {}
+      // v25: o PDF gerado também vai para o sistema (ex.: salvar o formulário interno na pasta do cadastro)
+      try { var nm = this.getAttribute("download") || "", hr = this.href || "";
+        if (this.hasAttribute("download") && /^blob:/.test(hr) && /\.pdf$/i.test(nm)) {
+          var xr = new XMLHttpRequest(); xr.open("GET", hr); xr.responseType = "arraybuffer";
+          xr.onload = function () { try { window.parent.postMessage({ tipo: "termo-arquivo", nome: nm, buf: xr.response }, "*", [xr.response]); } catch (e) {} }; xr.send(); } } catch (e) {}
       return orig.apply(this, arguments);
     };
     novo.__lico = true; HTMLAnchorElement.prototype.click = novo;
@@ -54,6 +59,9 @@
       if (gerador) {
         var cid = document.getElementById("contractId");
         if (P.form && typeof aplicarDadosFormulario === "function") { try { aplicarDadosFormulario(P.form); } catch (x) {} if (cid) cid.value = P.novo || ""; }
+        else if (P.campos && typeof mapearCamposAcroForm === "function") { // v25: "Fazer contrato" a partir do cadastro recebido
+          try { var dc = mapearCamposAcroForm(P.campos, ""); aplicarDadosFormulario(dc); if (typeof reformatarCamposImportados === "function") reformatarCamposImportados(dc); if (typeof mostrarToast === "function") mostrarToast("📥 Dados do cadastro recebido preenchidos. Revise e complete."); } catch (x) {}
+          if (cid) cid.value = P.novo || ""; }
         else if (P.cod && typeof carregarCadastroContratos === "function") {
           carregarCadastroContratos().then(function (l) {
             var it = (l || []).find(function (x) { return x.contractId === P.cod; });
@@ -74,6 +82,21 @@
           var marcar = function (e) { if (e.isTrusted) msg({ tipo: "gerador-sujo" }); };
           document.addEventListener("input", marcar, true); document.addEventListener("change", marcar, true);
         }, 1500);
+        return;
+      }
+      // v25: formulário interno (resumo) já preenchido com o cadastro recebido do cliente
+      if (P.dados && typeof restaurarTextos === "function" && typeof restaurarRadiosECheckboxes === "function") {
+        var dd = JSON.parse(JSON.stringify(P.dados)); dd.textos = dd.textos || {}; dd.radios = dd.radios || {};
+        if (dd.textos.loc1_nome || dd.textos.loc2_nome) dd.radios.qtd_locatarios = dd.textos.loc2_nome ? "2" : "1";
+        if (dd.textos.fiador1_nome || dd.textos.fiador2_nome) dd.radios.qtd_fiadores = dd.textos.fiador2_nome ? "2" : "1";
+        if (P.imovel) { if (P.imovel.endereco) dd.textos.imovel_endereco = P.imovel.endereco; if (P.imovel.locador && !dd.textos.proprietario_nome) dd.textos.proprietario_nome = P.imovel.locador; if (P.imovel.valor && !dd.textos.imovel_valor) dd.textos.imovel_valor = P.imovel.valor; }
+        if (dd.textos.dia_pagamento) dd.textos.dia_pagamento = String(dd.textos.dia_pagamento).replace(/\D/g, "").padStart(2, "0");
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dd.textos.imovel_data_inicio || "")) dd.textos.imovel_data_inicio = dd.textos.imovel_data_inicio.split("-").reverse().join("/");
+        try { restaurarTextos(dd); restaurarRadiosECheckboxes(dd); } catch (x) {}
+        ["atualizarUtilizacao", "atualizarAnimais", "atualizarEspecieOutro", "atualizarObsPadrao", "atualizarConjugeObrigatorio"].forEach(function (fn) { try { if (typeof window[fn] === "function") window[fn](); } catch (x) {} });
+        try { if (typeof atualizarQtd === "function") { atualizarQtd("locatarios"); atualizarQtd("fiadores"); } } catch (x) {}
+        try { if (typeof restaurarDocumentos === "function") restaurarDocumentos(dd.documentos || {}, {}); } catch (x) {}
+        try { restaurarTextos(dd); } catch (x) {}
         return;
       }
       if (!P.cod || typeof carregarCadastro !== "function") return;
@@ -99,7 +122,7 @@
     });
     html = html.replace(/https?:\/\/[^'"]+\/pdf\.worker\.min\.js/g, "vendor/pdf.worker.min.js");
     // script que roda dentro do app: preenche o contrato, liga os botões do cabeçalho do sistema etc.
-    var auto = "<script>(" + dentroDoApp.toString() + ")(" + JSON.stringify({ cod: d.codigo || "", novo: d.novoCodigo || "", form: d.form || null, rasc: d.rascunho || "" }).replace(/</g, "\\u003c") + ");<\/script>";
+    var auto = "<script>(" + dentroDoApp.toString() + ")(" + JSON.stringify({ cod: d.codigo || "", novo: d.novoCodigo || "", form: d.form || null, rasc: d.rascunho || "", campos: d.campos || null, dados: d.dados || null, imovel: d.imovel || null }).replace(/</g, "\\u003c") + ");<\/script>";
     var aviso = avisos.length ? '<div style="background:#fde8ea;color:#c8192e;padding:8px 14px;font:600 13px system-ui">Aviso: ' + avisos.join(" ") + "</div>" : "";
     // visual igual ao do sistema (sem cabeçalho próprio, letras menores, página mais larga)
     var estilo = "<style>header{display:none!important}.intro{display:none!important}body{font-size:14px;line-height:1.45;background:#f0f4fb}" +

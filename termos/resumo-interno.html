@@ -1,0 +1,3005 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Impede que buscadores (Google, Bing etc.) indexem esta página -->
+<meta name="robots" content="noindex, nofollow">
+
+<title>Formulário Interno de Locação — Bandeirantes</title>
+
+<!-- iOS: adicionar à tela de início vira app com ícone -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Loc. Interno">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADbElEQVR42u3dsXETYRCGYd+OSiBBFEBkCIlowm2YcnAbasIRITiiAIvEPZiEAJjBaGzd3f7fPU8BRt572VnhMbq4AAAAAACambq/wP3l9aPH1Mvx7mYStIAFvpWgRSzu4YMWsbgjghaysOdUYibpuU9CJmlbl5hJ2taTkEna1iVmkrZ1iZmkqEvMJEVdYiYp6hIzSVGXmEmKusRMUtRlfCSpNf4WwVx9lZhJitrJwbZPDtuZzlu6xExS1E4Otnly2M6MsKVtaLb9ppDnOTzcGkKXoJ0b54lZ1POfHTb0wptZ1E6OuDND1CsG7dyY52YW9Txnhw294htAUTs5YmIWtaDjYhb1+U3u5/VC/tvVq4+GeaJ//Sc1NnSTmG1qJ0dUzKIWdFzMv39tYQs6ImbbWtCRMYta0LFxiVrQcVGJWtBxMYla0HERifppOyMYL57Dw+0fP1U85+sc/aeVNvSgm9CmFnRcLKIWdFwkoha0OLwpFDI2tJgRtJgRtJjZctBiFrSYEbSYEbSYEbSY2UjQYha0mBG0mBG0mBG0mNlI0GKmxEySnZCxocUca/SZlsGTNNsycJJmXAZN0qzLgEmaeRksSbMvAyXpGZRBkvQsygBJeiZlcCQ9mzIwkp5RGRQveVbdnleJmaTnVoZC0vOrDoMQs6gjghayqGOCFrOoY4IWs6hjghazqGOCFrOoY4IWs6iXsOvyDX04fvXkB/Zl//6/DSzxscuLBH3KN3KviaF1+YxwH7xJFEEjaBA0CBoEjaBB0CBomNPOCE735t2nVf7c+2+fDd+GxoZu6vD9x6xf/+rt64iHaU42NE4OEDQIGgSNoEHQIGgQNAgaQYOgQdAgaBA0ggZBg6BB0CBoBA0DGuK3vlN+K9ucbGgQNIIGQYOgQdAgaAQNggZBg6BB0Aj6l+PdzWREdPNUlzY0Tg4QNHQI2h3NKPezDY2TAzo7+ZzYX14/Ghedzw0bGicHRATtXzvofm7Y0Gz75LCl6bydn7WhRU3XmJ0cbPvksKXpvJ1ftKFFTbeYnRw4OWxpum7ns2xoUdMl5rOdHKKmS0fV6cUg5jZBi5oO3VTnF4eYVw9a1KzZyezh+U0Xllx4NfKLR8yLb2jbmiUXWyV+U2wz5sU3tG0t5NigxS3i2KDFLeLYoAUuYAAAAAB+AhFVznZmN8qtAAAAAElFTkSuQmCC">
+<meta name="theme-color" content="#1a2d6b">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+:root {
+  --primario:   #1a2d6b;
+  --primario2:  #243a8a;
+  --destaque:   #c8192e;
+  --destaque2:  #e02040;
+  --fundo:      #f0f4fb;
+  --fundo2:     #dde6f7;
+  --fundo3:     #c8d8f0;
+  --branco:     #fff;
+  --cinza:      #6a7590;
+  --texto:      #1a2d6b;
+  --texto2:     #2e4080;
+  --verde:      #2e7d32;
+  --amarelo-dk: #bf6000;
+  --vermelho:   #c62828;
+  --azul:       #1565c0;
+  --sombra:     0 2px 16px rgba(26,45,107,0.10);
+  --sombra2:    0 6px 32px rgba(26,45,107,0.18);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  min-height: 100vh;
+}
+
+header {
+  background: var(--primario);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(26,45,107,0.30);
+}
+header .brand { display: flex; align-items: center; gap: 12px; }
+header .brand-icon {
+  width: 36px; height: 36px;
+  background: var(--destaque);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+header h1 {
+  font-family: 'Playfair Display', serif;
+  color: #fff;
+  font-size: 1.15rem;
+  letter-spacing: 0.3px;
+  background: var(--destaque);
+  padding: 6px 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(200,25,46,0.35);
+}
+header .sub { color: #a8bce8; font-size: 0.75rem; font-weight: 300; }
+.versao {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.main {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 32px 20px 140px;
+}
+
+.intro {
+  background: var(--fundo2);
+  border: 1px solid var(--fundo3);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  color: var(--texto2);
+  line-height: 1.5;
+}
+.intro b { color: var(--primario); }
+
+.card {
+  background: var(--branco);
+  border-radius: 14px;
+  box-shadow: var(--sombra);
+  border: 1px solid var(--fundo3);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 16px 22px;
+  background: var(--fundo2);
+  border-bottom: 1px solid var(--fundo3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  color: var(--primario);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-body { padding: 20px 22px; }
+
+.subbloco {
+  border-top: 1px dashed var(--fundo3);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.subbloco:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.subbloco-titulo {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.9rem;
+  color: var(--destaque);
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.obs-subpainel {
+  background: #eef4fc;
+  border: 1px solid #cddef4;
+  border-left: 4px solid var(--primario2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: -6px 0 14px;
+}
+.obs-subpainel .field-group:last-child { margin-bottom: 0; }
+.opcao-carencia {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto);
+  cursor: pointer;
+}
+.opcao-carencia input { accent-color: var(--primario); cursor: pointer; }
+
+.field-group { margin-bottom: 16px; }
+.field-group:last-child { margin-bottom: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.docs-2colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-top: 6px; }
+.docs-2colunas.uma-coluna { grid-template-columns: 1fr; }
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--texto2);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 5px;
+}
+input[type="text"], input[type="date"], input[type="tel"], input[type="email"], select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--fundo3);
+  border-radius: 8px;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.9rem;
+  color: var(--texto);
+  background: var(--fundo);
+  outline: none;
+  transition: border 0.18s, background 0.18s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primario);
+  background: #fff;
+}
+textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+
+/* opções (radio / checkbox) estilo pill */
+.opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcao {
+  display: flex; align-items: center; gap: 6px;
+  border: 1.5px solid var(--fundo3);
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: var(--fundo);
+  transition: all 0.15s;
+  user-select: none;
+}
+.opcao input { accent-color: var(--primario); cursor: pointer; }
+.opcao:hover { border-color: var(--primario2); }
+.opcao.marcada {
+  background: var(--fundo2);
+  border-color: var(--primario);
+  color: var(--primario);
+  font-weight: 600;
+}
+
+.dias-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+.dia-opcao {
+  border: 1.5px solid var(--fundo3);
+  border-radius: 8px;
+  padding: 10px 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--texto2);
+  background: var(--fundo);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.dia-opcao:hover { border-color: var(--primario2); }
+.dia-opcao.selecionado {
+  background: var(--primario);
+  border-color: var(--primario);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .dias-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+.opcoes-linha {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+.opcoes-linha .opcao { flex: 1 1 0; text-align: center; white-space: nowrap; }
+
+.doc-instrucao {
+  background: var(--fundo2);
+  border: 1px solid var(--fundo3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: var(--texto2);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.subbloco-titulo-grande {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primario);
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin: 26px 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--sombra);
+}
+.subbloco-titulo-grande:first-of-type { margin-top: 0; }
+
+.doc-pessoa-grupo {
+  border: 1.5px solid var(--fundo3);
+  border-radius: 14px;
+  padding: 16px 16px 6px;
+  margin-bottom: 22px;
+  background: #fbfcff;
+}
+.doc-pessoa-titulo {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--destaque);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f3d5da;
+}
+
+.doc-item {
+  border: 1.5px solid var(--fundo3);
+  border-left: 5px solid var(--primario2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--branco);
+  box-shadow: 0 1px 6px rgba(26,45,107,0.06);
+}
+.doc-item:last-child { margin-bottom: 6px; }
+.doc-item-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primario);
+  margin-bottom: 12px;
+  line-height: 1.35;
+}
+.doc-item-opcoes .opcao { font-size: 0.82rem; padding: 6px 12px; }
+.doc-item-acao { margin-top: 10px; }
+.btn-anexo {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--primario);
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-anexo:hover { background: var(--primario2); }
+.campo-dica { display: block; font-size: 0.75rem; color: var(--cinza); margin-top: 6px; }
+.busca-cadastro-wrap { position: relative; }
+#busca_cadastro {
+  background: #fff8e6;
+  border: 2px solid #f0a500;
+  box-shadow: 0 0 0 3px rgba(240,165,0,0.12);
+}
+#busca_cadastro::placeholder { color: #b8842a; }
+#busca_cadastro:focus {
+  border-color: #f0a500;
+  box-shadow: 0 0 0 4px rgba(240,165,0,0.22);
+  outline: none;
+}
+.busca-cadastro-wrap > label {
+  color: #b8842a;
+}
+.busca-resultados {
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  margin-top: 4px;
+  background: var(--branco);
+  border: 1.5px solid var(--fundo3);
+  border-radius: 10px;
+  box-shadow: var(--sombra);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 20;
+}
+.busca-resultado-item {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--texto);
+  cursor: pointer;
+  border-bottom: 1px solid var(--fundo2);
+}
+.busca-resultado-item:last-child { border-bottom: none; }
+.busca-resultado-item:hover { background: var(--fundo2); }
+.busca-resultado-sub { font-size: 0.78rem; color: var(--cinza); }
+.busca-resultado-vazio { padding: 12px 14px; font-size: 0.85rem; color: var(--cinza); }
+.doc-item-lista { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.doc-arquivo {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff;
+  border: 1px solid var(--fundo3);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  color: var(--texto2);
+}
+.doc-arquivo img { width: 34px; height: 34px; object-fit: cover; border-radius: 5px; }
+.doc-arquivo button {
+  border: none;
+  background: none;
+  color: var(--destaque);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 2px;
+}
+.dica-whats { text-align: center; font-size: 0.72rem; color: var(--cinza); }
+
+@media (max-width: 640px) {
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .docs-2colunas { grid-template-columns: 1fr; }
+  header { padding: 0 16px; }
+}
+
+/* BARRA DE AÇÃO FIXA */
+.barra-acoes {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-top: 1px solid var(--fundo3);
+  box-shadow: 0 -4px 20px rgba(26,45,107,0.12);
+  padding: 12px 20px;
+  z-index: 90;
+}
+.barra-conteudo {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.barra-botoes { display: flex; gap: 12px; justify-content: center; }
+.aviso-pendencias {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--destaque);
+  font-weight: 600;
+}
+.aviso-pendencias.completo {
+  color: var(--verde);
+}
+.nota-obrigatoria {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--amarelo-dk);
+  background: #fff6e8;
+  border: 1px solid #f0d6a0;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.opcao-desabilitada {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.doc-item-nota-dispensa {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--verde);
+  background: #eaf6ea;
+  border: 1px solid #b9dcb9;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.doc-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--fundo3);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--branco);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--texto);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.doc-check-item:hover { background: var(--fundo2); }
+.doc-check-item input[type="checkbox"] {
+  width: 20px; height: 20px;
+  accent-color: var(--primario);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.doc-check-item.marcado { border-color: var(--primario2); background: #eef2ff; }
+.doc-check-item.travado { opacity: 0.8; cursor: not-allowed; }
+.doc-check-item .doc-check-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primario2);
+  white-space: nowrap;
+}
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 13px 20px;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.2s, transform 0.1s;
+  flex: 1;
+  max-width: 260px;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; background: var(--fundo3); }
+.btn-baixar { background: var(--primario); color: #fff; }
+.btn-baixar:hover { background: var(--primario2); }
+.btn-whats { background: #25D366; color: #fff; }
+.btn-whats:hover { background: #1ebc59; }
+.card-carregar { border-color: var(--fundo3); }
+.carregar-texto { font-size: 0.83rem; color: var(--primario2); line-height: 1.5; margin-top: 4px; }
+.zona-arraste {
+  border: 2px dashed var(--fundo3);
+  border-radius: 12px;
+  padding: 34px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: #fbfcff;
+  font-size: 0.95rem;
+  color: var(--texto);
+  transition: background 0.15s, border-color 0.15s;
+}
+.zona-arraste:hover { background: #f0f4ff; border-color: var(--primario2); }
+.zona-arraste.arrastando-arquivo { background: #eaf0ff; border-color: var(--primario2); border-style: solid; }
+.zona-arraste.carregando { cursor: wait; opacity: 0.7; }
+.btn-carregar {
+  background: var(--branco);
+  color: var(--primario);
+  border: 1.5px solid var(--primario);
+  flex: none;
+  max-width: none;
+}
+.btn-carregar:hover { background: var(--fundo2); }
+
+.divisor-ou {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--cinza);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.divisor-ou::before, .divisor-ou::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--fundo3);
+}
+.btn-colar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fundo);
+  color: var(--primario2);
+  border: 1.5px dashed var(--fundo3);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-colar-toggle:hover { background: var(--fundo2); border-color: var(--primario2); }
+#colar_texto_bloco textarea {
+  min-height: 170px;
+  font-size: 0.82rem;
+}
+
+.rodape-obs {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--cinza);
+  margin-top: 8px;
+  padding: 0 20px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div style="background:#fff;border-radius:8px;padding:4px 8px;display:flex;align-items:center"><img src="data:image/png;base64,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" style="height:52px;width:auto;object-fit:contain" alt="Imobiliária Bandeirantes"></div>
+    <div>
+      <h1>Formulário Interno de Locação</h1><span class="versao">v42</span>
+      <div class="sub">Imobiliária Bandeirantes — uso interno</div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="intro">
+    Uso interno da imobiliária. <b>Importe o PDF</b> que o locatário enviou (gerado pelo formulário
+    online) para trazer automaticamente os dados de Locatários, Fiadores, Documentos, preferência de
+    pagamento e animais. Quando o locatário não conseguir enviar o PDF, também dá pra <b>colar a
+    mensagem de WhatsApp</b> gerada pelo formulário dele. Depois é só completar <b>Imóvel</b>,
+    <b>Proprietário</b> e <b>Observações</b> e gerar o PDF interno completo.
+  </div>
+
+  <div class="card card-carregar" id="dropzone_carregar">
+    <div class="card-header"><h2>📤 Importar Dados do Formulário</h2></div>
+    <div class="card-body">
+      <div class="zona-arraste" id="zona_arraste" onclick="document.getElementById('input_carregar_formulario').click()">
+        <span id="zona_arraste_texto">📎 <strong>Arraste o formulário aqui</strong> ou clique para escolher (PDF)</span>
+      </div>
+      <div class="carregar-texto">
+        Carregue aqui o PDF gerado pelo app do locatário para recuperar os dados enviados por ele. Funciona com
+        o formulário completo (já marca os documentos que ele enviou) e também com o formulário básico, sem
+        documentos (recupera só os dados — os documentos você marca aqui manualmente). Os campos de Imóvel,
+        Proprietário e Observações não vêm de nenhum desses PDFs — preencha-os aqui depois de importar.
+      </div>
+      <input type="file" id="input_carregar_formulario" accept="application/pdf" style="display:none" onchange="processarCarregarFormulario(this.files)">
+
+      <div class="divisor-ou">ou</div>
+
+      <button type="button" class="btn-colar-toggle" id="btn_colar_toggle" onclick="alternarColarTexto()">📋 Colar mensagem do WhatsApp</button>
+      <div id="colar_texto_bloco" style="display:none; margin-top:12px;">
+        <div class="carregar-texto" style="margin-top:0;">
+          Cole aqui a mensagem que o locatário mandou pelo WhatsApp quando não conseguiu enviar o PDF (o texto
+          gerado pelo formulário básico dele). Essa mensagem não traz os documentos — depois de importar, marque-os
+          aqui manualmente.
+        </div>
+        <div class="field-group" style="margin-top:10px;">
+          <textarea id="colar_texto_area" placeholder="Cole aqui o texto da mensagem recebida no WhatsApp..."></textarea>
+        </div>
+        <button type="button" class="btn btn-carregar" style="width:100%; max-width:none;" onclick="processarColarTexto()">📥 Importar texto colado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMÓVEL -->
+  <div class="card">
+    <div class="card-header"><h2>🏠 Imóvel</h2></div>
+    <div class="card-body">
+      <div class="field-group busca-cadastro-wrap">
+        <label>🔍 Buscar no cadastro (endereço ou proprietário)</label>
+        <input type="text" id="busca_cadastro" placeholder="Digite para buscar..." autocomplete="off">
+        <div class="opcoes" style="margin-top:8px;">
+          <label class="opcao marcada">
+            <input type="checkbox" id="filtro_status_busca" checked onchange="onFiltroStatusBuscaMudou()">
+            Não Buscar Imóveis Inativos ou Ocupados
+          </label>
+        </div>
+        <div id="busca_cadastro_resultados" class="busca-resultados" style="display:none"></div>
+        <span class="campo-dica" id="busca_cadastro_status"></span>
+      </div>
+      <div class="field-group">
+        <label>Endereço</label>
+        <input type="text" id="imovel_endereco" placeholder="Endereço completo do imóvel">
+      </div>
+      <div class="grid2">
+        <div class="field-group">
+          <label>Valor R$</label>
+          <input type="text" id="imovel_valor" inputmode="numeric" placeholder="Ex: 100.000,00" oninput="mascararValor(this)">
+        </div>
+        <div class="field-group">
+          <label>Data Início</label>
+          <input type="date" id="imovel_data_inicio">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field-group">
+          <label>Utilização</label>
+          <div class="opcoes" data-radio-group="utilizacao_imovel">
+            <label class="opcao"><input type="radio" name="utilizacao_imovel" value="Residencial" onchange="atualizarUtilizacao()"> Residencial</label>
+            <label class="opcao"><input type="radio" name="utilizacao_imovel" value="Comercial" onchange="atualizarUtilizacao()"> Comercial</label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>📅 Dia de preferência do Locatário</label>
+          <select id="dia_pagamento">
+            <option value="">Não indicado</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field-group">
+          <label>Proprietário</label>
+          <input type="text" id="proprietario_nome" placeholder="Ex: JOÃO DA SILVA">
+        </div>
+        <div class="field-group">
+          <label>Código</label>
+          <input type="text" id="proprietario_codigo" style="max-width:200px" placeholder="Ex: L.26.000" oninput="mascararCodigoImovel(this)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCATÁRIOS -->
+  <div class="card">
+    <div class="card-header"><h2>👤 Locatários</h2></div>
+    <div class="card-body">
+
+      <div class="field-group">
+        <label>Número de Locatários</label>
+        <div class="opcoes" data-radio-group="qtd_locatarios">
+          <label class="opcao"><input type="radio" name="qtd_locatarios" value="1" onchange="atualizarQtd('locatarios')"> 01</label>
+          <label class="opcao"><input type="radio" name="qtd_locatarios" value="2" onchange="atualizarQtd('locatarios')"> 02</label>
+          <label class="opcao"><input type="radio" name="qtd_locatarios" value="PJ" onchange="atualizarQtd('locatarios')"> 🏢 PJ</label>
+        </div>
+        <div class="nota-obrigatoria" id="nota_conjuge_locatarios" style="display:none">🔒 Obrigatório incluir o Locatário (2) — cônjuge — pois o locatário é casado(a) em locação residencial.</div>
+        <div class="nota-obrigatoria" id="nota_pj_locatarios" style="display:none">🏢 Locação para Pessoa Jurídica: o Locatário (1) passa a ser a Empresa, e o Locatário (2) é obrigatório como Representante Legal.</div>
+      </div>
+
+      <div class="subbloco" id="loc1_bloco">
+        <div class="subbloco-titulo" id="loc1_titulo">Locatário (1)</div>
+        <div class="field-group">
+          <label id="loc1_label_nome">Nome completo</label>
+          <input type="text" id="loc1_nome">
+        </div>
+        <div class="grid3" id="loc1_campos_grid">
+          <div class="field-group" id="loc1_profissao_grupo">
+            <label>Profissão</label>
+            <input type="text" id="loc1_profissao">
+          </div>
+          <div class="field-group">
+            <label>Telefone</label>
+            <input type="tel" id="loc1_tel" placeholder="(00) 0.0000-0000" oninput="mascararTelefone(this)">
+          </div>
+          <div class="field-group">
+            <label>E-mail</label>
+            <input type="email" id="loc1_email">
+          </div>
+        </div>
+        <div class="field-group" id="loc1_estcivil_grupo">
+          <label>Estado civil</label>
+          <div class="opcoes" data-radio-group="loc1_estado_civil">
+            <label class="opcao"><input type="radio" name="loc1_estado_civil" value="Solteiro(a)" onchange="atualizarConjugeObrigatorio()"> Solteiro(a)</label>
+            <label class="opcao"><input type="radio" name="loc1_estado_civil" value="Casado(a)" onchange="atualizarConjugeObrigatorio()"> Casado(a)</label>
+            <label class="opcao"><input type="radio" name="loc1_estado_civil" value="Separado(a)" onchange="atualizarConjugeObrigatorio()"> Separado(a)</label>
+            <label class="opcao"><input type="radio" name="loc1_estado_civil" value="Divorciado(a)" onchange="atualizarConjugeObrigatorio()"> Divorciado(a)</label>
+            <label class="opcao"><input type="radio" name="loc1_estado_civil" value="Viúvo(a)" onchange="atualizarConjugeObrigatorio()"> Viúvo(a)</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="subbloco" id="loc2_bloco">
+        <div class="subbloco-titulo" id="loc2_titulo">Locatário (2)</div>
+        <div class="field-group">
+          <label>Nome completo</label>
+          <input type="text" id="loc2_nome">
+        </div>
+        <div class="grid3">
+          <div class="field-group">
+            <label>Profissão</label>
+            <input type="text" id="loc2_profissao">
+          </div>
+          <div class="field-group">
+            <label>Telefone</label>
+            <input type="tel" id="loc2_tel" placeholder="(00) 0.0000-0000" oninput="mascararTelefone(this)">
+          </div>
+          <div class="field-group">
+            <label>E-mail</label>
+            <input type="email" id="loc2_email">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Estado civil</label>
+          <div class="opcoes" data-radio-group="loc2_estado_civil">
+            <label class="opcao"><input type="radio" name="loc2_estado_civil" value="Solteiro(a)"> Solteiro(a)</label>
+            <label class="opcao"><input type="radio" name="loc2_estado_civil" value="Casado(a)"> Casado(a)</label>
+            <label class="opcao"><input type="radio" name="loc2_estado_civil" value="Separado(a)"> Separado(a)</label>
+            <label class="opcao"><input type="radio" name="loc2_estado_civil" value="Divorciado(a)"> Divorciado(a)</label>
+            <label class="opcao"><input type="radio" name="loc2_estado_civil" value="Viúvo(a)"> Viúvo(a)</label>
+          </div>
+          <div class="nota-obrigatoria" id="nota_estado_civil_loc2" style="display:none">🔒 Travado em Casado(a): o Locatário (2) foi incluído como cônjuge do Locatário (1).</div>
+        </div>
+      </div>
+
+      <div class="doc-instrucao">
+        Marque os documentos que já foram apresentados. Ao importar um formulário do locatário, os
+        itens que ele enviou já vêm marcados automaticamente.
+      </div>
+      <div class="docs-2colunas" id="docs_loc_grid">
+        <div id="docs_loc1_container"></div>
+        <div id="docs_loc2_container" style="display:none"></div>
+      </div>
+      <div id="docs_loc_shared_container"></div>
+
+    </div>
+  </div>
+
+  <!-- FIADORES -->
+  <div class="card">
+    <div class="card-header"><h2>🤝 Fiadores</h2></div>
+    <div class="card-body">
+
+      <div class="field-group">
+        <label>Número de Fiadores</label>
+        <div class="opcoes" data-radio-group="qtd_fiadores">
+          <label class="opcao"><input type="radio" name="qtd_fiadores" value="1" onchange="atualizarQtd('fiadores')"> 01</label>
+          <label class="opcao"><input type="radio" name="qtd_fiadores" value="2" onchange="atualizarQtd('fiadores')"> 02</label>
+          <label class="opcao"><input type="radio" name="qtd_fiadores" value="PJ" onchange="atualizarQtd('fiadores')"> 🏢 PJ</label>
+          <label class="opcao"><input type="radio" name="qtd_fiadores" value="Caucao" onchange="atualizarQtd('fiadores')"> 💰 Caução</label>
+        </div>
+        <div class="nota-obrigatoria" id="nota_conjuge_fiadores" style="display:none">🔒 Obrigatório incluir o Fiador (2) — cônjuge — pois o fiador é casado(a).</div>
+        <div class="nota-obrigatoria" id="nota_pj_fiadores" style="display:none">🏢 Fiador Pessoa Jurídica: o Fiador (1) passa a ser a Empresa, e o Fiador (2) é obrigatório como Representante Legal.</div>
+        <div class="nota-obrigatoria" id="nota_caucao_fiadores" style="display:none">💰 Caução selecionada: não há Fiador nesta locação — nenhum documento de fiador será solicitado. Preencha os dados da caução abaixo.</div>
+      </div>
+
+      <div class="subbloco" id="fiador1_bloco">
+        <div class="subbloco-titulo" id="fiador1_titulo">Fiador (1)</div>
+        <div class="field-group">
+          <label id="fiador1_label_nome">Nome completo</label>
+          <input type="text" id="fiador1_nome">
+        </div>
+        <div class="grid3" id="fiador1_campos_grid">
+          <div class="field-group" id="fiador1_profissao_grupo">
+            <label>Profissão</label>
+            <input type="text" id="fiador1_profissao">
+          </div>
+          <div class="field-group">
+            <label>Telefone</label>
+            <input type="tel" id="fiador1_tel" placeholder="(00) 0.0000-0000" oninput="mascararTelefone(this)">
+          </div>
+          <div class="field-group">
+            <label>E-mail</label>
+            <input type="email" id="fiador1_email">
+          </div>
+        </div>
+        <div class="field-group" id="fiador1_estcivil_grupo">
+          <label>Estado civil</label>
+          <div class="opcoes" data-radio-group="fiador1_estado_civil">
+            <label class="opcao"><input type="radio" name="fiador1_estado_civil" value="Solteiro(a)" onchange="atualizarConjugeObrigatorio()"> Solteiro(a)</label>
+            <label class="opcao"><input type="radio" name="fiador1_estado_civil" value="Casado(a)" onchange="atualizarConjugeObrigatorio()"> Casado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador1_estado_civil" value="Separado(a)" onchange="atualizarConjugeObrigatorio()"> Separado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador1_estado_civil" value="Divorciado(a)" onchange="atualizarConjugeObrigatorio()"> Divorciado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador1_estado_civil" value="Viúvo(a)" onchange="atualizarConjugeObrigatorio()"> Viúvo(a)</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="subbloco" id="fiador2_bloco">
+        <div class="subbloco-titulo" id="fiador2_titulo">Fiador (2)</div>
+        <div class="field-group">
+          <label>Nome completo</label>
+          <input type="text" id="fiador2_nome">
+        </div>
+        <div class="grid3">
+          <div class="field-group">
+            <label>Profissão</label>
+            <input type="text" id="fiador2_profissao">
+          </div>
+          <div class="field-group">
+            <label>Telefone</label>
+            <input type="tel" id="fiador2_tel" placeholder="(00) 0.0000-0000" oninput="mascararTelefone(this)">
+          </div>
+          <div class="field-group">
+            <label>E-mail</label>
+            <input type="email" id="fiador2_email">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Estado civil</label>
+          <div class="opcoes" data-radio-group="fiador2_estado_civil">
+            <label class="opcao"><input type="radio" name="fiador2_estado_civil" value="Solteiro(a)"> Solteiro(a)</label>
+            <label class="opcao"><input type="radio" name="fiador2_estado_civil" value="Casado(a)"> Casado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador2_estado_civil" value="Separado(a)"> Separado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador2_estado_civil" value="Divorciado(a)"> Divorciado(a)</label>
+            <label class="opcao"><input type="radio" name="fiador2_estado_civil" value="Viúvo(a)"> Viúvo(a)</label>
+          </div>
+          <div class="nota-obrigatoria" id="nota_estado_civil_fiador2" style="display:none">🔒 Travado em Casado(a): o Fiador (2) foi incluído como cônjuge do Fiador (1).</div>
+        </div>
+      </div>
+
+      <div id="fiador_docs_wrap">
+        <div class="doc-instrucao">
+          Marque os documentos que já foram apresentados.
+        </div>
+        <div class="docs-2colunas" id="docs_fiador_grid">
+          <div id="docs_fiador1_container"></div>
+          <div id="docs_fiador2_container" style="display:none"></div>
+        </div>
+        <div id="docs_fiador_shared_container"></div>
+      </div>
+
+      <div class="subbloco" id="caucao_bloco" style="display:none">
+        <div class="subbloco-titulo">Caução</div>
+        <div class="grid3">
+          <div class="field-group">
+            <label>Valor R$</label>
+            <input type="text" id="caucao_valor" inputmode="numeric" placeholder="Ex: 3.000,00" oninput="mascararValor(this)">
+          </div>
+          <div class="field-group">
+            <label>Banco</label>
+            <input type="text" id="caucao_banco" placeholder="Ex: Banco do Brasil">
+          </div>
+          <div class="field-group">
+            <label>Conta</label>
+            <input type="text" id="caucao_conta" placeholder="Ex: Ag. 0001 / CC 00000-0">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- OBSERVAÇÕES -->
+  <div class="card">
+    <div class="card-header"><h2>📝 Observações</h2></div>
+    <div class="card-body">
+      <div class="field-group">
+        <label>🐾 Possui animais de estimação?</label>
+        <div class="opcoes" data-radio-group="tem_animais">
+          <label class="opcao"><input type="radio" name="tem_animais" value="Sim" onchange="atualizarAnimais()"> Sim</label>
+          <label class="opcao"><input type="radio" name="tem_animais" value="Não" onchange="atualizarAnimais()"> Não</label>
+        </div>
+      </div>
+
+      <div id="animais_detalhes" class="subbloco">
+        <div class="field-group">
+          <label>Quantidade</label>
+          <input type="number" id="animais_qtd" min="1" placeholder="Ex: 2" style="max-width:140px">
+        </div>
+        <div class="field-group">
+          <label>Espécie</label>
+          <div class="opcoes opcoes-linha" data-radio-group="animais_especie">
+            <label class="opcao"><input type="checkbox" name="animais_especie" value="Cachorro" onchange="atualizarEspecieOutro()"> Cachorro</label>
+            <label class="opcao"><input type="checkbox" name="animais_especie" value="Gato" onchange="atualizarEspecieOutro()"> Gato</label>
+            <label class="opcao"><input type="checkbox" name="animais_especie" value="Outro" onchange="atualizarEspecieOutro()"> Outro</label>
+          </div>
+        </div>
+        <div class="field-group" id="animais_especie_outro_bloco">
+          <label>Qual animal?</label>
+          <input type="text" id="animais_especie_outro" placeholder="Ex: Coelho, Pássaro, Tartaruga...">
+        </div>
+        <div class="field-group">
+          <label>Porte</label>
+          <div class="opcoes opcoes-linha" data-radio-group="animais_porte">
+            <label class="opcao"><input type="checkbox" name="animais_porte" value="Pequeno"> Pequeno</label>
+            <label class="opcao"><input type="checkbox" name="animais_porte" value="Médio"> Médio</label>
+            <label class="opcao"><input type="checkbox" name="animais_porte" value="Grande"> Grande</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Observações padrão</label>
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_area_inundacao" name="obs_area_inundacao" value="sim"> Área de Inundação</label>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_rg_outra_uf" name="obs_rg_outra_uf" value="sim" onchange="definirDisplay('bloco_rg_outra_uf', this.checked)"> RG de outra UF</label>
+        </div>
+        <div class="obs-subpainel" id="bloco_rg_outra_uf" style="display:none">
+          <div class="field-group">
+            <label>Quem tem RG de outra UF?</label>
+            <div class="opcoes opcoes-linha" data-radio-group="rg_outra_uf_quem">
+              <label class="opcao"><input type="checkbox" name="rg_outra_uf_quem" value="loc1"> Locatário (1)</label>
+              <label class="opcao"><input type="checkbox" name="rg_outra_uf_quem" value="loc2"> Locatário (2)</label>
+              <label class="opcao"><input type="checkbox" name="rg_outra_uf_quem" value="fiador1"> Fiador (1)</label>
+              <label class="opcao"><input type="checkbox" name="rg_outra_uf_quem" value="fiador2"> Fiador (2)</label>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field-group">
+              <label>Órgão emissor</label>
+              <input type="text" id="rg_outra_uf_orgao" placeholder="Ex: DETRAN">
+            </div>
+            <div class="field-group">
+              <label>UF</label>
+              <select id="rg_outra_uf_uf" style="max-width:120px">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_nao_tem_rg" name="obs_nao_tem_rg" value="sim" onchange="definirDisplay('bloco_nao_tem_rg', this.checked)"> Não tem RG (RG = CPF)</label>
+        </div>
+        <div class="obs-subpainel" id="bloco_nao_tem_rg" style="display:none">
+          <div class="field-group">
+            <label>Quem não tem RG?</label>
+            <div class="opcoes opcoes-linha" data-radio-group="nao_tem_rg_quem">
+              <label class="opcao"><input type="checkbox" name="nao_tem_rg_quem" value="loc1"> Locatário (1)</label>
+              <label class="opcao"><input type="checkbox" name="nao_tem_rg_quem" value="loc2"> Locatário (2)</label>
+              <label class="opcao"><input type="checkbox" name="nao_tem_rg_quem" value="fiador1"> Fiador (1)</label>
+              <label class="opcao"><input type="checkbox" name="nao_tem_rg_quem" value="fiador2"> Fiador (2)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_integrante_pj" name="obs_integrante_pj" value="sim" onchange="definirDisplay('bloco_integrante_pj', this.checked)"> Integrante PJ</label>
+        </div>
+        <div class="obs-subpainel" id="bloco_integrante_pj" style="display:none">
+          <div class="field-group">
+            <label>Quem é PJ?</label>
+            <div class="opcoes opcoes-linha" data-radio-group="pj_quem">
+              <label class="opcao"><input type="checkbox" name="pj_quem" value="Locador"> Locador</label>
+              <label class="opcao"><input type="checkbox" name="pj_quem" value="Locatário"> Locatário</label>
+              <label class="opcao"><input type="checkbox" name="pj_quem" value="Fiador"> Fiador</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_descontos" name="obs_descontos" value="sim" onchange="definirDisplay('bloco_descontos', this.checked)"> Descontos / Carência</label>
+        </div>
+        <div class="obs-subpainel" id="bloco_descontos" style="display:none">
+          <div class="grid2">
+            <div class="field-group">
+              <label>Valor R$</label>
+              <input type="text" id="desconto_valor" inputmode="numeric" placeholder="Ex: 1.000,00" oninput="mascararValor(this)">
+              <label class="opcao-carencia"><input type="checkbox" id="desconto_carencia" name="desconto_carencia" value="sim" onchange="atualizarCarenciaDesconto()"> Carência (isenção total — bloqueia o valor)</label>
+            </div>
+            <div class="field-group">
+              <label>Meses</label>
+              <input type="number" id="desconto_meses" min="1" style="max-width:120px">
+            </div>
+          </div>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_doc_incompleta" name="obs_doc_incompleta" value="sim"> Documentação Incompleta</label>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_sem_garantia" name="obs_sem_garantia" value="sim"> Locação sem Imóvel Garantia</label>
+        </div>
+
+        <div class="opcoes opcoes-linha">
+          <label class="opcao"><input type="checkbox" id="obs_matricula_atualizada" name="obs_matricula_atualizada" value="sim"> Solicitar Matrícula Atualizada</label>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Observações gerais</label>
+        <textarea id="observacoes" placeholder="Observações internas sobre a locação..." style="min-height:110px"></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="barra-acoes">
+  <div class="barra-conteudo">
+    <div class="barra-botoes">
+      <button class="btn btn-baixar" id="btn_baixar" onclick="baixarArquivo()" style="max-width:none">📄 Gerar PDF Interno</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<!-- pdf.js: usado só para LER o texto de PDFs vindos de outros formulários (que não
+     guardam os dados anexados como este sistema faz) — ver carregarFormularioDePdf() -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+</script>
+
+<!-- SheetJS: lê a planilha de cadastro de imóveis/proprietários (cadastro.xlsx),
+     usada pela busca do card Imóvel — ver carregarCadastro() -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+const LOGO_BASE64 = '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';
+const LOGO_MIME = 'image/png';
+
+function mascararTelefone(input) {
+  let d = input.value.replace(/\D/g, '').slice(0, 11);
+  let r = '';
+  if (d.length > 0) r = '(' + d.slice(0, 2);
+  if (d.length >= 2) r += ') ';
+  if (d.length > 2) r += d.slice(2, 3);
+  if (d.length > 3) r += '.' + d.slice(3, 7);
+  if (d.length > 7) r += '-' + d.slice(7, 11);
+  input.value = r;
+}
+
+// formata o campo "Valor R$" como moeda brasileira (100.000,00) conforme o usuário digita
+function mascararValor(input) {
+  let d = input.value.replace(/\D/g, '');
+  if (!d) { input.value = ''; return; }
+  d = d.replace(/^0+(?=\d)/, '');
+  while (d.length < 3) d = '0' + d;
+  const centavos = d.slice(-2);
+  let inteiros = d.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  input.value = inteiros + ',' + centavos;
+}
+
+// converte o texto livre de estado civil vindo do Excel (ex.: "casado", "CASADA",
+// "Casado (a)") no valor exato usado pelas pills do formulário
+function mapearEstadoCivilTexto(texto) {
+  const t = (texto || '').toLowerCase();
+  if (t.includes('solteir')) return 'Solteiro(a)';
+  if (t.includes('casad')) return 'Casado(a)';
+  if (t.includes('separad')) return 'Separado(a)';
+  if (t.includes('divorciad')) return 'Divorciado(a)';
+  if (t.includes('viuv') || t.includes('viúv')) return 'Viúvo(a)';
+  return '';
+}
+
+// formata CPF como 000.000.000-00 enquanto digita
+function mascararCPF(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+  input.value = v;
+}
+
+// formata RG agrupando dígitos de 3 em 3 da direita pra esquerda (ex: 28228765 -> 28.228.765)
+// aceita um X final (dígito verificador usado em alguns estados)
+function mascararRG(input) {
+  let bruto = input.value.toUpperCase().replace(/[^0-9X]/g, '');
+  let sufixoX = '';
+  if (bruto.endsWith('X')) { sufixoX = 'X'; bruto = bruto.slice(0, -1); }
+  bruto = bruto.replace(/\D/g, '').slice(0, 9);
+  const partes = [];
+  let resto = bruto;
+  while (resto.length > 3) {
+    partes.unshift(resto.slice(-3));
+    resto = resto.slice(0, -3);
+  }
+  if (resto) partes.unshift(resto);
+  input.value = partes.join('.') + sufixoX;
+}
+
+// formata o campo "Código" do imóvel como L.00.000 (ex: digitar 26050 vira L.26.050)
+function mascararCodigoImovel(input) {
+  const digitos = input.value.replace(/\D/g, '').slice(0, 5);
+  if (!digitos) { input.value = ''; return; }
+  const formatado = digitos.length > 3
+    ? digitos.slice(0, digitos.length - 3) + '.' + digitos.slice(-3)
+    : digitos;
+  input.value = 'L.' + formatado;
+}
+
+// mostra/oculta os blocos do Locatário/Fiador (1) e (2) conforme a quantidade selecionada
+// define display de um elemento com segurança (não quebra se o elemento não existir)
+function definirDisplay(id, mostrar) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = mostrar ? '' : 'none';
+}
+
+function atualizarQtd(tipo) {
+  if (tipo === 'locatarios') {
+    const valor = radioValor('qtd_locatarios'); // '', '1', '2' ou 'PJ'
+    const doisOuMais = valor === '2' || valor === 'PJ';
+    definirDisplay('loc1_bloco', !!valor);
+    definirDisplay('loc2_bloco', doisOuMais);
+    definirDisplay('docs_loc2_container', doisOuMais);
+    document.getElementById('docs_loc_grid').classList.toggle('uma-coluna', !doisOuMais);
+    definirDisplay('nota_pj_locatarios', valor === 'PJ');
+    aplicarModoPJ('loc', valor === 'PJ');
+  } else if (tipo === 'fiadores') {
+    const valor = radioValor('qtd_fiadores'); // '', '1', '2', 'PJ' ou 'Caucao'
+    const mostrarPessoas = valor === '1' || valor === '2' || valor === 'PJ';
+    const doisOuMais = valor === '2' || valor === 'PJ';
+    definirDisplay('fiador1_bloco', mostrarPessoas);
+    definirDisplay('fiador2_bloco', doisOuMais);
+    definirDisplay('docs_fiador2_container', doisOuMais);
+    document.getElementById('docs_fiador_grid').classList.toggle('uma-coluna', !doisOuMais);
+    definirDisplay('fiador_docs_wrap', mostrarPessoas);
+    definirDisplay('caucao_bloco', valor === 'Caucao');
+    definirDisplay('nota_pj_fiadores', valor === 'PJ');
+    definirDisplay('nota_caucao_fiadores', valor === 'Caucao');
+    aplicarModoPJ('fiador', valor === 'PJ');
+  }
+  // muda a quantidade pode alterar (destravar/travar) a obrigatoriedade do
+  // cônjuge — ex.: sair do modo PJ/Caução tem que devolver os botões "01"/"02"
+  // que porventura tivessem ficado travados por causa de um cônjuge obrigatório
+  atualizarConjugeObrigatorio();
+}
+
+// ── Modo PJ (Pessoa Jurídica) — Locatário ou Fiador ──
+// Quando ativo, a pessoa (1) do bloco vira a Empresa (só Nome/Razão Social,
+// Telefone e E-mail — sem Profissão/Estado Civil, que não fazem sentido pra
+// uma PJ) e a pessoa (2) vira o Representante Legal, preenchida do jeito
+// normal (como um Locatário/Fiador comum). Os documentos da pessoa (1) trocam
+// de Doc. Pessoal/Est. Civil/Renda para Cartão CNPJ + Contrato Social
+// Consolidado; os da pessoa (2) continuam os documentos padrão de pessoa.
+function aplicarModoPJ(prefixoBase, ativo) {
+  const p1 = prefixoBase + '1';
+  const p2 = prefixoBase + '2';
+  const rotuloBase = prefixoBase === 'loc' ? 'Locatário' : 'Fiador';
+
+  definirDisplay(p1 + '_profissao_grupo', !ativo);
+  definirDisplay(p1 + '_estcivil_grupo', !ativo);
+  const gridEl = document.getElementById(p1 + '_campos_grid');
+  if (gridEl) { gridEl.classList.toggle('grid3', !ativo); gridEl.classList.toggle('grid2', ativo); }
+
+  const tituloEl = document.getElementById(p1 + '_titulo');
+  if (tituloEl) tituloEl.textContent = ativo ? ('🏢 Empresa (' + rotuloBase + ')') : (rotuloBase + ' (1)');
+  const titulo2El = document.getElementById(p2 + '_titulo');
+  if (titulo2El) titulo2El.textContent = ativo ? ('Representante Legal (' + rotuloBase + ')') : (rotuloBase + ' (2)');
+
+  const labelNomeEl = document.getElementById(p1 + '_label_nome');
+  if (labelNomeEl) labelNomeEl.textContent = ativo ? 'Nome da Empresa / Razão Social' : 'Nome completo';
+  const inputNomeEl = document.getElementById(p1 + '_nome');
+  if (inputNomeEl) inputNomeEl.placeholder = ativo ? 'Ex: EMPRESA XYZ LTDA' : '';
+
+  const docTituloEl = document.getElementById('doc_titulo_' + p1);
+  if (docTituloEl) docTituloEl.textContent = ativo ? ('🏢 Empresa (' + rotuloBase + ')') : (rotuloBase + ' (1)');
+
+  document.querySelectorAll('#docs_' + p1 + '_container .doc-check-item').forEach(item => {
+    const ehDocPJ = item.dataset.pj === '1';
+    item.style.display = (ativo === ehDocPJ) ? '' : 'none';
+  });
+}
+
+// as chamadas iniciais de atualizarQtd() ficam pra depois de montarDocumentos()
+// (mais abaixo neste script) — atualizarQtd() aciona atualizarConjugeObrigatorio(),
+// que já mexe em documentosState/itens de documento, então precisa que eles
+// já existam antes de rodar pela primeira vez
+
+// mostra/oculta os detalhes de animais de estimação conforme a resposta
+function atualizarAnimais() {
+  definirDisplay('animais_detalhes', radioValor('tem_animais') === 'Sim');
+}
+atualizarAnimais();
+
+// mostra/oculta o campo "Qual animal?" quando a espécie escolhida for "Outro"
+function atualizarEspecieOutro() {
+  definirDisplay('animais_especie_outro_bloco', valoresSelecionados('animais_especie').includes('Outro'));
+}
+atualizarEspecieOutro();
+
+// popula o seletor de dia de pagamento (02 a 28) — a opção "Não indicado" já está no HTML
+(function montarDiasPagamento() {
+  const select = document.getElementById('dia_pagamento');
+  for (let dia = 2; dia <= 28; dia++) {
+    const valor = String(dia).padStart(2, '0');
+    const opt = document.createElement('option');
+    opt.value = valor;
+    opt.textContent = valor;
+    select.appendChild(opt);
+  }
+})();
+
+// popula o seletor de UF (para "RG de outra UF")
+(function montarUFs() {
+  const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  const select = document.getElementById('rg_outra_uf_uf');
+  ufs.forEach(uf => {
+    const opt = document.createElement('option');
+    opt.value = uf;
+    opt.textContent = uf;
+    select.appendChild(opt);
+  });
+})();
+
+// sincroniza a exibição dos subblocos das observações padrão com o estado
+// atual dos checkboxes (usado depois de importar um formulário)
+function atualizarObsPadrao() {
+  definirDisplay('bloco_rg_outra_uf', document.getElementById('obs_rg_outra_uf').checked);
+  definirDisplay('bloco_nao_tem_rg', document.getElementById('obs_nao_tem_rg').checked);
+  definirDisplay('bloco_integrante_pj', document.getElementById('obs_integrante_pj').checked);
+  definirDisplay('bloco_descontos', document.getElementById('obs_descontos').checked);
+  atualizarCarenciaDesconto();
+}
+
+// quando "Carência" é marcada, bloqueia o campo Valor R$ (isenção total, sem valor a informar)
+function atualizarCarenciaDesconto() {
+  const chk = document.getElementById('desconto_carencia');
+  const campo = document.getElementById('desconto_valor');
+  campo.disabled = chk.checked;
+  if (chk.checked) campo.value = '';
+}
+
+// destaca visualmente a opção marcada (pill) — funciona para radio (única escolha) e checkbox (múltipla escolha)
+document.querySelectorAll('.opcoes').forEach(grupo => {
+  grupo.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.type === 'radio') {
+        grupo.querySelectorAll('.opcao').forEach(op => op.classList.remove('marcada'));
+        if (input.checked) input.closest('.opcao').classList.add('marcada');
+      } else if (input.type === 'checkbox') {
+        input.closest('.opcao').classList.toggle('marcada', input.checked);
+      }
+    });
+    if (input.checked) input.closest('.opcao').classList.add('marcada');
+  });
+});
+
+// ── Botões (pills) do tipo radio ficam "desclicáveis" ──
+// Por padrão, um <input type="radio"> não pode ser desmarcado clicando nele de
+// novo. Aqui adicionamos esse comportamento: clicar numa opção já marcada
+// desmarca ela, deixando o grupo sem seleção. Isso NÃO se aplica a opções que
+// estejam desabilitadas (disabled) — que é exatamente o estado usado pelas
+// travas de regra de negócio (ex.: cônjuge obrigatório quando "Casado(a)"),
+// então essas continuam impossíveis de desclicar.
+(function habilitarRadiosDesclicaveis() {
+  const radios = document.querySelectorAll('.opcoes input[type="radio"]');
+
+  function sincronizarGrupo(nome) {
+    document.querySelectorAll('input[name="' + nome + '"]').forEach(r => {
+      r.dataset.marcadoAntes = r.checked ? '1' : '0';
+    });
+  }
+
+  const nomesJaTratados = new Set();
+  radios.forEach(input => {
+    if (!nomesJaTratados.has(input.name)) {
+      nomesJaTratados.add(input.name);
+      sincronizarGrupo(input.name);
+    }
+
+    input.addEventListener('click', function () {
+      if (this.disabled) return;
+      if (this.dataset.marcadoAntes === '1') {
+        this.checked = false;
+        sincronizarGrupo(this.name);
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    input.addEventListener('change', function () {
+      sincronizarGrupo(this.name);
+    });
+  });
+})();
+
+function algumSelecionado(grupo) {
+  return document.querySelectorAll('.opcoes[data-radio-group="' + grupo + '"] input:checked').length > 0;
+}
+function valoresSelecionados(grupo) {
+  return Array.from(document.querySelectorAll('.opcoes[data-radio-group="' + grupo + '"] input:checked')).map(i => i.value);
+}
+
+
+// ---------- DOCUMENTOS: estado e montagem dinâmica dos itens ----------
+const documentosState = {};
+
+function criarItemDocumento(chave, label) {
+  documentosState[chave] = { marcado: false };
+
+  const wrap = document.createElement('label');
+  wrap.className = 'doc-check-item';
+  wrap.id = 'docitem_' + chave;
+  wrap.innerHTML =
+    '<input type="checkbox" id="chk_' + chave + '">' +
+    '<span>' + label + '</span>' +
+    '<span class="doc-check-tag" id="tag_' + chave + '" style="display:none">🔒 cônjuge</span>';
+
+  const input = wrap.querySelector('input[type="checkbox"]');
+  input.addEventListener('change', () => {
+    documentosState[chave].marcado = input.checked;
+    wrap.classList.toggle('marcado', input.checked);
+  });
+
+  return wrap;
+}
+
+// marca (e trava) ou libera o documento de "Comp. Est. Civil" quando a pessoa
+// (2) é um cônjuge incluído por obrigatoriedade — a certidão de casamento já
+// vale para o casal, então o item some marcado e não pode ser desmarcado
+// enquanto a trava estiver ativa
+function marcarDocumentoConjuge(chave, ativo) {
+  const estado = documentosState[chave];
+  const input = document.getElementById('chk_' + chave);
+  const wrap = document.getElementById('docitem_' + chave);
+  const tag = document.getElementById('tag_' + chave);
+  if (!estado || !input) return;
+
+  if (ativo) {
+    estado.marcado = true;
+    input.checked = true;
+    input.disabled = true;
+  } else if (input.disabled) {
+    input.disabled = false;
+  }
+  if (wrap) wrap.classList.toggle('marcado', estado.marcado);
+  if (wrap) wrap.classList.toggle('travado', ativo);
+  if (tag) tag.style.display = ativo ? '' : 'none';
+}
+
+function montarDocumentos() {
+  const itensPessoa = [
+    ['pessoal', '📄 Doc. Pessoal com Foto (RG/CPF/CNH)'],
+    ['civil', '📋 Comp. Est. Civil (Cert. Nascimento/Casamento)'],
+    ['renda', '💰 Comprovante de Renda (Holerite, IRPF, Extrato)']
+  ];
+  // documentos exigidos da Empresa quando o Locatário/Fiador (1) é PJ — ficam
+  // escondidos por padrão (o padrão é pessoa física) e aparecem no lugar dos
+  // itens acima quando aplicarModoPJ() ativa o modo PJ pro respectivo bloco
+  const itensEmpresa = [
+    ['cnpj', '🏢 Cartão CNPJ'],
+    ['contrato_social', '📑 Contrato Social Consolidado']
+  ];
+
+  const montarGrupo = (containerId, prefixo, rotuloPessoa, tituloId, comOpcaoEmpresa) => {
+    const cont = document.getElementById(containerId);
+    const grupo = document.createElement('div');
+    grupo.className = 'doc-pessoa-grupo';
+    const titulo = document.createElement('div');
+    titulo.className = 'doc-pessoa-titulo';
+    titulo.textContent = rotuloPessoa;
+    if (tituloId) titulo.id = tituloId;
+    grupo.appendChild(titulo);
+    itensPessoa.forEach(([sufixo, label]) => {
+      grupo.appendChild(criarItemDocumento(prefixo + '_' + sufixo, label));
+    });
+    if (comOpcaoEmpresa) {
+      itensEmpresa.forEach(([sufixo, label]) => {
+        const item = criarItemDocumento(prefixo + '_' + sufixo, label);
+        item.dataset.pj = '1';
+        item.style.display = 'none'; // começa escondido: o padrão é pessoa física
+        grupo.appendChild(item);
+      });
+    }
+    cont.appendChild(grupo);
+  };
+
+  montarGrupo('docs_loc1_container', 'loc1', 'Locatário (1)', 'doc_titulo_loc1', true);
+  montarGrupo('docs_loc2_container', 'loc2', 'Locatário (2)');
+  montarGrupo('docs_fiador1_container', 'fiador1', 'Fiador (1)', 'doc_titulo_fiador1', true);
+  montarGrupo('docs_fiador2_container', 'fiador2', 'Fiador (2)');
+
+  const contLocShared = document.getElementById('docs_loc_shared_container');
+  contLocShared.appendChild(criarItemDocumento('loc_residencial', '🏠 Comprovante de Endereço do Locatário (Locação Comercial)'));
+
+  const contFiadorShared = document.getElementById('docs_fiador_shared_container');
+  contFiadorShared.appendChild(criarItemDocumento('fiador_residencial', '🏠 Comprovante Residencial (Conta Nominal)'));
+  contFiadorShared.appendChild(criarItemDocumento('fiador_garantia', '📜 Comprovante Imóvel Garantia (Matrícula/Escritura/Contrato)'));
+}
+montarDocumentos();
+
+// só agora (com documentosState e os itens de documento já montados) é seguro
+// disparar a primeira atualização de quantidade — ela já aplica o modo PJ e a
+// trava de cônjuge, ambos dependentes do que foi criado acima
+atualizarQtd('locatarios');
+atualizarQtd('fiadores');
+
+// mostra/oculta o comprovante de endereço do locatário conforme a utilização (só para comercial)
+function atualizarUtilizacao() {
+  definirDisplay('docitem_loc_residencial', radioValor('utilizacao_imovel') === 'Comercial');
+  atualizarConjugeObrigatorio();
+}
+atualizarUtilizacao();
+
+// ── Regra do cônjuge obrigatório: DESATIVADA no formulário INTERNO ──
+// O formulário que o cliente preenche (fora deste app) exige os dados dos
+// dois quando a pessoa é casada(a). Aqui no formulário interno (uso da
+// imobiliária) essa obrigatoriedade NÃO se aplica: o atendente pode escolher
+// "01" normalmente mesmo com a pessoa (1) casada(a) — por exemplo quando só
+// os dados do cônjuge titular foram coletados. As duas flags abaixo ficam
+// sempre false por isso, de propósito; as funções que elas acionam (travar a
+// opção "01", auto-marcar o documento de est. civil do cônjuge, travar o
+// estado civil da pessoa 2) só entram em ação quando o valor é true, então
+// com elas sempre false nunca mais travam nada — a estrutura foi mantida
+// (em vez de apagada) pra não mexer no resto do fluxo de documentos/PDF, que
+// depende dessas mesmas funções com outros argumentos.
+function atualizarConjugeObrigatorio() {
+  const locObrigatorio = false;
+  aplicarTravaConjuge('qtd_locatarios', locObrigatorio, 'nota_conjuge_locatarios');
+  marcarDocumentoConjuge('loc2_civil', locObrigatorio);
+  travarEstadoCivil('loc2_estado_civil', 'Casado(a)', locObrigatorio, 'nota_estado_civil_loc2');
+
+  const fiadorObrigatorio = false;
+  aplicarTravaConjuge('qtd_fiadores', fiadorObrigatorio, 'nota_conjuge_fiadores');
+  marcarDocumentoConjuge('fiador2_civil', fiadorObrigatorio);
+  travarEstadoCivil('fiador2_estado_civil', 'Casado(a)', fiadorObrigatorio, 'nota_estado_civil_fiador2');
+}
+
+// quando a pessoa (2) é obrigatória por ser cônjuge, o estado civil dela já
+// vem marcado como Casado(a) e fica travado (não dá pra escolher outro)
+function travarEstadoCivil(nomeGrupo, valorTravado, travar, idNota) {
+  const inputs = document.querySelectorAll('input[name="' + nomeGrupo + '"]');
+  inputs.forEach(inp => {
+    inp.disabled = travar;
+    const label = inp.closest('.opcao');
+    if (label) label.classList.toggle('opcao-desabilitada', travar && inp.value !== valorTravado);
+  });
+  if (travar) {
+    const alvo = document.querySelector('input[name="' + nomeGrupo + '"][value="' + valorTravado + '"]');
+    if (alvo && !alvo.checked) {
+      alvo.checked = true;
+      alvo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  if (idNota) definirDisplay(idNota, travar);
+}
+
+function aplicarTravaConjuge(nomeRadio, obrigatorio, idNota) {
+  const opcaoUm = document.querySelector('input[name="' + nomeRadio + '"][value="1"]');
+  const opcaoDois = document.querySelector('input[name="' + nomeRadio + '"][value="2"]');
+
+  if (obrigatorio) {
+    if (opcaoDois && !opcaoDois.checked) {
+      opcaoDois.checked = true;
+      opcaoDois.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (opcaoUm) {
+      opcaoUm.disabled = true;
+      const label = opcaoUm.closest('.opcao');
+      if (label) label.classList.add('opcao-desabilitada');
+    }
+    // trava também a opção marcada (2), pra que a regra de "botão desclicável"
+    // não permita tirar a seleção obrigatória por causa do cônjuge
+    if (opcaoDois) opcaoDois.disabled = true;
+  } else {
+    if (opcaoUm) {
+      opcaoUm.disabled = false;
+      const label = opcaoUm.closest('.opcao');
+      if (label) label.classList.remove('opcao-desabilitada');
+    }
+    if (opcaoDois) opcaoDois.disabled = false;
+  }
+
+  definirDisplay(idNota, obrigatorio);
+}
+atualizarConjugeObrigatorio();
+
+function v(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  return (el.value || '').trim();
+}
+function checked(id) {
+  const el = document.getElementById(id);
+  return el && el.checked;
+}
+function radioValor(nome) {
+  const el = document.querySelector('input[name="' + nome + '"]:checked');
+  return el ? el.value : '';
+}
+function marcador(bool) { return bool ? '☑' : '☐'; }
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
+// ── Busca no cadastro de imóveis/proprietários (cadastro.xlsx) ──
+// Lê uma planilha (mesmo layout do "CONTRATOS CADASTRADOS") salva ao lado deste
+// index.html no repositório, e permite buscar por código, endereço ou
+// proprietário pra preencher o card Imóvel automaticamente.
+let cadastroDados = null;
+let cadastroCarregandoPromise = null;
+
+// ── ENDEREÇO DO CADASTRO (via Worker intermediário, repositório privado) ──
+// Em vez de buscar direto no GitHub, o app busca num Worker (Cloudflare) que
+// guarda o token de acesso ao repositório privado do lado do servidor — o
+// token nunca aparece aqui no código do app. O Worker só entrega o arquivo
+// pra quem mandar a CADASTRO_APP_KEY correta no cabeçalho X-App-Key.
+const CADASTRO_URL = 'imoveis.xlsx'; // ImobOne: o cadastro vem do sistema (nunca de planilha externa / Worker)
+const CADASTRO_APP_KEY = '';
+
+const MESES_EXTENSO = {
+  janeiro: '01', fevereiro: '02', março: '03', marco: '03', abril: '04',
+  maio: '05', junho: '06', julho: '07', agosto: '08', setembro: '09',
+  outubro: '10', novembro: '11', dezembro: '12'
+};
+
+function parseDataExtenso(texto) {
+  if (!texto) return '';
+  const m = String(texto).match(/(\d{1,2})\s*de\s*([a-zçãáéíóúâêô]+)\s*de\s*(\d{4})/i);
+  if (!m) return '';
+  const mes = MESES_EXTENSO[m[2].toLowerCase()];
+  if (!mes) return '';
+  return m[3] + '-' + mes + '-' + m[1].padStart(2, '0');
+}
+
+function parseDiaPagamentoCadastro(texto) {
+  if (!texto) return '';
+  const m = String(texto).match(/(\d{1,2})/);
+  return m ? m[1].padStart(2, '0') : '';
+}
+
+// tenta carregar o cadastro através do Worker (repositório privado).
+// Se o Worker não responder (fora do ar, chave errada, etc.), a busca fica
+// desativada silenciosamente — o resto do app funciona normalmente.
+async function carregarCadastro() {
+  if (cadastroDados) return cadastroDados;
+  if (cadastroCarregandoPromise) return cadastroCarregandoPromise;
+
+  cadastroCarregandoPromise = (async () => {
+    const status = document.getElementById('busca_cadastro_status');
+    if (typeof XLSX === 'undefined') {
+      if (status) status.textContent = '⚠️ Não foi possível carregar o cadastro — busca desativada.';
+      cadastroDados = [];
+      return cadastroDados;
+    }
+    try {
+      const resp = await fetch(CADASTRO_URL, {
+        headers: { 'X-App-Key': CADASTRO_APP_KEY }
+      });
+      if (!resp.ok) throw new Error('resposta não OK');
+      const buffer = await resp.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const linhas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+
+      const dados = [];
+      for (let i = 4; i < linhas.length; i++) {
+        const row = linhas[i];
+        if (!row || !row[0]) continue; // sem endereço, ignora (linha em branco)
+        dados.push({
+          endereco: (row[0] || '').toString().trim(),
+          proprietario: (row[1] || '').toString().trim(),
+          status: (row[2] || '').toString().trim().toUpperCase()
+        });
+      }
+      cadastroDados = dados;
+      if (status) status.textContent = dados.length ? '' : '⚠️ Cadastro encontrado, mas sem imóveis com endereço preenchido.';
+      return cadastroDados;
+    } catch (e) {
+      if (status) status.textContent = '⚠️ Não foi possível carregar o cadastro — busca desativada.';
+      cadastroDados = [];
+      return cadastroDados;
+    }
+  })();
+
+  return cadastroCarregandoPromise;
+}
+carregarCadastro(); // já dispara o carregamento em segundo plano, sem travar o app
+
+// ── ÍNDICE DE PESSOAS (Locadores, Locatários e Fiadores) ──
+// Usa o Worker do cadastro COMPLETO (mesmo que o outro app já usa), que serve
+// o Excel com todos os contratos. Aqui a gente varre TODOS os papéis que uma
+// pessoa já teve (Locador 1/2, Locatário 1/2, Fiador 1/2, em qualquer
+// contrato) e monta uma lista única por nome — assim dá pra achar alguém que
+// já foi fiador num contrato antigo e usar os dados dele como locatário novo.
+const CADASTRO_URL_PESSOAS = 'pessoas.xlsx'; // ImobOne: vem do sistema
+const CADASTRO_APP_KEY_PESSOAS = '';
+
+// o app do inquilino grava sozinho um valor "placeholder" de telefone/e-mail
+// na planilha quando a pessoa não informou o dado de verdade (em vez do campo
+// vir vazio) — um telefone fixo (DDD + só zeros) ou um e-mail genérico tipo
+// "xxx@gmail.com". Esses valores não são dados reais, então a busca de
+// pessoas no Excel (mais abaixo) não deve trazê-los nem preencher o
+// formulário com eles ao selecionar um resultado.
+function ehTelefonePlaceholder(valor) {
+  const digitos = String(valor).replace(/\D/g, '');
+  // DDD (2 dígitos) seguido só de zeros, com 10 ou 11 dígitos no total
+  return (digitos.length === 10 || digitos.length === 11) && /^\d{2}0+$/.test(digitos);
+}
+function ehEmailPlaceholder(valor) {
+  return /^x+@gmail\.com$/i.test(String(valor).trim());
+}
+
+let pessoasCadastro = null;
+let pessoasCadastroCarregandoPromise = null;
+
+async function carregarPessoasCadastro() {
+  if (pessoasCadastro) return pessoasCadastro;
+  if (pessoasCadastroCarregandoPromise) return pessoasCadastroCarregandoPromise;
+
+  pessoasCadastroCarregandoPromise = (async () => {
+    if (typeof XLSX === 'undefined') { pessoasCadastro = []; return pessoasCadastro; }
+    try {
+      const resp = await fetch(CADASTRO_URL_PESSOAS, { headers: { 'X-App-Key': CADASTRO_APP_KEY_PESSOAS } });
+      if (!resp.ok) throw new Error('resposta não OK');
+      const buffer = await resp.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const linhas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+
+      // cada posição de pessoa dentro da linha do contrato (índices 0-based das colunas).
+      // Atualizado em v37 conforme a planilha "Contratos Locação" revisada (colunas
+      // reordenadas e campo "OE/UF" — órgão emissor do RG — inserido entre RG e CPF em
+      // cada bloco de pessoa). Cada bloco de pessoa segue sempre o mesmo padrão de 10
+      // colunas: Sexo, Nome, Nacionalidade, Est. Civil, Profissão, RG, OE/UF, CPF,
+      // Telefone, E-mail — conferido linha a linha contra o Excel enviado em set/2026.
+      const POSICOES = [
+        { papel: 'Locador',   nome: 30, estcivil: 32, profissao: 33, rg: 34, cpf: 36, tel: 37, email: 38 },
+        { papel: 'Locador',   nome: 40, estcivil: 42, profissao: 43, rg: 44, cpf: 46, tel: 47, email: 48 },
+        { papel: 'Locatário', nome: 60, estcivil: 62, profissao: 63, rg: 64, cpf: 66, tel: 67, email: 68 },
+        { papel: 'Locatário', nome: 70, estcivil: 72, profissao: 73, rg: 74, cpf: 76, tel: 77, email: 78 },
+        { papel: 'Fiador',    nome: 90, estcivil: 92, profissao: 93, rg: 94, cpf: 96, tel: 97, email: 98 },
+        { papel: 'Fiador',    nome: 100, estcivil: 102, profissao: 103, rg: 104, cpf: 106, tel: 107, email: 108 }
+      ];
+      const invalidos = new Set(['', '-', '--', '---', 'N/A', 'NA', '0']);
+      const limpo = (v) => {
+        const s = (v || '').toString().trim();
+        return invalidos.has(s.toUpperCase()) ? '' : s;
+      };
+
+      const mapa = new Map();
+      for (let i = 3; i < linhas.length; i++) {
+        const row = linhas[i];
+        if (!row) continue;
+        for (const pos of POSICOES) {
+          const nome = limpo(row[pos.nome]);
+          if (!nome) continue;
+          const chave = nome.toUpperCase().replace(/\s+/g, ' ');
+          const pessoa = mapa.get(chave) || { nome, profissao: '', rg: '', cpf: '', telefone: '', email: '', estadoCivil: '', papeis: new Set() };
+          pessoa.nome = nome; // fica com a grafia mais recente encontrada
+          const profissao = limpo(row[pos.profissao]); if (profissao) pessoa.profissao = profissao;
+          const rg = limpo(row[pos.rg]);               if (rg) pessoa.rg = rg;
+          const cpf = limpo(row[pos.cpf]);              if (cpf) pessoa.cpf = cpf;
+          // ignora telefone/e-mail "placeholder" que o app do inquilino grava
+          // sozinho quando a pessoa não informou o dado de verdade (telefone
+          // fixo = DDD + zeros, e-mail genérico tipo "xxx@gmail.com") — não são
+          // dados reais, então não devem preencher o cadastro nem a busca
+          const tel = limpo(row[pos.tel]);              if (tel && !ehTelefonePlaceholder(tel)) pessoa.telefone = tel;
+          const email = limpo(row[pos.email]);          if (email && !ehEmailPlaceholder(email)) pessoa.email = email;
+          const estcivil = limpo(row[pos.estcivil]);    if (estcivil) pessoa.estadoCivil = estcivil;
+          pessoa.papeis.add(pos.papel);
+          mapa.set(chave, pessoa);
+        }
+      }
+
+      pessoasCadastro = Array.from(mapa.values()).map(p => ({ ...p, papeis: Array.from(p.papeis) }));
+      return pessoasCadastro;
+    } catch (e) {
+      pessoasCadastro = [];
+      return pessoasCadastro;
+    }
+  })();
+
+  return pessoasCadastroCarregandoPromise;
+}
+carregarPessoasCadastro(); // já dispara o carregamento em segundo plano, sem travar o app
+
+// liga a busca de pessoa a um bloco (loc1, loc2, fiador1 ou fiador2): digitar
+// no nome mostra sugestões de qualquer pessoa já cadastrada como locador,
+// locatário ou fiador em qualquer contrato; escolher uma preenche os dados
+function configurarBuscaPessoa(prefixoId) {
+  const inputNome = document.getElementById(prefixoId + '_nome');
+  if (!inputNome) return;
+
+  const wrap = inputNome.closest('.field-group');
+  wrap.style.position = 'relative';
+
+  const resultadosEl = document.createElement('div');
+  resultadosEl.className = 'busca-resultados';
+  resultadosEl.style.display = 'none';
+  wrap.appendChild(resultadosEl);
+  let itensAtuais = [];
+
+  inputNome.addEventListener('input', async function () {
+    const termo = this.value.trim().toLowerCase();
+    if (termo.length < 3) { resultadosEl.style.display = 'none'; return; }
+    const pessoas = await carregarPessoasCadastro();
+    itensAtuais = pessoas.filter(p => p.nome.toLowerCase().includes(termo)).slice(0, 20);
+
+    if (itensAtuais.length === 0) {
+      resultadosEl.innerHTML = '<div class="busca-resultado-vazio">Nenhuma pessoa encontrada.</div>';
+    } else {
+      resultadosEl.innerHTML = itensAtuais.map((p, idx) =>
+        '<div class="busca-resultado-item" data-idx="' + idx + '">' +
+          '<strong>' + escapeHtml(p.nome) + '</strong>' +
+          '<br><span class="busca-resultado-sub">' + escapeHtml(p.papeis.join(', ')) +
+          (p.cpf ? ' — CPF ' + escapeHtml(p.cpf) : '') + '</span>' +
+        '</div>'
+      ).join('');
+    }
+    resultadosEl.style.display = '';
+  });
+
+  resultadosEl.addEventListener('click', function (e) {
+    const item = e.target.closest('.busca-resultado-item');
+    if (!item) return;
+    const p = itensAtuais[parseInt(item.dataset.idx, 10)];
+    if (!p) return;
+
+    inputNome.value = p.nome;
+    const campoProf = document.getElementById(prefixoId + '_profissao');
+    if (campoProf) campoProf.value = p.profissao;
+    const campoTel = document.getElementById(prefixoId + '_tel');
+    if (campoTel) { campoTel.value = p.telefone; mascararTelefone(campoTel); }
+    const campoEmail = document.getElementById(prefixoId + '_email');
+    if (campoEmail) campoEmail.value = p.email;
+
+    const valorEstadoCivil = mapearEstadoCivilTexto(p.estadoCivil);
+    if (valorEstadoCivil) {
+      const radioEstadoCivil = document.querySelector('input[name="' + prefixoId + '_estado_civil"][value="' + valorEstadoCivil + '"]');
+      if (radioEstadoCivil && !radioEstadoCivil.disabled) {
+        radioEstadoCivil.checked = true;
+        radioEstadoCivil.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    resultadosEl.style.display = 'none';
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!wrap.contains(e.target)) resultadosEl.style.display = 'none';
+  });
+}
+
+['loc1', 'loc2', 'fiador1', 'fiador2'].forEach(configurarBuscaPessoa);
+
+let buscaCadastroResultadosAtuais = [];
+
+function renderizarResultadosBusca(itens, totalEncontrado) {
+  const el = document.getElementById('busca_cadastro_resultados');
+  buscaCadastroResultadosAtuais = itens;
+  if (itens.length === 0) {
+    el.innerHTML = '<div class="busca-resultado-vazio">Nenhum resultado encontrado.</div>';
+  } else {
+    el.innerHTML = itens.map((item, idx) =>
+      '<div class="busca-resultado-item" data-idx="' + idx + '">' +
+        '<strong>' + escapeHtml(item.endereco) + '</strong>' +
+        '<br><span class="busca-resultado-sub">' + escapeHtml(item.proprietario || 'Locador não informado') + '</span>' +
+      '</div>'
+    ).join('');
+    if (totalEncontrado > itens.length) {
+      el.innerHTML += '<div class="busca-resultado-vazio">' +
+        (totalEncontrado - itens.length) + ' resultado(s) a mais — refine a busca pra ver.</div>';
+    }
+  }
+  el.style.display = '';
+}
+
+function selecionarResultadoBusca(item) {
+  document.getElementById('imovel_endereco').value = item.endereco;
+  document.getElementById('proprietario_nome').value = item.proprietario;
+
+  const buscaInput = document.getElementById('busca_cadastro');
+  buscaInput.value = item.endereco;
+  document.getElementById('busca_cadastro_resultados').style.display = 'none';
+}
+
+async function executarBuscaCadastro() {
+  const input = document.getElementById('busca_cadastro');
+  const termo = input.value.trim().toLowerCase();
+  const resultadosEl = document.getElementById('busca_cadastro_resultados');
+  if (!termo) { resultadosEl.style.display = 'none'; return; }
+
+  const dados = await carregarCadastro();
+  const esconderInativosOcupados = document.getElementById('filtro_status_busca').checked;
+
+  const todosFiltrados = dados.filter(item => {
+    if (esconderInativosOcupados && (item.status === 'INTV' || item.status === 'OCP')) return false;
+    return item.endereco.toLowerCase().includes(termo) || item.proprietario.toLowerCase().includes(termo);
+  });
+  renderizarResultadosBusca(todosFiltrados.slice(0, 50), todosFiltrados.length);
+}
+
+document.getElementById('busca_cadastro').addEventListener('input', executarBuscaCadastro);
+
+function onFiltroStatusBuscaMudou() {
+  // reaplica a busca com o termo já digitado, respeitando o novo estado da pill
+  if (document.getElementById('busca_cadastro').value.trim()) executarBuscaCadastro();
+}
+
+document.getElementById('busca_cadastro_resultados').addEventListener('click', function (e) {
+  const item = e.target.closest('.busca-resultado-item');
+  if (!item) return;
+  const dado = buscaCadastroResultadosAtuais[parseInt(item.dataset.idx, 10)];
+  if (dado) selecionarResultadoBusca(dado);
+});
+
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.busca-cadastro-wrap')) {
+    const el = document.getElementById('busca_cadastro_resultados');
+    if (el) el.style.display = 'none';
+  }
+});
+
+async function construirPDF() {
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pdfDoc = await PDFDocument.create();
+  const fonteRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fonteNegrito = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const form = pdfDoc.getForm();
+
+  const LARGURA = 595.28, ALTURA = 841.89, MARGEM = 50;
+  const MARGEM_TOPO = 30, MARGEM_BASE = 2;
+  const corPreta = rgb(0, 0, 0);
+  const corVermelha = rgb(0.784, 0.098, 0.180);
+  const corAzul = rgb(0.102, 0.176, 0.420);
+  const corCinza = rgb(0.42, 0.42, 0.42);
+  const corBordaCampo = rgb(0.72, 0.78, 0.87);
+  const corFundoCampo = rgb(0.975, 0.98, 0.99);
+
+  function base64ParaBytes(base64) {
+    const binario = atob(base64);
+    const bytes = new Uint8Array(binario.length);
+    for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+    return bytes;
+  }
+  const logoImg = await pdfDoc.embedPng(base64ParaBytes(LOGO_BASE64));
+
+  function formatarData(iso) {
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : iso;
+  }
+
+  // nomes de campo do PDF só podem ter caracteres simples — e cada campo
+  // precisa de um nome único no documento inteiro
+  let contadorCampo = 0;
+  function nomeCampo(txt) {
+    contadorCampo++;
+    return 'f' + contadorCampo + '_' + String(txt).replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  let pagina = pdfDoc.addPage([LARGURA, ALTURA]);
+  let y = ALTURA - MARGEM_TOPO;
+
+  // ── Cabeçalho simples: logo, eyebrow vermelho e título — igual em toda página ──
+  function desenharCabecalho() {
+    const topoY = ALTURA - MARGEM_TOPO;
+    const logoAltura = 38;
+    const logoLargura = logoAltura * (logoImg.width / logoImg.height);
+    pagina.drawImage(logoImg, { x: MARGEM, y: topoY - logoAltura, width: logoLargura, height: logoAltura });
+
+    const textoX = MARGEM + logoLargura + 14;
+    pagina.drawText('IMOBILIÁRIA BANDEIRANTES — CRECI J-4419-8', { x: textoX, y: topoY - 12, size: 9, font: fonteNegrito, color: corVermelha });
+    pagina.drawText('FORMULÁRIO INTERNO DE LOCAÇÃO', { x: textoX, y: topoY - 28, size: 15, font: fonteNegrito, color: corAzul });
+
+    y = topoY - Math.max(logoAltura, 32) - 7;
+    pagina.drawLine({ start: { x: MARGEM, y }, end: { x: LARGURA - MARGEM, y }, thickness: 1.2, color: corVermelha });
+    y -= 18;
+  }
+
+  function novaPagina() {
+    pagina = pdfDoc.addPage([LARGURA, ALTURA]);
+    desenharCabecalho();
+  }
+  function garantirEspaco(altura) {
+    if (y - altura < MARGEM_BASE) novaPagina();
+  }
+
+  desenharCabecalho();
+
+  // ── Campos editáveis: texto e caixa de seleção ──
+  function campoTexto(idBase, valor, x, yTopo, largura, altura, opcoes) {
+    opcoes = opcoes || {};
+    const tf = form.createTextField(nomeCampo(idBase));
+    if (opcoes.multiline) tf.enableMultiline();
+    tf.addToPage(pagina, {
+      x, y: yTopo - altura, width: largura, height: altura,
+      font: fonteRegular, textColor: corAzul,
+      borderWidth: 0.75, borderColor: corBordaCampo, backgroundColor: corFundoCampo
+    });
+    tf.setFontSize(opcoes.fontSize || 10);
+    tf.setText(valor || '');
+    return tf;
+  }
+
+  function campoCheckbox(idBase, marcado, x, yTopo, lado) {
+    const cb = form.createCheckBox(nomeCampo(idBase));
+    cb.addToPage(pagina, {
+      x, y: yTopo - lado, width: lado, height: lado,
+      borderWidth: 1, borderColor: corPreta, backgroundColor: rgb(1, 1, 1)
+    });
+    if (marcado) cb.check(); else cb.uncheck();
+    return cb;
+  }
+
+  // ── Blocos de construção do conteúdo, no mesmo formato/ordem do
+  // "Formulário para Locação" impresso — agora com campos e caixas
+  // de verdade, editáveis depois de gerado o PDF ──
+  function tituloSecao(texto, primeira) {
+    garantirEspaco(40);
+    if (!primeira) y -= 9;
+    pagina.drawText(texto, { x: MARGEM, y, size: 14.5, font: fonteNegrito, color: corAzul });
+    y -= 7;
+    pagina.drawLine({ start: { x: MARGEM, y }, end: { x: LARGURA - MARGEM, y }, thickness: 1, color: corAzul });
+    y -= 15;
+  }
+
+  function subtituloChecklist(texto) {
+    garantirEspaco(24);
+    y -= 6;
+    pagina.drawText(texto, { x: MARGEM, y, size: 10.5, font: fonteNegrito, color: corVermelha });
+    y -= 17;
+  }
+
+  const ALTURA_LINHA = 18;
+  const ALTURA_CAMPO = 14;
+
+  function campoLinha(idBase, label, valor) {
+    garantirEspaco(ALTURA_LINHA);
+    const textoLabel = label + ': ';
+    pagina.drawText(textoLabel, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    const largura = fonteRegular.widthOfTextAtSize(textoLabel, 10.5);
+    const xCampo = MARGEM + largura;
+    campoTexto(idBase, valor, xCampo, y + 8, (LARGURA - MARGEM) - xCampo, ALTURA_CAMPO);
+    y -= ALTURA_LINHA;
+  }
+
+  // campo de e-mail em linha própria — como ocupa a largura toda da linha
+  // (não divide espaço com Profissão/Tel), cabe numa linha só
+  function campoLinhaEmail(idBase, label, valor) {
+    garantirEspaco(ALTURA_LINHA);
+    const textoLabel = label + ': ';
+    pagina.drawText(textoLabel, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    const largLabel = fonteRegular.widthOfTextAtSize(textoLabel, 10.5);
+    const xCampo = MARGEM + largLabel;
+    campoTexto(idBase, valor, xCampo, y + 8, (LARGURA - MARGEM) - xCampo, ALTURA_CAMPO, { fontSize: 9.5 });
+    y -= ALTURA_LINHA;
+  }
+
+  // vários campos "Rótulo: [ ]" na mesma linha — o último ocupa o resto do espaço
+  function linhaCampos(itens) {
+    garantirEspaco(ALTURA_LINHA);
+    let x = MARGEM;
+    itens.forEach((item, idx) => {
+      const textoLabel = item.label + ': ';
+      pagina.drawText(textoLabel, { x, y, size: 10.5, font: fonteRegular, color: corPreta });
+      const largLabel = fonteRegular.widthOfTextAtSize(textoLabel, 10.5);
+      const xCampo = x + largLabel;
+      const ultimo = idx === itens.length - 1;
+      const largCampo = ultimo ? (LARGURA - MARGEM - xCampo) : item.largura;
+      campoTexto(item.idBase, item.valor, xCampo, y + 8, largCampo, ALTURA_CAMPO);
+      x = xCampo + largCampo + 16;
+    });
+    y -= ALTURA_LINHA;
+  }
+
+  // grupo de caixinhas de opção (Utilização / Estado Civil) — quebra linha
+  // sozinho se não couber, e sempre fecha decrementando "y" ao final
+  function grupoCheckbox(xInicio, opcoes, tamanho) {
+    garantirEspaco(ALTURA_LINHA);
+    let x = xInicio;
+    const larguraMax = LARGURA - MARGEM;
+    const lado = 11;
+    const gap = 15;
+    opcoes.forEach(op => {
+      const largTexto = fonteRegular.widthOfTextAtSize(op.texto, tamanho);
+      const largTotal = lado + 5 + largTexto;
+      if (x > xInicio && x + largTotal > larguraMax) {
+        x = xInicio;
+        y -= ALTURA_LINHA;
+        garantirEspaco(ALTURA_LINHA);
+      }
+      campoCheckbox(op.idBase, op.marcado, x, y + 8, lado);
+      pagina.drawText(op.texto, { x: x + lado + 5, y, size: tamanho, font: fonteRegular, color: corPreta });
+      x += largTotal + gap;
+    });
+    y -= ALTURA_LINHA;
+  }
+
+  // quebra um texto em várias linhas para caber dentro de uma coluna
+  function quebrarTextoEmLargura(texto, tamanho, larguraMax) {
+    const palavras = String(texto).split(/\s+/);
+    const linhasResultado = [];
+    let atual = '';
+    palavras.forEach(p => {
+      const teste = atual ? atual + ' ' + p : p;
+      if (fonteRegular.widthOfTextAtSize(teste, tamanho) > larguraMax && atual) {
+        linhasResultado.push(atual);
+        atual = p;
+      } else {
+        atual = teste;
+      }
+    });
+    if (atual) linhasResultado.push(atual);
+    return linhasResultado;
+  }
+
+  // tabela de documentos em duas colunas (Locatário/Fiador 1 e 2, lado a lado).
+  // se "itensCol2" for null, mostra só a coluna 1 (numa faixa mais larga).
+  function tabelaChecklist(tituloCol1, itensCol1, tituloCol2, itensCol2) {
+    const duasColunas = !!itensCol2;
+    const gapColunas = 26;
+    const larguraColuna = duasColunas ? (LARGURA - 2 * MARGEM - gapColunas) / 2 : (LARGURA - 2 * MARGEM);
+    const xCol1 = MARGEM, xCol2 = MARGEM + larguraColuna + gapColunas;
+    const lado = 10, tamanho = 9.5, alturaLinha = 12.5;
+    const larguraTexto = larguraColuna - lado - 6;
+
+    garantirEspaco(22);
+    y -= 3;
+    pagina.drawText(tituloCol1, { x: xCol1, y, size: 10.5, font: fonteNegrito, color: corVermelha });
+    if (duasColunas) pagina.drawText(tituloCol2, { x: xCol2, y, size: 10.5, font: fonteNegrito, color: corVermelha });
+    y -= 15;
+
+    const maxLen = Math.max(itensCol1.length, duasColunas ? itensCol2.length : 0);
+    for (let i = 0; i < maxLen; i++) {
+      const item1 = itensCol1[i] || null;
+      const item2 = duasColunas ? (itensCol2[i] || null) : null;
+      const linhas1 = item1 ? quebrarTextoEmLargura(item1.label, tamanho, larguraTexto) : [];
+      const linhas2 = item2 ? quebrarTextoEmLargura(item2.label, tamanho, larguraTexto) : [];
+      const numLinhas = Math.max(linhas1.length, linhas2.length, 1);
+      const alturaBloco = numLinhas * alturaLinha + 5;
+      garantirEspaco(alturaBloco);
+
+      if (item1) {
+        const marcado1 = !!(documentosState[item1.chave] && documentosState[item1.chave].marcado);
+        campoCheckbox('doc_' + item1.chave, marcado1, xCol1, y + 8, lado);
+        linhas1.forEach((linha, idx) => pagina.drawText(linha, { x: xCol1 + lado + 6, y: y - idx * alturaLinha, size: tamanho, font: fonteRegular, color: corPreta }));
+      }
+      if (item2) {
+        const marcado2 = !!(documentosState[item2.chave] && documentosState[item2.chave].marcado);
+        campoCheckbox('doc_' + item2.chave, marcado2, xCol2, y + 8, lado);
+        linhas2.forEach((linha, idx) => pagina.drawText(linha, { x: xCol2 + lado + 6, y: y - idx * alturaLinha, size: tamanho, font: fonteRegular, color: corPreta }));
+      }
+      y -= alturaBloco;
+    }
+  }
+
+  const ITENS_DOC_PADRAO = [
+    ['pessoal', 'Doc. Pessoal com Foto (RG/CPF/CNH)'],
+    ['civil', 'Comp. Est. Civil (Cert. Nascimento/Casamento)'],
+    ['renda', 'Comprovante de Renda (Holerite, IRPF, Extrato)']
+  ];
+  function itensDocPessoa(prefixo) {
+    return ITENS_DOC_PADRAO.map(([suf, label]) => ({ chave: prefixo + '_' + suf, label }));
+  }
+
+  const ITENS_DOC_EMPRESA = [
+    ['cnpj', 'Cartão CNPJ'],
+    ['contrato_social', 'Contrato Social Consolidado']
+  ];
+  function itensDocEmpresa(prefixo) {
+    return ITENS_DOC_EMPRESA.map(([suf, label]) => ({ chave: prefixo + '_' + suf, label }));
+  }
+
+  // divisória fina entre os documentos específicos da pessoa e os itens
+  // compartilhados (comprovante residencial / garantia)
+  function linhaDivisoriaFina() {
+    garantirEspaco(10);
+    y -= 1;
+    pagina.drawLine({ start: { x: MARGEM, y }, end: { x: LARGURA - MARGEM, y }, thickness: 0.5, color: rgb(0.85, 0.87, 0.9) });
+    y -= 9;
+  }
+
+  // item de checklist compartilhado (não é por pessoa) — ocupa a linha toda,
+  // mesclando as duas colunas
+  function itemChecklistCompartilhado(item) {
+    const lado = 10, tamanho = 9.5, alturaLinha = 12.5;
+    const larguraTexto = (LARGURA - 2 * MARGEM) - lado - 6;
+    const linhas = quebrarTextoEmLargura(item.label, tamanho, larguraTexto);
+    const alturaBloco = linhas.length * alturaLinha + 5;
+    garantirEspaco(alturaBloco);
+    const marcado = !!(documentosState[item.chave] && documentosState[item.chave].marcado);
+    campoCheckbox('doc_' + item.chave, marcado, MARGEM, y + 8, lado);
+    linhas.forEach((linha, idx) => pagina.drawText(linha, { x: MARGEM + lado + 6, y: y - idx * alturaLinha, size: tamanho, font: fonteRegular, color: corPreta }));
+    y -= alturaBloco;
+  }
+
+  // bloco completo de uma pessoa: "Locatário (1): [Nome]   Estado Civil: [texto]" + Profissão/Tel/E-mail
+  function blocoPessoa(prefixo, rotulo) {
+    garantirEspaco(ALTURA_LINHA);
+    const textoLabel = rotulo + ': ';
+    pagina.drawText(textoLabel, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    const largLabel = fonteRegular.widthOfTextAtSize(textoLabel, 10.5);
+    const xNome = MARGEM + largLabel;
+    const larguraNome = 235;
+    campoTexto(prefixo + '_nome', v(prefixo + '_nome'), xNome, y + 8, larguraNome, ALTURA_CAMPO);
+
+    let xEc = xNome + larguraNome + 16;
+    const labelEc = 'Est. Civil: ';
+    pagina.drawText(labelEc, { x: xEc, y, size: 10.5, font: fonteRegular, color: corPreta });
+    xEc += fonteRegular.widthOfTextAtSize(labelEc, 10.5);
+    campoTexto(prefixo + '_estado_civil_txt', radioValor(prefixo + '_estado_civil'), xEc, y + 8, (LARGURA - MARGEM) - xEc, ALTURA_CAMPO);
+    y -= ALTURA_LINHA;
+
+    linhaCampos([
+      { idBase: prefixo + '_profissao', label: 'Profissão', valor: v(prefixo + '_profissao'), largura: 200 },
+      { idBase: prefixo + '_tel', label: 'Tel', valor: v(prefixo + '_tel') }
+    ]);
+    campoLinhaEmail(prefixo + '_email', 'E-mail', v(prefixo + '_email'));
+  }
+
+  // bloco de uma empresa (Locatário/Fiador em modo PJ): "Empresa: [Nome]" numa
+  // linha, "Telefone: [x]   E-mail: [y]" na linha seguinte — sem Profissão nem
+  // Estado Civil, que não se aplicam a uma pessoa jurídica
+  function blocoEmpresa(prefixo, rotulo) {
+    garantirEspaco(ALTURA_LINHA);
+    const textoLabel = rotulo + ': ';
+    pagina.drawText(textoLabel, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    const largLabel = fonteRegular.widthOfTextAtSize(textoLabel, 10.5);
+    const xNome = MARGEM + largLabel;
+    campoTexto(prefixo + '_nome', v(prefixo + '_nome'), xNome, y + 8, (LARGURA - MARGEM) - xNome, ALTURA_CAMPO);
+    y -= ALTURA_LINHA;
+
+    linhaCampos([
+      { idBase: prefixo + '_tel', label: 'Telefone', valor: v(prefixo + '_tel'), largura: 160 },
+      { idBase: prefixo + '_email', label: 'E-mail', valor: v(prefixo + '_email') }
+    ]);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // IMÓVEL
+  // ════════════════════════════════════════════════════════════════
+  tituloSecao('IMÓVEL', true);
+  campoLinha('imovel_endereco', 'Endereço', v('imovel_endereco'));
+
+  garantirEspaco(ALTURA_LINHA);
+  {
+    let x = MARGEM;
+    const l1 = 'Valor R$: ';
+    pagina.drawText(l1, { x, y, size: 10.5, font: fonteRegular, color: corPreta });
+    x += fonteRegular.widthOfTextAtSize(l1, 10.5);
+    campoTexto('imovel_valor', v('imovel_valor'), x, y + 8, 78, ALTURA_CAMPO);
+    x += 78 + 16;
+
+    const l2 = 'Data Início: ';
+    pagina.drawText(l2, { x, y, size: 10.5, font: fonteRegular, color: corPreta });
+    x += fonteRegular.widthOfTextAtSize(l2, 10.5);
+    campoTexto('imovel_data_inicio', formatarData(v('imovel_data_inicio')), x, y + 8, 78, ALTURA_CAMPO);
+    x += 78 + 16;
+
+    const l3 = 'Utilização: ';
+    pagina.drawText(l3, { x, y, size: 10.5, font: fonteRegular, color: corPreta });
+    x += fonteRegular.widthOfTextAtSize(l3, 10.5);
+    const valorUtil = radioValor('utilizacao_imovel');
+    grupoCheckbox(x, [
+      { idBase: 'utilizacao_residencial', texto: 'Residencial', marcado: valorUtil === 'Residencial' },
+      { idBase: 'utilizacao_comercial', texto: 'Comercial', marcado: valorUtil === 'Comercial' }
+    ], 10);
+  }
+
+  linhaCampos([
+    { idBase: 'proprietario_nome', label: 'Proprietário', valor: v('proprietario_nome'), largura: 260 },
+    { idBase: 'proprietario_codigo', label: 'Código', valor: v('proprietario_codigo') }
+  ]);
+
+  // ════════════════════════════════════════════════════════════════
+  // LOCATÁRIOS
+  // ════════════════════════════════════════════════════════════════
+  tituloSecao('LOCATÁRIOS');
+  const qtdLocPdf = radioValor('qtd_locatarios');
+  const locatarioPJ = qtdLocPdf === 'PJ';
+  const comercial = radioValor('utilizacao_imovel') === 'Comercial';
+
+  if (locatarioPJ) {
+    blocoEmpresa('loc1', 'Empresa');
+    y -= 7;
+    blocoPessoa('loc2', 'Representante Legal');
+  } else {
+    blocoPessoa('loc1', 'Locatário (1)');
+    if (qtdLocPdf === '2') { y -= 7; blocoPessoa('loc2', 'Locatário (2)'); }
+  }
+  y -= 4;
+
+  if (locatarioPJ) {
+    tabelaChecklist('Documentos Empresa:', itensDocEmpresa('loc1'), 'Documentos Representante:', itensDocPessoa('loc2'));
+  } else {
+    tabelaChecklist('Documentos Locatário (1):', itensDocPessoa('loc1'), qtdLocPdf === '2' ? 'Documentos Locatário (2):' : null, qtdLocPdf === '2' ? itensDocPessoa('loc2') : null);
+  }
+  if (comercial) {
+    itemChecklistCompartilhado({ chave: 'loc_residencial', label: 'Comprovante Residencial (Conta Nominal) — Somente para locação comercial' });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // FIADORES (ou Caução, quando não há fiador nesta locação)
+  // ════════════════════════════════════════════════════════════════
+  tituloSecao('FIADORES');
+  const qtdFiadorPdf = radioValor('qtd_fiadores');
+  const fiadorPJ = qtdFiadorPdf === 'PJ';
+  const fiadorCaucao = qtdFiadorPdf === 'Caucao';
+
+  if (fiadorCaucao) {
+    subtituloChecklist('Garantia: Caução (sem fiador nesta locação)');
+    linhaCampos([
+      { idBase: 'caucao_valor', label: 'Valor', valor: v('caucao_valor'), largura: 130 },
+      { idBase: 'caucao_banco', label: 'Banco', valor: v('caucao_banco'), largura: 220 },
+      { idBase: 'caucao_conta', label: 'Conta', valor: v('caucao_conta') }
+    ]);
+  } else {
+    if (fiadorPJ) {
+      blocoEmpresa('fiador1', 'Empresa');
+      y -= 7;
+      blocoPessoa('fiador2', 'Representante Legal');
+    } else {
+      blocoPessoa('fiador1', 'Fiador (1)');
+      if (qtdFiadorPdf === '2') { y -= 7; blocoPessoa('fiador2', 'Fiador (2)'); }
+    }
+    y -= 4;
+
+    if (fiadorPJ) {
+      tabelaChecklist('Documentos Empresa:', itensDocEmpresa('fiador1'), 'Documentos Representante:', itensDocPessoa('fiador2'));
+    } else {
+      tabelaChecklist('Documentos Fiador (1):', itensDocPessoa('fiador1'), qtdFiadorPdf === '2' ? 'Documentos Fiador (2):' : null, qtdFiadorPdf === '2' ? itensDocPessoa('fiador2') : null);
+    }
+    itemChecklistCompartilhado({ chave: 'fiador_residencial', label: 'Comprovante Residencial (Conta Nominal)' });
+    itemChecklistCompartilhado({ chave: 'fiador_garantia', label: 'Comprovante Imóvel Garantia (Matrícula/Escritura/Contrato)' });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // OBSERVAÇÕES — pagamento, animais (se houver) e o texto livre
+  // ════════════════════════════════════════════════════════════════
+  tituloSecao('OBSERVAÇÕES');
+
+  if (v('dia_pagamento')) {
+    garantirEspaco(ALTURA_LINHA);
+    const labelDia = 'Dia de pagamento preferido: ';
+    pagina.drawText(labelDia, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    const largLabelDia = fonteRegular.widthOfTextAtSize(labelDia, 10.5);
+    campoTexto('dia_pagamento', v('dia_pagamento'), MARGEM + largLabelDia, y + 8, 32, ALTURA_CAMPO);
+    y -= ALTURA_LINHA;
+  }
+
+  if (radioValor('tem_animais') === 'Sim') {
+    const juntarLista = itens => {
+      const arr = itens.filter(Boolean);
+      if (arr.length === 0) return '—';
+      if (arr.length === 1) return arr[0];
+      return arr.slice(0, -1).join(', ') + ' e ' + arr[arr.length - 1];
+    };
+    const qtdTexto = v('animais_qtd') || '—';
+    const qtdNum = parseInt(v('animais_qtd'), 10);
+    const palavraAnimal = qtdNum === 1 ? 'Animal' : 'Animais';
+
+    const especiesArr = valoresSelecionados('animais_especie').map(e => e === 'Outro' ? (v('animais_especie_outro') || 'Outro') : e);
+    const palavraEspecie = especiesArr.length === 1 ? 'Espécie' : 'Espécies';
+    const especiesTexto = juntarLista(especiesArr);
+
+    const portesArr = valoresSelecionados('animais_porte');
+    const palavraPorte = portesArr.length === 1 ? 'Porte' : 'Portes';
+    const portesTexto = juntarLista(portesArr);
+
+    const linhaAnimais = '- Possui ' + qtdTexto + ' ' + palavraAnimal + '. ' + palavraEspecie + ': ' + especiesTexto + '. ' + palavraPorte + ': ' + portesTexto + '.';
+    garantirEspaco(ALTURA_LINHA);
+    pagina.drawText(linhaAnimais, { x: MARGEM, y, size: 10.5, font: fonteRegular, color: corPreta });
+    y -= ALTURA_LINHA;
+  }
+
+  function estaMarcado(id) {
+    const el = document.getElementById(id);
+    return !!(el && el.checked);
+  }
+  const singularPlural = (n, singular, plural) => (n === 1 ? singular : plural);
+  const primeiroNome = nomeCompleto => (nomeCompleto || '').trim().split(/\s+/)[0] || '—';
+  const ROTULO_PESSOA = { loc1: 'Locatário', loc2: 'Locatário', fiador1: 'Fiador', fiador2: 'Fiador' };
+
+  // as observações padrão (pills marcadas) viram linhas de texto DENTRO da
+  // caixa de observações editável — assim dá pra apagar/editar cada uma
+  // normalmente no PDF, em vez de ficarem fixas na página
+  const linhasObsPadrao = [];
+
+  if (estaMarcado('obs_area_inundacao')) {
+    linhasObsPadrao.push('- Imóvel em área de inundação. Incluir Cláusula 24 e renumerar cláusula de Foro para 25.');
+  }
+
+  if (estaMarcado('obs_rg_outra_uf')) {
+    const orgaoUf = (v('rg_outra_uf_orgao') || '—') + '/' + (v('rg_outra_uf_uf') || '—');
+    valoresSelecionados('rg_outra_uf_quem').forEach(prefixo => {
+      const nome = primeiroNome(v(prefixo + '_nome')).toUpperCase();
+      linhasObsPadrao.push('- RG do ' + ROTULO_PESSOA[prefixo].toUpperCase() + ' ' + nome + ' É ' + orgaoUf + '.');
+    });
+  }
+
+  if (estaMarcado('obs_nao_tem_rg')) {
+    valoresSelecionados('nao_tem_rg_quem').forEach(prefixo => {
+      const nome = primeiroNome(v(prefixo + '_nome')).toUpperCase();
+      linhasObsPadrao.push('- ' + ROTULO_PESSOA[prefixo] + ' ' + nome + ' não tem RG (RG = CPF).');
+    });
+  }
+
+  if (estaMarcado('obs_integrante_pj')) {
+    const quem = valoresSelecionados('pj_quem');
+    if (quem.length > 0) {
+      const juntarListaPj = itens => itens.length === 1 ? itens[0] : itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1];
+      linhasObsPadrao.push('- ' + juntarListaPj(quem) + ' ' + (quem.length === 1 ? 'é' : 'são') + ' PJ.');
+    }
+  }
+
+  if (estaMarcado('obs_descontos')) {
+    const mesesNum = parseInt(v('desconto_meses'), 10);
+    const mesesTexto = (v('desconto_meses') || '—') + ' ' + singularPlural(mesesNum, 'mês', 'meses');
+    if (estaMarcado('desconto_carencia')) {
+      linhasObsPadrao.push('- Carência de ' + mesesTexto + '.');
+    } else {
+      linhasObsPadrao.push('- Desconto de R$ ' + (v('desconto_valor') || '—') + ' por ' + mesesTexto + '.');
+    }
+  }
+
+  if (estaMarcado('obs_sem_garantia')) {
+    linhasObsPadrao.push('- Locação sem Imóvel Garantia.');
+  }
+
+  if (estaMarcado('obs_matricula_atualizada')) {
+    linhasObsPadrao.push('- Solicitar Matrícula Atualizada.');
+  }
+
+  if (estaMarcado('obs_doc_incompleta')) {
+    const ABREV_DOC = { pessoal: 'RG/CPF', civil: 'Est.Civil', renda: 'Comp.Renda' };
+    const ABREV_DOC_EMPRESA = { cnpj: 'CNPJ', contrato_social: 'Ctt.Social' };
+    const pendentes = [];
+    const checarPessoa = (prefixo, tag) => {
+      ['pessoal', 'civil', 'renda'].forEach(suf => {
+        const estado = documentosState[prefixo + '_' + suf];
+        if (!(estado && estado.marcado)) pendentes.push(tag + '-' + ABREV_DOC[suf]);
+      });
+    };
+    const checarEmpresa = (prefixo, tag) => {
+      ['cnpj', 'contrato_social'].forEach(suf => {
+        const estado = documentosState[prefixo + '_' + suf];
+        if (!(estado && estado.marcado)) pendentes.push(tag + '-' + ABREV_DOC_EMPRESA[suf]);
+      });
+    };
+
+    const qtdLocDoc = radioValor('qtd_locatarios');
+    const qtdFiadorDoc = radioValor('qtd_fiadores');
+
+    if (qtdLocDoc === 'PJ') checarEmpresa('loc1', 'L1'); else checarPessoa('loc1', 'L1');
+    if (qtdLocDoc === '2' || qtdLocDoc === 'PJ') checarPessoa('loc2', 'L2');
+    if (radioValor('utilizacao_imovel') === 'Comercial') {
+      const estado = documentosState['loc_residencial'];
+      if (!(estado && estado.marcado)) pendentes.push('Comp.Resid.Loc');
+    }
+
+    if (qtdFiadorDoc === 'Caucao') {
+      // caução não exige nenhum documento de fiador
+    } else {
+      if (qtdFiadorDoc === 'PJ') checarEmpresa('fiador1', 'F1'); else checarPessoa('fiador1', 'F1');
+      if (qtdFiadorDoc === '2' || qtdFiadorDoc === 'PJ') checarPessoa('fiador2', 'F2');
+      const estadoResidFiador = documentosState['fiador_residencial'];
+      if (!(estadoResidFiador && estadoResidFiador.marcado)) pendentes.push('Comp.Resid.Fiador');
+      if (!estaMarcado('obs_sem_garantia')) {
+        const estadoGarantia = documentosState['fiador_garantia'];
+        if (!(estadoGarantia && estadoGarantia.marcado)) pendentes.push('Im.Garantia');
+      }
+    }
+
+    const textoPendentes = pendentes.length > 0 ? pendentes.join(', ') : 'nenhum item pendente';
+    linhasObsPadrao.push('- Documentação incompleta: ' + textoPendentes + '.');
+  }
+
+  // junta as observações padrão com o texto livre digitado pelo usuário —
+  // tudo dentro da MESMA caixa editável, cada uma na sua linha
+  const textoObsLivre = v('observacoes') || '';
+  const textoObsFinal = [...linhasObsPadrao, ...(textoObsLivre ? [textoObsLivre] : [])].join('\n');
+
+  // a caixa de observações sempre estica até o fim da página (a margem
+  // inferior já é mínima, já que não tem rodapé) — assim ela usa o máximo de
+  // espaço disponível em vez de depender de rolagem interna pra mostrar tudo
+  const ALTURA_OBS_MINIMA = 24;
+  let alturaObs = y - MARGEM_BASE - 2;
+  if (alturaObs < ALTURA_OBS_MINIMA) {
+    novaPagina();
+    alturaObs = y - MARGEM_BASE - 2;
+  }
+  const campoObs = form.createTextField(nomeCampo('observacoes'));
+  campoObs.enableMultiline();
+  campoObs.addToPage(pagina, {
+    x: MARGEM, y: y - alturaObs, width: LARGURA - 2 * MARGEM, height: alturaObs,
+    font: fonteRegular, textColor: corPreta,
+    borderWidth: 0.75, borderColor: corBordaCampo, backgroundColor: corFundoCampo
+  });
+  campoObs.setFontSize(10.5);
+  campoObs.setText(textoObsFinal);
+  y -= alturaObs;
+
+  // ── Anexa os dados do formulário + arquivos originais dos documentos ──
+  // (invisível no PDF impresso) Isso permite que o botão "Importar Formulário"
+  // releia este mesmo PDF depois e repreencha tudo automaticamente, incluindo
+  // os arquivos de documentos, mesmo esses não aparecendo como páginas no
+  // PDF (ver carregarFormularioDePdf). Os campos acima continuam editáveis
+  // normalmente num leitor de PDF (Acrobat, Preview etc.) depois de gerado.
+  await anexarDadosParaRecarga(pdfDoc);
+
+  const bytes = await pdfDoc.save();
+  return { bytes, avisos: [] };
+}
+
+async function anexarDadosParaRecarga(pdfDoc) {
+  const dados = coletarDadosFormulario();
+  dados.documentos = {};
+  Object.keys(documentosState).forEach(chave => {
+    dados.documentos[chave] = { marcado: !!documentosState[chave].marcado };
+  });
+
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(dados));
+  await pdfDoc.attach(jsonBytes, 'dados_formulario.json', {
+    mimeType: 'application/json',
+    description: 'Dados do formulário (uso interno do sistema — não editar)'
+  });
+}
+
+// coleta todos os valores atuais do formulário (textos, radios e checkboxes)
+// para serem anexados ao PDF e usados depois pelo "Carregar Formulário"
+function coletarDadosFormulario() {
+  const dados = { textos: {}, radios: {}, checkboxes: {} };
+
+  document.querySelectorAll('.main input[id], .main textarea[id], .main select[id]').forEach(el => {
+    if (el.type === 'radio' || el.type === 'checkbox' || el.type === 'file') return;
+    dados.textos[el.id] = el.value;
+  });
+
+  const nomesRadio = new Set();
+  document.querySelectorAll('.main input[type="radio"][name]').forEach(el => nomesRadio.add(el.name));
+  nomesRadio.forEach(nome => { dados.radios[nome] = radioValor(nome); });
+
+  const nomesCheckbox = new Set();
+  document.querySelectorAll('.main input[type="checkbox"][name]').forEach(el => nomesCheckbox.add(el.name));
+  nomesCheckbox.forEach(nome => {
+    dados.checkboxes[nome] = Array.from(document.querySelectorAll('.main input[name="' + nome + '"]:checked')).map(i => i.value);
+  });
+
+  return dados;
+}
+
+function nomeArquivoBase() {
+  const base = v('imovel_endereco') || v('loc1_nome') || 'Formulario Interno';
+  return ('Formulario Interno Locacao - ' + base).replace(/[\\/:*?"<>|]/g, '_');
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+// iOS e Android: onde a folha de compartilhamento nativa com anexo de
+// arquivo funciona bem. No computador (mesmo em navegadores que também
+// implementam a Web Share API, como Edge/Chrome no Windows) não usamos
+// esse caminho — lá o usuário só quer o download direto do arquivo.
+function isMobile() {
+  return /iPad|iPhone|iPod|Android/.test(navigator.userAgent) && !window.MSStream;
+}
+
+async function baixarArquivo() {
+  if (typeof PDFLib === 'undefined') {
+    alert('A biblioteca de geração de PDF não carregou. Verifique sua conexão com a internet e tente novamente. Se persistir, tente atualizar a página.');
+    return;
+  }
+
+  const btn = document.getElementById('btn_baixar');
+  const textoOriginal = btn.textContent;
+  btn.textContent = '⏳ Gerando PDF...';
+  btn.disabled = true;
+  try {
+    const resultado = await construirPDF();
+    const nomeArquivo = nomeArquivoBase() + '.pdf';
+    const blob = new Blob([resultado.bytes], { type: 'application/pdf' });
+
+    // No celular (iOS/Android), tentamos abrir direto a folha de
+    // compartilhamento nativa já com o PDF anexado — sem passar pela aba
+    // do navegador e sem o link "blob:" quebrado que o Safari inclui junto
+    // quando o usuário compartilha manualmente. No computador mantemos o
+    // download direto de arquivo (comportamento de sempre), mesmo que o
+    // navegador também suporte Web Share (ex.: Edge/Chrome no Windows),
+    // pois ali a folha de compartilhamento do sistema não é o esperado.
+    const arquivoPdf = new File([blob], nomeArquivo, { type: 'application/pdf' });
+    const podeCompartilharArquivo = isMobile()
+      && typeof navigator.share === 'function'
+      && typeof navigator.canShare === 'function'
+      && navigator.canShare({ files: [arquivoPdf] });
+
+    if (podeCompartilharArquivo) {
+      try {
+        await navigator.share({ files: [arquivoPdf], title: nomeArquivo });
+      } catch (erroShare) {
+        // usuário cancelou a folha de compartilhamento — não é um erro real
+        if (erroShare && erroShare.name !== 'AbortError') throw erroShare;
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+
+      // Em todas as plataformas (incluindo Safari/iOS quando a Web Share
+      // API com arquivo não está disponível) usamos o link com download —
+      // window.open() após código assíncrono é bloqueado pelo Safari por
+      // não ser mais considerado parte do gesto de clique do usuário.
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nomeArquivo;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      if (isIOS()) {
+        setTimeout(() => alert('Se o PDF abrir em uma nova aba em vez de baixar direto, toque em Compartilhar (⬆) e escolha "Salvar em Arquivos".'), 600);
+      }
+
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    }
+
+    if (resultado.avisos.length > 0) {
+      alert('O PDF foi gerado, mas os seguintes arquivos não puderam ser incluídos:\n\n' + resultado.avisos.map(a => '• ' + a).join('\n'));
+    }
+  } catch (e) {
+    alert('Erro ao gerar o PDF: ' + e.message + '\n\nSe estiver usando o Safari no iPhone, tente também: fechar outras abas, verificar espaço de armazenamento livre, ou tentar novamente com fotos em vez de arquivos anexados.');
+  } finally {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+  }
+}
+
+// ---------- CARREGAR FORMULÁRIO: lê um PDF gerado por este sistema e repreenche tudo ----------
+
+function restaurarTextos(dados) {
+  Object.keys(dados.textos || {}).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = dados.textos[id];
+  });
+}
+
+function restaurarRadiosECheckboxes(dados) {
+  Object.keys(dados.radios || {}).forEach(nome => {
+    const valor = dados.radios[nome];
+    document.querySelectorAll('input[name="' + nome + '"]').forEach(inp => {
+      inp.checked = !!valor && inp.value === valor;
+      const op = inp.closest('.opcao');
+      if (op) op.classList.toggle('marcada', inp.checked);
+    });
+  });
+  Object.keys(dados.checkboxes || {}).forEach(nome => {
+    const valores = dados.checkboxes[nome] || [];
+    document.querySelectorAll('input[name="' + nome + '"]').forEach(inp => {
+      inp.checked = valores.includes(inp.value);
+      const op = inp.closest('.opcao');
+      if (op) op.classList.toggle('marcada', inp.checked);
+    });
+  });
+}
+
+function adivinharMimePorNome(nome) {
+  const ext = (nome.split('.').pop() || '').toLowerCase();
+  const mapa = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf', heic: 'image/heic', heif: 'image/heif' };
+  return mapa[ext] || 'application/octet-stream';
+}
+
+// lê a árvore Names/EmbeddedFiles de um PDF (já carregado com PDFDocument.load)
+// e devolve [{ nome, bytes }] para cada arquivo anexado
+function lerAnexosPdf(pdfDoc) {
+  const { PDFName, PDFDict, PDFArray, decodePDFRawStream } = PDFLib;
+  const catalog = pdfDoc.catalog;
+  if (!catalog.has(PDFName.of('Names'))) return [];
+  const namesDict = catalog.lookup(PDFName.of('Names'), PDFDict);
+  if (!namesDict.has(PDFName.of('EmbeddedFiles'))) return [];
+  const efDict = namesDict.lookup(PDFName.of('EmbeddedFiles'), PDFDict);
+  if (!efDict.has(PDFName.of('Names'))) return [];
+  const efNames = efDict.lookup(PDFName.of('Names'), PDFArray);
+
+  const resultado = [];
+  for (let i = 0; i < efNames.size(); i += 2) {
+    const nomeObj = efNames.lookup(i);
+    const nome = nomeObj.decodeText ? nomeObj.decodeText() : String(nomeObj);
+    const filespecRef = efNames.get(i + 1);
+    const filespecDict = pdfDoc.context.lookup(filespecRef, PDFDict);
+    const efSub = filespecDict.lookup(PDFName.of('EF'), PDFDict);
+    const streamRef = efSub.get(PDFName.of('F'));
+    const stream = pdfDoc.context.lookup(streamRef);
+    const dataBytes = decodePDFRawStream(stream).decode();
+    resultado.push({ nome, bytes: dataBytes });
+  }
+  return resultado;
+}
+
+// marca os documentos como "apresentado" com base no PDF importado:
+// - PDF gerado por este próprio app interno: já vem com {marcado: true/false}
+// - PDF do app do locatário (v2.27+): considera enviado quando ele anexou
+//   arquivo ou tirou foto do documento (não guardamos o arquivo em si aqui)
+function restaurarDocumentos(metaDocumentos, arquivosPorChave) {
+  Object.keys(documentosState).forEach(chave => {
+    const estado = documentosState[chave];
+    const metaItem = (metaDocumentos && metaDocumentos[chave]) || null;
+    let marcado = false;
+    if (metaItem && typeof metaItem.marcado === 'boolean') {
+      marcado = metaItem.marcado;
+    } else if (metaItem) {
+      marcado = (metaItem.modo === 'anexar' || metaItem.modo === 'foto') && !!(arquivosPorChave[chave] && arquivosPorChave[chave].length > 0);
+    }
+    estado.marcado = marcado;
+    const input = document.getElementById('chk_' + chave);
+    if (input) { input.disabled = false; input.checked = marcado; }
+    const wrap = document.getElementById('docitem_' + chave);
+    if (wrap) { wrap.classList.toggle('marcado', marcado); wrap.classList.remove('travado'); }
+    const tag = document.getElementById('tag_' + chave);
+    if (tag) tag.style.display = 'none';
+  });
+}
+
+// agrupa os itens de texto de uma página (na ordem em que foram desenhados)
+// em "linhas" — funciona porque tanto este sistema quanto outros da mesma
+// família desenham um campo por vez (rótulo + valor, na mesma altura Y)
+function agruparLinhasTexto(items) {
+  const linhas = [];
+  let atualY = null;
+  let atual = '';
+  items.forEach(it => {
+    const bruto = it.str || '';
+    const y = Math.round(it.transform[5]);
+    if (bruto === '') return;
+    if (atualY === null) atualY = y;
+    if (Math.abs(y - atualY) > 2) {
+      linhas.push(atual.trim());
+      atual = '';
+      atualY = y;
+    }
+    atual += bruto;
+  });
+  if (atual.trim()) linhas.push(atual.trim());
+  return linhas.filter(l => l.length > 0);
+}
+
+// lê o texto visível de todas as páginas de um PDF usando pdf.js
+async function extrairLinhasTexto(bytes) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('O leitor de texto de PDF não carregou. Verifique sua conexão com a internet e tente novamente.');
+  }
+  const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+  let linhas = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    linhas = linhas.concat(agruparLinhasTexto(content.items));
+  }
+  return linhas;
+}
+
+// remove marcação de negrito/itálico do WhatsApp (*texto* / _texto_) que às vezes
+// sobra quando se cola uma mensagem já formatada (o WhatsApp nem sempre limpa o
+// asterisco/underline 100% ao copiar o texto renderizado)
+function limparMarcacaoWhats(texto) {
+  return String(texto == null ? '' : texto).replace(/^[*_]+/, '').replace(/[*_]+$/, '').trim();
+}
+
+// interpreta as linhas "Rótulo: valor" de um PDF de formulário de locação
+// (deste sistema ou de outro compatível, como o app básico do locatário) ou de
+// uma mensagem de texto colada (ex.: WhatsApp) e monta o mesmo formato de dados
+// usado por restaurarTextos/restaurarRadiosECheckboxes
+function interpretarLinhasFormularioBasico(linhas) {
+  const dados = { textos: {}, radios: {}, checkboxes: {} };
+  const contextosPreenchidos = new Set();
+  let contexto = null;
+
+  const SECOES_IGNORAR = new Set([
+    'LOCATÁRIOS', 'FIADORES', 'INQUILINOS', 'DADOS / INFORMAÇÕES', 'UTILIZAÇÃO DO IMÓVEL',
+    'PREFERÊNCIA DE PAGAMENTO', 'ANIMAIS DE ESTIMAÇÃO', 'FIADOR — REFERÊNCIA',
+    'IMÓVEL E PROPRIETÁRIO', 'IMÓVEL', 'PROPRIETÁRIO',
+    'CHECKLIST DE DOCUMENTOS', 'OBSERVAÇÕES'
+  ]);
+  // aceita tanto o rótulo abreviado (como sai no PDF interno) quanto o rótulo
+  // por extenso (como o app "básico" do locatário gera na mensagem/PDF dele)
+  const CAMPO_POR_ROTULO = {
+    'Nome': 'nome', 'Nome completo': 'nome',
+    'Profissão': 'profissao',
+    'Telefone': 'tel',
+    'E-mail': 'email'
+  };
+
+  linhas.forEach(linhaBruta => {
+    const linha = limparMarcacaoWhats(linhaBruta.trim());
+    // "Locatário (N)" é o rótulo antigo; "Inquilino (N)" é o rótulo atual do
+    // formulário do locatário (renomeado por fora deste app) — ambos mapeiam
+    // pro mesmo contexto interno loc1/loc2, então qualquer um dos dois é aceito
+    if (linha === 'Locatário (1)' || linha === 'Inquilino (1)') { contexto = 'loc1'; return; }
+    if (linha === 'Locatário (2)' || linha === 'Inquilino (2)') { contexto = 'loc2'; return; }
+    if (linha === 'Fiador (1)') { contexto = 'fiador1'; return; }
+    if (linha === 'Fiador (2)') { contexto = 'fiador2'; return; }
+    if (SECOES_IGNORAR.has(linha)) { contexto = null; return; }
+
+    const m = linha.match(/^([^:]+):\s*(.*)$/);
+    if (!m) return;
+    const rotulo = m[1].trim();
+    const valor = limparMarcacaoWhats(m[2].trim());
+    if (!valor || valor === '—') return; // '—' é o placeholder de "campo vazio" nesta família de formulários
+
+    if (contexto) {
+      contextosPreenchidos.add(contexto);
+      if (CAMPO_POR_ROTULO[rotulo]) {
+        dados.textos[contexto + '_' + CAMPO_POR_ROTULO[rotulo]] = valor;
+      } else if (rotulo === 'Est. civil' || rotulo === 'Estado civil') {
+        dados.radios[contexto + '_estado_civil'] = valor;
+      }
+      return;
+    }
+
+    if (rotulo === 'A locação será para uso' || rotulo === 'Utilização') dados.radios['utilizacao_imovel'] = valor;
+    else if (rotulo === 'Dia preferido para pagamento mensal do aluguel') dados.textos['dia_pagamento'] = valor;
+    else if (rotulo === 'Possui animais de estimação?') dados.radios['tem_animais'] = valor;
+    else if (rotulo === 'Quantidade') dados.textos['animais_qtd'] = valor;
+    else if (rotulo === 'Espécie') dados.checkboxes['animais_especie'] = valor.split(',').map(s => s.trim()).filter(Boolean);
+    else if (rotulo === 'Qual animal') dados.textos['animais_especie_outro'] = valor;
+    else if (rotulo === 'Porte') dados.checkboxes['animais_porte'] = valor.split(',').map(s => s.trim()).filter(Boolean);
+  });
+
+  // só define a quantidade de Locatários/Fiadores quando esse grupo realmente
+  // apareceu no PDF — isso é importante porque, desde que o app do locatário
+  // passou a gerar formulários SEPARADOS (um só com os Inquilinos, outro só
+  // com os Fiadores — às vezes um PDF traz só um dos dois), um PDF sem a
+  // seção de Fiadores não deve forçar "01 Fiador" com campos vazios, e
+  // vice-versa; sem essa chave definida, restaurarRadiosECheckboxes() não
+  // mexe naquele grupo de rádio, deixando a seleção como já estava
+  if (contextosPreenchidos.has('loc1') || contextosPreenchidos.has('loc2')) {
+    dados.radios['qtd_locatarios'] = contextosPreenchidos.has('loc2') ? '2' : '1';
+  }
+  if (contextosPreenchidos.has('fiador1') || contextosPreenchidos.has('fiador2')) {
+    dados.radios['qtd_fiadores'] = contextosPreenchidos.has('fiador2') ? '2' : '1';
+  }
+
+  return dados;
+}
+
+// detecta documentos entregues a partir das legendas que alguns formulários
+// desenham no topo de cada página de documento (ex.: "Locatário (1) — Doc.
+// Pessoal", "Comprovante Imóvel Garantia") — usado quando o PDF não tem os
+// dados anexados de forma estruturada, mas ainda assim insere os documentos
+// como páginas de imagem com essas legendas
+function detectarDocumentosPorLegenda(linhas) {
+  const documentos = {};
+  const marcar = chave => { documentos[chave] = { marcado: true }; };
+
+  linhas.forEach(linhaBruta => {
+    const linha = linhaBruta.trim();
+
+    // "Locatário (N) — ..." é a legenda antiga; "Inquilino (N) — ..." é a
+    // legenda atual usada pelo app do locatário nas páginas de documento
+    let m = linha.match(/^(?:Locat[aá]rio|Inquilino)\s*\((\d)\)\s*[—-]\s*(.+)$/i);
+    if (m) {
+      const prefixo = 'loc' + m[1], tipo = m[2].toLowerCase();
+      if (tipo.includes('pessoal')) marcar(prefixo + '_pessoal');
+      else if (tipo.includes('civil')) marcar(prefixo + '_civil');
+      else if (tipo.includes('renda')) marcar(prefixo + '_renda');
+      return;
+    }
+
+    m = linha.match(/^Fiador\s*\((\d)\)\s*[—-]\s*(.+)$/i);
+    if (m) {
+      const prefixo = 'fiador' + m[1], tipo = m[2].toLowerCase();
+      if (tipo.includes('pessoal')) marcar(prefixo + '_pessoal');
+      else if (tipo.includes('civil')) marcar(prefixo + '_civil');
+      else if (tipo.includes('renda')) marcar(prefixo + '_renda');
+      return;
+    }
+
+    if (/^Comprovante Residencial\s*\((?:Locat[aá]rio|Inquilino)\)$/i.test(linha)) { marcar('loc_residencial'); return; }
+    if (/^Comprovante Residencial\s*\(Fiador\)$/i.test(linha)) { marcar('fiador_residencial'); return; }
+    if (/^Comprovante Im[oó]vel Garantia$/i.test(linha)) { marcar('fiador_garantia'); return; }
+  });
+
+  return documentos;
+}
+
+async function carregarFormularioDePdf(arquivoPdf) {
+  const { PDFDocument } = PDFLib;
+  const bytes = new Uint8Array(await arquivoPdf.arrayBuffer());
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const anexos = lerAnexosPdf(pdfDoc);
+
+  const anexoDados = anexos.find(a => a.nome === 'dados_formulario.json');
+  let dados;
+  let arquivosPorChave = {};
+  let apenasTexto = false;
+
+  if (anexoDados) {
+    // PDF gerado por este sistema (ou pelo app do locatário v2.27+): lê os
+    // dados e os documentos originais anexados
+    dados = JSON.parse(new TextDecoder().decode(anexoDados.bytes));
+
+    // separa os anexos de documento (doc__<chave>__<indice>__<nomeOriginal>) por chave, em ordem
+    anexos.forEach(a => {
+      if (a.nome === 'dados_formulario.json') return;
+      const m = a.nome.match(/^doc__(.+?)__(\d+)__(.+)$/);
+      if (!m) return;
+      const chave = m[1];
+      const idx = parseInt(m[2], 10);
+      const nomeOriginal = m[3];
+      const arquivo = new File([a.bytes], nomeOriginal, { type: adivinharMimePorNome(nomeOriginal) });
+      if (!arquivosPorChave[chave]) arquivosPorChave[chave] = [];
+      arquivosPorChave[chave][idx] = arquivo;
+    });
+    Object.keys(arquivosPorChave).forEach(chave => {
+      arquivosPorChave[chave] = arquivosPorChave[chave].filter(Boolean);
+    });
+  } else {
+    // PDF de outro formulário (ex.: o app básico do locatário, sem documentos, ou
+    // um app que insere os documentos como páginas de imagem sem anexar os dados) —
+    // não tem os dados anexados, então lê o texto visível das páginas e reconstrói
+    // os campos a partir dos rótulos ("Nome:", "Est. civil:" etc.)
+    const linhas = await extrairLinhasTexto(bytes);
+    if (!linhas.length) {
+      throw new Error('Não foi possível ler texto neste PDF. Ele precisa ter sido gerado por um formulário de locação compatível.');
+    }
+    dados = interpretarLinhasFormularioBasico(linhas);
+    // várias versões do app do locatário inserem cada documento como uma página
+    // própria, com uma legenda no topo (ex.: "Locatário (1) — Doc. Pessoal").
+    // Mesmo sem conseguir recuperar o arquivo em si, dá pra usar essa legenda
+    // pra saber que aquele documento foi entregue e já marcar o item aqui.
+    dados.documentos = detectarDocumentosPorLegenda(linhas);
+    apenasTexto = true;
+  }
+
+  restaurarTextos(dados);
+  restaurarRadiosECheckboxes(dados);
+  atualizarUtilizacao();
+  atualizarQtd('locatarios');
+  atualizarQtd('fiadores');
+  atualizarAnimais();
+  atualizarEspecieOutro();
+  atualizarObsPadrao();
+  restaurarDocumentos(dados.documentos || {}, arquivosPorChave);
+  atualizarConjugeObrigatorio();
+
+  const documentosDetectados = Object.keys(dados.documentos || {}).length > 0;
+  return { apenasTexto, documentosDetectados };
+}
+
+// arrastar e soltar o PDF na zona de importação (além do clique)
+(function configurarDropzoneCarregar() {
+  const zona = document.getElementById('zona_arraste');
+  if (!zona) return;
+  let contadorDragEnter = 0;
+
+  zona.addEventListener('dragenter', e => {
+    e.preventDefault();
+    contadorDragEnter++;
+    zona.classList.add('arrastando-arquivo');
+  });
+  zona.addEventListener('dragover', e => {
+    e.preventDefault();
+  });
+  zona.addEventListener('dragleave', () => {
+    contadorDragEnter = Math.max(0, contadorDragEnter - 1);
+    if (contadorDragEnter === 0) zona.classList.remove('arrastando-arquivo');
+  });
+  zona.addEventListener('drop', e => {
+    e.preventDefault();
+    contadorDragEnter = 0;
+    zona.classList.remove('arrastando-arquivo');
+    const arquivos = e.dataTransfer && e.dataTransfer.files;
+    if (arquivos && arquivos.length > 0) processarCarregarFormulario(arquivos);
+  });
+})();
+
+async function processarCarregarFormulario(fileList) {
+  const arquivo = fileList && fileList[0];
+  const input = document.getElementById('input_carregar_formulario');
+  if (!arquivo) return;
+
+  const prosseguir = confirm('Ao importar todos os dados serão substituídos. Deseja Continuar?');
+  if (!prosseguir) {
+    input.value = '';
+    return;
+  }
+
+  if (typeof PDFLib === 'undefined') {
+    alert('A biblioteca de geração de PDF não carregou. Verifique sua conexão com a internet e tente novamente.');
+    input.value = '';
+    return;
+  }
+
+  const zona = document.getElementById('zona_arraste');
+  const textoZona = document.getElementById('zona_arraste_texto');
+  const textoOriginal = textoZona.innerHTML;
+  textoZona.textContent = '⏳ Carregando...';
+  zona.classList.add('carregando');
+  try {
+    const resultado = await carregarFormularioDePdf(arquivo);
+    if (resultado.apenasTexto && !resultado.documentosDetectados) {
+      alert('Dados importados a partir do texto do PDF! Esse PDF não informa quais documentos foram enviados, então você vai precisar marcá-los manualmente aqui. Revise os dados, complete Imóvel, Proprietário e Observações e gere o RESUMO PARA LOCAÇÃO.');
+    } else if (resultado.apenasTexto && resultado.documentosDetectados) {
+      alert('Dados importados a partir do texto/páginas do PDF! Os documentos foram identificados pelas legendas das páginas e já vêm marcados — confira se está tudo certo. Agora complete Imóvel, Proprietário e Observações e gere o RESUMO PARA LOCAÇÃO.');
+    } else {
+      alert('Dados importados com sucesso! Agora complete Imóvel, Proprietário e Observações e gere o RESUMO PARA LOCAÇÃO.');
+    }
+  } catch (e) {
+    alert('Não foi possível carregar esse PDF: ' + e.message);
+  } finally {
+    textoZona.innerHTML = textoOriginal;
+    zona.classList.remove('carregando');
+    input.value = '';
+  }
+}
+
+// ---------- COLAR MENSAGEM: importa os dados a partir de um texto colado (ex.: mensagem de WhatsApp) ----------
+
+// abre/fecha a caixa de colar texto
+function alternarColarTexto() {
+  const bloco = document.getElementById('colar_texto_bloco');
+  const mostrar = bloco.style.display === 'none';
+  bloco.style.display = mostrar ? '' : 'none';
+  if (mostrar) {
+    const area = document.getElementById('colar_texto_area');
+    area.focus();
+  }
+}
+
+// usa o mesmo interpretador de "Rótulo: valor" já usado para PDFs sem dados
+// anexados (interpretarLinhasFormularioBasico) — só que aqui as linhas vêm
+// direto do texto colado, sem precisar extrair nada de um PDF
+async function processarColarTexto() {
+  const area = document.getElementById('colar_texto_area');
+  const texto = (area.value || '').trim();
+  if (!texto) {
+    alert('Cole a mensagem no campo antes de importar.');
+    return;
+  }
+
+  const prosseguir = confirm('Ao importar todos os dados serão substituídos. Deseja Continuar?');
+  if (!prosseguir) return;
+
+  try {
+    const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (!linhas.length) throw new Error('O texto colado está vazio.');
+
+    const dados = interpretarLinhasFormularioBasico(linhas);
+    // mensagens de texto não trazem documentos anexados — apenas tenta achar
+    // legendas de documento por segurança (normalmente não haverá nenhuma)
+    dados.documentos = detectarDocumentosPorLegenda(linhas);
+
+    restaurarTextos(dados);
+    restaurarRadiosECheckboxes(dados);
+    atualizarUtilizacao();
+    atualizarQtd('locatarios');
+    atualizarQtd('fiadores');
+    atualizarAnimais();
+    atualizarEspecieOutro();
+    atualizarObsPadrao();
+    restaurarDocumentos(dados.documentos || {}, {});
+    atualizarConjugeObrigatorio();
+
+    const documentosDetectados = Object.keys(dados.documentos || {}).length > 0;
+    area.value = '';
+    document.getElementById('colar_texto_bloco').style.display = 'none';
+
+    if (documentosDetectados) {
+      alert('Dados importados a partir do texto colado! Alguns documentos foram identificados no texto e já vêm marcados — confira se está tudo certo. Agora complete Imóvel, Proprietário e Observações e gere o PDF Interno.');
+    } else {
+      alert('Dados importados a partir do texto colado! Essa mensagem não informa quais documentos foram enviados, então marque-os manualmente aqui. Agora complete Imóvel, Proprietário e Observações e gere o PDF Interno.');
+    }
+  } catch (e) {
+    alert('Não foi possível interpretar esse texto: ' + e.message);
+  }
+}
+</script>
+
+</body>
+</html>
