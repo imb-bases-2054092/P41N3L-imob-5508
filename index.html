@@ -826,6 +826,27 @@ table.grade tr.lin-hoje td{background:#fff4e2}[data-theme=dark] table.grade tr.l
 .cad-dt td{padding:4px 6px;vertical-align:top}.cad-dt td a{text-decoration:none;font-size:12.5px;word-break:break-all}.cad-dt .btn.sm{padding:2px 8px}
 .cad-sit{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .chip.cad-bad.on{background:var(--bad);border-color:var(--bad)}.chip.cad-warn.on{background:#b26a00;border-color:#b26a00}.chip.cad-ok.on{background:var(--ok);border-color:var(--ok)}.chip.cad-info.on{background:#2f6fb5;border-color:#2f6fb5}
+.rel-via{display:block;margin-top:2px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#777}
+.rp tr.rp-neg td{font-size:11px;color:#7a1a1a;padding-top:0;white-space:normal}
+.rel-t td.r-ok{background:#e3f2e4;font-weight:600}.rel-t td.r-pend{background:#fff3cf;font-weight:600}.rel-t td.r-bad{background:#fde8ea;font-weight:600}
+table.grade tr.g-grupo td{background:var(--surface-2);color:var(--c1);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-top:3px solid var(--c1)}
+table.grade tr.g-grupo td .c{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
+table.grade tr.g-grupo+tr td{border-top:0}
+/* v26 cadastro */
+.cad-p.cad-lct{border-left:4px solid #2e8b57;background:color-mix(in srgb,#2e8b57 5%,transparent)}.cad-p.cad-fdr{border-left:4px solid #b07a1a;background:color-mix(in srgb,#b07a1a 6%,transparent)}
+.cad-p.cad-lct h3{color:#2e7a4f}.cad-p.cad-fdr h3{color:#8a5a0e}.cad-dt.cad-lct{border-left:4px solid #2e8b57}.cad-dt.cad-fdr{border-left:4px solid #b07a1a}
+.leg-lct{color:#2e7a4f;font-weight:700}.leg-fdr{color:#8a5a0e;font-weight:700}
+.fl.do-cli input,.fl.do-cli select{border-color:#e0b100;box-shadow:inset 0 0 0 1px #e0b100;background:color-mix(in srgb,#ffd84d 10%,var(--surface))}
+.fl.do-cli.alterado input,.fl.do-cli.alterado select{border-style:dashed;border-color:#d97a00;box-shadow:inset 0 0 0 1px #d97a00}
+.cli-tag{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:none;background:#ffe27a;color:#5b4300;border-radius:999px;padding:0 6px;margin-left:6px}
+.fl.alterado .cli-tag{background:#ffc078;color:#5b2d00}.cli-tag.prev{background:#d6e8ff;color:#1b3f7a}.fl.prev input{border-color:#4a86d8;border-style:dashed}
+.cad-imv{position:relative;margin-bottom:8px}.cad-imv-sel{min-height:26px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 6px}
+.cad-imv-res{position:absolute;z-index:30;left:0;right:0;top:100%;max-height:320px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.cad-imv-op{padding:6px 10px;cursor:pointer;display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-bottom:1px solid var(--line)}.cad-imv-op:hover{background:var(--surface-2)}
+.cad-obs{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;border:1px dashed var(--line);border-radius:10px;padding:8px 12px;margin:8px 0}.cad-obs-t{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);width:100%}
+.cad-obs .chk{white-space:nowrap}.cad-desc{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cad-div{display:flex;align-items:center;gap:10px;margin:14px 0 8px;color:#8a6a00;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}.cad-div:before,.cad-div:after{content:"";flex:1;border-top:2px solid #e0b100}
+.cad-sit{margin-bottom:8px}
 /*v25end*/
 </style>
 </head>
@@ -902,9 +923,9 @@ table.grade tr.lin-hoje td{background:#fff4e2}[data-theme=dark] table.grade tr.l
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
       <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Pgto Condomínio</span><span class="nav-c" data-c="condominios"></span></a>
+      <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto vendas</span><span class="nav-c" data-c="pag_vendas"></span></a>
       <a href="#desp_loc" data-p="desp_loc"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Despesa locador</span><span class="nav-c" data-c="desp_loc"></span></a>
       <a href="#desp_imob" data-p="desp_imob"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-t">Despesa imob</span><span class="nav-c" data-c="desp_imob"></span></a>
-      <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto vendas</span><span class="nav-c" data-c="pag_vendas"></span></a>
       <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Cobrança</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos e relatórios</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
