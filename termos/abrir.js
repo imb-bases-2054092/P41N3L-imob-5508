@@ -97,6 +97,12 @@
         try { if (typeof atualizarQtd === "function") { atualizarQtd("locatarios"); atualizarQtd("fiadores"); } } catch (x) {}
         try { if (typeof restaurarDocumentos === "function") restaurarDocumentos(dd.documentos || {}, {}); } catch (x) {}
         try { restaurarTextos(dd); } catch (x) {}
+        // v26: gera o PDF direto (a ficha do cadastro já tem tudo), sem mostrar a página
+        if (P.gerarPdf && typeof construirPDF === "function") setTimeout(function () {
+          construirPDF().then(function (r) { var b = r.bytes, buf = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+            window.parent.postMessage({ tipo: "termo-pdf", nome: (typeof nomeArquivoBase === "function" ? nomeArquivoBase() : "Formulario Interno") + ".pdf", buf: buf }, "*", [buf]); })
+          .catch(function (e) { window.parent.postMessage({ tipo: "termo-pdf", erro: String((e && e.message) || e) }, "*"); });
+        }, 400);
         return;
       }
       if (!P.cod || typeof carregarCadastro !== "function") return;
@@ -122,7 +128,7 @@
     });
     html = html.replace(/https?:\/\/[^'"]+\/pdf\.worker\.min\.js/g, "vendor/pdf.worker.min.js");
     // script que roda dentro do app: preenche o contrato, liga os botões do cabeçalho do sistema etc.
-    var auto = "<script>(" + dentroDoApp.toString() + ")(" + JSON.stringify({ cod: d.codigo || "", novo: d.novoCodigo || "", form: d.form || null, rasc: d.rascunho || "", campos: d.campos || null, dados: d.dados || null, imovel: d.imovel || null }).replace(/</g, "\\u003c") + ");<\/script>";
+    var auto = "<script>(" + dentroDoApp.toString() + ")(" + JSON.stringify({ cod: d.codigo || "", novo: d.novoCodigo || "", form: d.form || null, rasc: d.rascunho || "", campos: d.campos || null, dados: d.dados || null, imovel: d.imovel || null, gerarPdf: !!d.gerarPdf }).replace(/</g, "\\u003c") + ");<\/script>";
     var aviso = avisos.length ? '<div style="background:#fde8ea;color:#c8192e;padding:8px 14px;font:600 13px system-ui">Aviso: ' + avisos.join(" ") + "</div>" : "";
     // visual igual ao do sistema (sem cabeçalho próprio, letras menores, página mais larga)
     var estilo = "<style>header{display:none!important}.intro{display:none!important}body{font-size:14px;line-height:1.45;background:#f0f4fb}" +
@@ -145,5 +151,5 @@
     instalarFetch(d.xlsx, d.arquivos || {}); // garante a troca também depois da reabertura do documento
     avisarDownload();
   });
-  window.parent.postMessage({ tipo: "termo-pronto" }, "*");
+  window.parent.postMessage({ tipo: "termo-pronto", versao: 27 }, "*"); // v27: o sistema confere a versão deste arquivo
 })();
