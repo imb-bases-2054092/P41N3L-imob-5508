@@ -1562,6 +1562,7 @@ header p { font-size: 0.75rem; color: #a8bce8; font-weight: 300; margin-top: 2px
 
       <div id="fdr-endereco-block" style="display:none;grid-column:1/-1;border-top:1px dashed var(--fundo3);padding-top:16px;margin-top:6px">
         <div class="sublabel" style="margin-bottom:8px" id="fdr_endereco_titulo">Endereço Residencial</div>
+        <div class="chip-atalho" style="margin:0 0 10px;display:inline-block" title="Copia rua, bairro e município do imóvel em garantia para o endereço do fiador" onclick="['rua','bairro','cidade'].forEach(function(k){var o=document.getElementById('imgrt_'+k),d=document.getElementById('fdr_'+k);if(o&&d&&o.value.trim()){d.value=o.value;d.dispatchEvent(new Event('input',{bubbles:true}));d.dispatchEvent(new Event('change',{bubbles:true}));}});">🏠 Usar o mesmo endereço do imóvel em garantia</div>
         <div class="grid-4" style="gap:14px">
           <div class="field col-span-2"><label id="fdr_rua_label">Endereço Residencial (Rua e nº)</label><input id="fdr_rua" value="" placeholder="Ex.: Avenida Jânio Quadros, nº 444"></div>
           <div class="field"><label>Bairro</label><input id="fdr_bairro" value="" placeholder="Ex.: Centro"></div>
