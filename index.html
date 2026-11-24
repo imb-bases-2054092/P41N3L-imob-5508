@@ -910,6 +910,39 @@ table.cad-dtab{table-layout:fixed;width:100%}table.cad-dtab td{padding:3px 6px;v
 .cad-leg .lg-cli{border-color:#3b7ddd;color:#245fb5}.cad-leg .lg-int{border-color:#8b5cf6;color:#6d3fd6}.cad-leg .lg-alt{border-color:#f08c00;color:#b86500}
 @media (max-width:900px){#dlg .cad-g{grid-template-columns:1fr}.cad-g>[data-pk]{grid-column:auto;grid-row:auto}}
 .prog-novo{display:grid;grid-template-columns:auto minmax(220px,1fr) 130px minmax(200px,300px);gap:8px;align-items:end}.prog-novo .fl input,.prog-novo .fl select{width:100%}.prog-novo [data-padd]{justify-self:start}
+/* v30 */
+.cad-ov{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.45);display:grid;place-items:center}
+.cad-ov-c{background:var(--surface);border-radius:12px;padding:18px 22px;min-width:360px;max-width:520px;box-shadow:0 16px 48px rgba(0,0,0,.3);border-top:4px solid var(--warn,#e0a100)}
+.cad-ov-c h3{margin:0 0 8px}.cad-ov-c ul{margin:4px 0 8px 18px;font-weight:600}.cad-ov-b{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+#dlg .cad-g2{display:flex;gap:12px;align-items:stretch;margin:4px 0}
+.cad-grp{flex:var(--n) 1 0;min-width:0;border-radius:10px;padding:6px 10px 10px;border:1px solid}
+.cad-grp-lct{background:#dde6f3;border-color:#b3c5e0}.cad-grp-fdr{background:#efe4d6;border-color:#d8c1a4}
+[data-theme=dark] .cad-grp-lct{background:#1d2a3d;border-color:#33496b}[data-theme=dark] .cad-grp-fdr{background:#33291e;border-color:#5a4630}
+.cad-grp-h{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:2px 2px 6px;color:#1f3556}.cad-grp-fdr .cad-grp-h{color:#6b4a22}
+[data-theme=dark] .cad-grp-h{color:#c9d6ea}[data-theme=dark] .cad-grp-fdr .cad-grp-h{color:#e8d2b4}
+.cad-grp-in{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:0}
+.cad-grp .cad-p,.cad-grp .cad-p.cad-lct,.cad-grp .cad-p.cad-fdr{background:none;border:0;border-radius:0;padding:0 10px}
+.cad-grp .cad-p:first-child{padding-left:0}.cad-grp .cad-p:last-child{padding-right:0}.cad-grp .cad-p+.cad-p{border-left:1px solid rgba(0,0,0,.18)}
+.cad-grp .cad-p h3,.cad-grp .cad-p.cad-lct h3,.cad-grp .cad-p.cad-fdr h3{color:inherit;font-size:13.5px}
+.cad-grp .cad-p .row{display:flex;flex-wrap:nowrap;gap:6px}.cad-grp .cad-p .row>.fl{min-width:0}.cad-grp .fl input,.cad-grp .fl select{background:var(--surface)}
+.cad-grp table.cad-dtab col:first-child{width:118px!important}.cad-grp table.cad-dtab{background:var(--surface);border-radius:6px}.cad-grp table.cad-dtab td{font-size:12px}
+@media (max-width:1300px){#dlg .cad-g2{flex-direction:column}}
+/* v30: cor dos campos — verde = cliente, roxo = preenchido aqui, laranja = alterado */
+.fl.do-cli input,.fl.do-cli select{border-color:#2f9e44;box-shadow:inset 0 0 0 1px #2f9e44;background:color-mix(in srgb,#2f9e44 7%,var(--surface))}
+.fl.do-cli.alterado input,.fl.do-cli.alterado select{border-color:#f08c00;box-shadow:inset 0 0 0 1px #f08c00;background:color-mix(in srgb,#f08c00 8%,var(--surface))}
+.cad-leg .lg-cli{border-color:#2f9e44;color:#237a35}
+.rp-t tr.rp-gr td{background:var(--surface-2);font-weight:800;color:var(--c1);font-size:12.5px;border-top:3px solid var(--c1)}.rp-t tr.rp-gr-at td{color:#b42318;border-top-color:#d92d20;background:#fff1f0}
+.rp-t tr.rp-atras.rp-novo td{background:#fff7f6}[data-theme=dark] .rp-t tr.rp-gr-at td,[data-theme=dark] .rp-t tr.rp-atras.rp-novo td{background:#3a1c1a}.rp-t select[data-rm]{padding:3px 4px;font-size:12.5px}
+.kcards:has(>.kcard:only-child){grid-template-columns:minmax(280px,440px)}
+.barra{display:flex;flex-direction:column;gap:8px;min-width:0}.barra .filters{margin:0}
+.barra.uma{flex-direction:row;align-items:center;gap:10px}.barra.uma .b-l1{flex:1 1 auto;min-width:0}.barra.uma .b-l2{flex:0 0 auto}.barra.uma .b-l2>.spacer{display:none}
+.barra .b-l1 .fgrupo{flex:none}
+.kwrap{position:relative}.k-tog{position:absolute;top:-22px;right:0;border:0;background:none;color:var(--muted);font-size:11.5px;cursor:pointer;padding:2px 4px}.k-tog:hover{color:var(--fg)}
+.k-mostrar{align-self:flex-start}
+.pend-ops{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+tfoot .leg-cod{display:inline-flex;font-weight:400}
+.filters input.busca-larga{flex:1 1 220px;min-width:180px;width:auto}.filters input.busca-larga.na-l2{flex:1 1 240px;max-width:520px}
+table.grade .sel-col{padding:0 !important;text-align:center}table.grade .sel-col input{margin:0}
 </style>
 </head>
 <body>
@@ -985,17 +1018,17 @@ table.cad-dtab{table-layout:fixed;width:100%}table.cad-dtab td{padding:3px 6px;v
       <div class="nav-h">Pagamentos</div>
       <a href="#alugueis" data-p="alugueis"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-6h6v6"/></svg><span class="nav-t">Pgto locatário</span><span class="nav-c" data-c="alugueis"></span></a>
       <a href="#depositos" data-p="depositos"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></svg><span class="nav-t">Pgto locador</span><span class="nav-c" data-c="depositos"></span></a>
-      <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Pgto Condomínio</span><span class="nav-c" data-c="condominios"></span></a>
-      <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto vendas</span><span class="nav-c" data-c="pag_vendas"></span></a>
+      <a href="#condominios" data-p="condominios"><svg viewBox="0 0 24 24"><path d="M4 21V5l6-2v18M10 8h10v13M7 8h0M7 12h0M7 16h0M14 12h2M14 16h2"/></svg><span class="nav-t">Pgto condomínio</span><span class="nav-c" data-c="condominios"></span></a>
+      <a href="#pag_vendas" data-p="pag_vendas"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M12 8v6M10 10h4"/></svg><span class="nav-t">Pgto venda</span><span class="nav-c" data-c="pag_vendas"></span></a>
+      <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Inadimplentes</span><span class="nav-c" data-c="atrasados"></span></a>
       <a href="#desp_loc" data-p="desp_loc"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span class="nav-t">Despesa locador</span><span class="nav-c" data-c="desp_loc"></span></a>
       <a href="#desp_imob" data-p="desp_imob"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-t">Despesa imob</span><span class="nav-c" data-c="desp_imob"></span></a>
-      <a href="#atrasados" data-p="atrasados"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nav-t">Inadimplentes</span><span class="nav-c" data-c="atrasados"></span></a>
       <div class="nav-h">Recibos e notas</div>
       <a href="#recibos_lct" data-p="recibos_lct"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="nav-t">Recibos e relatórios</span><span class="nav-c" data-c="recibos_lct"></span></a>
       <a href="#notas" data-p="notas"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h3M8 17h3M14 13h2M14 17h2"/></svg><span class="nav-t">Notas fiscais</span><span class="nav-c" data-c="notas"></span></a>
       <div class="nav-h">Locação</div>
+      <a href="#cadastros" data-p="cadastros"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 16l4 4h8l4-4M9 9l3 3 3-3M12 5v7"/></svg><span class="nav-t">Formulários</span><span class="nav-c" data-c="cadastros" title="Cadastros recebidos em análise"></span></a>
       <a href="#contratos" data-p="contratos"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nav-t">Contratos</span><span class="nav-c" data-c="contratos"></span></a>
-      <a href="#cadastros" data-p="cadastros"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M4 16l4 4h8l4-4M9 9l3 3 3-3M12 5v7"/></svg><span class="nav-t">Cadastros recebidos</span><span class="nav-c" data-c="cadastros" title="Cadastros recebidos em análise"></span></a>
       <a href="#imoveis" data-p="imoveis"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg><span class="nav-t">Imóveis</span><span class="nav-c" data-c="imoveis"></span></a>
       <a href="#locadores" data-p="locadores"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M17 11l2 2 4-4"/></svg><span class="nav-t">Locadores</span><span class="nav-c" data-c="locadores"></span></a>
       <a href="#caucao" data-p="caucao"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span class="nav-t">Contas caução</span><span class="nav-c" data-c="caucao"></span></a>
