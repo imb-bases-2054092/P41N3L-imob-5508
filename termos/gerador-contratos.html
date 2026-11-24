@@ -1983,10 +1983,41 @@ function formatarDataDigitada(el) {
   el.value = out;
 }
 
+// v30: calendário próprio (o calendário do navegador não abre quando o gerador está dentro do ImobOne)
+function abrirMiniCal(btn, idTexto, aoEscolher) {
+  let p = document.getElementById('mini-cal');
+  if (p && p.dataset.dono === idTexto) { p.remove(); return; }
+  if (p) p.remove();
+  const MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const txt = (document.getElementById(idTexto).value || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const sel = txt ? new Date(+txt[3], +txt[2] - 1, +txt[1]) : null, hj = new Date();
+  let ano = (sel || hj).getFullYear(), mes = (sel || hj).getMonth();
+  p = document.createElement('div'); p.id = 'mini-cal'; p.dataset.dono = idTexto;
+  p.style.cssText = 'position:absolute;z-index:9999;background:#fff;border:1px solid #c9d2e0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px;width:260px;font-size:13px';
+  const mesmo = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const desenha = () => {
+    const ini = new Date(ano, mes, 1).getDay(), nd = new Date(ano, mes + 1, 0).getDate();
+    let h = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><button type="button" data-m="-1" style="border:0;background:#eef2f8;border-radius:6px;padding:3px 9px;cursor:pointer">◀</button><b>${MES[mes]} ${ano}</b><button type="button" data-m="1" style="border:0;background:#eef2f8;border-radius:6px;padding:3px 9px;cursor:pointer">▶</button></div>`;
+    h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">' + ['D','S','T','Q','Q','S','S'].map(x => `<span style="color:#8a94a6;font-size:11px">${x}</span>`).join('');
+    for (let i = 0; i < ini; i++) h += '<span></span>';
+    for (let d = 1; d <= nd; d++) { const dt = new Date(ano, mes, d), on = mesmo(dt, sel), hoje = mesmo(dt, hj);
+      h += `<button type="button" data-d="${d}" style="border:0;border-radius:6px;padding:5px 0;cursor:pointer;background:${on ? '#1f3556' : hoje ? '#fff1c9' : 'transparent'};color:${on ? '#fff' : '#1b2230'};font-weight:${on || hoje ? 700 : 400}">${d}</button>`; }
+    h += '</div><div style="text-align:right;margin-top:6px"><button type="button" data-hoje style="border:0;background:none;color:#1f3556;cursor:pointer;font-weight:700">Hoje</button></div>';
+    p.innerHTML = h;
+  };
+  const escolhe = dt => { const z = n => String(n).padStart(2, '0'); document.getElementById(idTexto).value = `${z(dt.getDate())}/${z(dt.getMonth() + 1)}/${dt.getFullYear()}`; p.remove(); aoEscolher(); };
+  p.addEventListener('click', ev => { ev.stopPropagation(); const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.m) { mes += +b.dataset.m; if (mes < 0) { mes = 11; ano--; } if (mes > 11) { mes = 0; ano++; } desenha(); }
+    else if (b.dataset.d) escolhe(new Date(ano, mes, +b.dataset.d));
+    else if (b.hasAttribute('data-hoje')) escolhe(new Date()); });
+  desenha(); document.body.appendChild(p);
+  const r = btn.getBoundingClientRect();
+  p.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 270)) + 'px';
+  p.style.top = (r.bottom + window.scrollY + 4) + 'px';
+  setTimeout(() => document.addEventListener('click', function fora(ev) { if (!p.contains(ev.target)) { p.remove(); document.removeEventListener('click', fora); } }), 0);
+}
 function abrirCalendarioInicio() {
-  const cal = document.getElementById('inicio_calendario');
-  if (typeof cal.showPicker === 'function') { cal.showPicker(); }
-  else { cal.style.pointerEvents = 'auto'; cal.style.opacity = '1'; cal.click(); }
+  abrirMiniCal(document.querySelector('[onclick="abrirCalendarioInicio()"]'), 'inicio_data', recalcularDatasContrato);
 }
 
 // Quando a pessoa escolhe uma data no calendário, joga ela formatada (DD/MM/AAAA) no campo digitado
@@ -2061,9 +2092,7 @@ function recalcularDatasContrato() {
 }
 
 function abrirCalendarioDataContrato() {
-  const cal = document.getElementById('data_contrato_calendario');
-  if (typeof cal.showPicker === 'function') { cal.showPicker(); }
-  else { cal.style.pointerEvents = 'auto'; cal.style.opacity = '1'; cal.click(); }
+  abrirMiniCal(document.querySelector('[onclick="abrirCalendarioDataContrato()"]'), 'data_contrato_data', recalcularDataContrato);
 }
 
 function aplicarCalendarioDataContrato() {
