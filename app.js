@@ -455,9 +455,9 @@ async function contarMenu() {
     if (!pode.ver(m.aperm) || !op || op === "nada" || !Q[k][op]) return put(k, null);
     put(k, await Q[k][op](), m.ops[op], ALERTA[op]);
   }));
-  // v24: Interessados mostra sempre os dois números (L = locação, V = venda)
-  const pi = async (k, t, perm, txt) => { const el = $(`.nav-c[data-c="${k}"]`); if (!el) return; if (!pode.ver(perm)) { el.textContent = ""; return; } const n = await conta(head("interessados").in("tipo", t === "venda" ? ["venda", "vende"] : [t]).eq("ativo", true)); el.textContent = n == null ? "" : txt + " " + n; el.title = `interessados ativos (${t === "venda" ? "compra e quem quer vender" : "locação"})`; };
-  await Promise.all([pi("interessados_loc", "locacao", "imoveis", "L"), pi("interessados_ven", "venda", "vendas", "V")]);
+  // v31: Interessados mostra três números: L = locação, C = compra, V = quer vender
+  const pi = async (k, t, perm, txt, dica) => { const el = $(`.nav-c[data-c="${k}"]`); if (!el) return; if (!pode.ver(perm)) { el.textContent = ""; return; } const n = await conta(head("interessados").eq("tipo", t).eq("ativo", true)); el.textContent = n == null ? "" : txt + " " + n; el.title = `interessados ativos: ${dica}`; };
+  await Promise.all([pi("interessados_loc", "locacao", "imoveis", "L", "locação"), pi("interessados_ven", "venda", "vendas", "C", "compra"), pi("interessados_vde", "vende", "vendas", "V", "quer vender")]);
 }
 async function render() {
   calcReset();
@@ -956,7 +956,7 @@ function desenharAlugueis(pg) {
   g.redesenhar = () => desenharAlugueis();
   const chips = [["todos", "Todos", ""], ["hoje", "📅 Hoje", ""], ["aberto", "Em aberto", "st-INTV"], ["atrasado", "Atrasados", "st-INTV"], ["parcial", "Parcial", "st-INTV"], ["pago", "A repassar", "st-ALG"], ["adiantado", "Adiantados", "st-OCP"], ["quitado", "Concluídos", "st-LVR"], ["ajustes", "Com ajustes", ""]].concat(conta.carencia ? [["carencia", "Carência", "st-OCP"]] : []);
   pg.innerHTML = `<div class="grid">
-    ${COB_RES && S.papel !== "recepcao" ? `<details class="cob-res"${lerPref("cobRes") === "0" ? "" : " open"}><summary>Resumo de ${esc(mesTxt(S.mes))}: esperado × real</summary>${cardsMes(COB_RES.esp, COB_RES.real, "Resumo de " + mesTxt(S.mes))}</details>` : ""}
+    ${COB_RES ? kWrap(cardsMes(COB_RES.esp, COB_RES.real, "Resumo de " + mesTxt(S.mes))) : ""}
     ${!COB.length ? `<div class="card empty"><p>Os aluguéis de <b>${esc(mesTxt(S.mes))}</b> ainda não foram gerados.</p>
       ${pode.editar() ? `<p class="hint">O sistema cria uma cobrança para cada imóvel <b>alugado</b> no mapa, com o valor e o dia de vencimento cadastrados${COB_REAJ.length ? `, depois de aplicar <b>${COB_REAJ.length} reajuste(s) programado(s)</b>` : ""}.</p><button class="btn pri" data-act="gerar-cob">Gerar aluguéis de ${esc(mesTxt(S.mes))}</button>
       <p class="hint" style="margin-top:12px">Começando no meio do mês? Gere, filtre <b>Em aberto</b>, marque os que já foram pagos e use <b>Receber selecionados</b> para dar baixa de uma vez.</p>` : `<p class="hint">Peça ao financeiro para gerar.</p>`}</div>` : `
@@ -970,7 +970,6 @@ function desenharAlugueis(pg) {
     ${gradeHTML("alugueis")}`}
   </div>`;
   ligarBusca(pg); ligarSelecao(pg);
-  const dr = $(".cob-res", pg); if (dr) dr.addEventListener("toggle", () => { gravarPref("cobRes", dr.open ? "1" : "0"); requestAnimationFrame(ajustarAlturas); });
 }
 const lerPref = k => { try { return localStorage.getItem("imob." + k); } catch (e) { return null; } };
 const gravarPref = (k, v) => { try { localStorage.setItem("imob." + k, v); } catch (e) { /* sem armazenamento */ } };
@@ -1419,7 +1418,7 @@ function despPropHTML(c) {
       <label class="fl"><span>Pago pela conta</span><select data-dk="conta">${contasOpts(c.conta_pgto_id)}</select></label>
       <label class="fl desp-obs"><span>Observações (o que foi feito / comprado)</span><input data-dk="desc" placeholder="ex.: troca da porta da cozinha"></label>
       <label class="fl"><span>Descontar no repasse de</span><select data-dk="comp">${compsDesp(c).map((m, i) => opt(m, mesTxt(m), !i)).join("")}</select></label>
-      <label class="chk" style="margin:0;align-self:end"><input type="checkbox" data-dk="pago" checked> já paga</label><button type="button" class="btn sm pri" data-desp-ok style="align-self:end">Lançar</button><button type="button" class="btn sm" data-desp-cancel style="align-self:end">Cancelar</button>
+      <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center"><button type="button" class="btn sm" data-desp-cancel>Cancelar</button><span style="flex:1"></span><label class="chk" style="margin:0"><input type="checkbox" data-dk="pago" checked> já paga</label><button type="button" class="btn sm pri" data-desp-ok>Lançar</button></div>
       ${c.repasse_data ? `<p class="hint" style="grid-column:1/-1;margin:0">O repasse de ${esc(mesTxt(c.competencia))} já foi feito em ${dt(c.repasse_data)}: a despesa só pode ser descontada a partir de ${esc(mesTxt(addMes(c.competencia, 1)))}.</p>` : ""}</div>
     <p class="hint">Vai para o Caixa como saída (dinheiro do proprietário), com este imóvel, e aparece no relatório do proprietário.</p></div>`;
 }
@@ -2418,17 +2417,13 @@ function desenharImoveis(pg) {
   const podeLib = pode.editar() && S.mes !== mesAtual && !(passado && !(IMV.hist && IMV.hist.length));
   pg.innerHTML = `<div class="grid">
     ${aviso}
-    <div class="filters">
-      <div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="imv" data-v="${k}">${t}<span class="c">${cont[k] || 0}</span></button>`).join("")}</div>
-      <input type="search" placeholder="Buscar endereço, locador, locatário…" value="${esc(busca)}" data-busca="imvBusca">
-      <span class="spacer"></span>
-      ${(IMV.termos || []).length ? `<button class="btn danger" data-act="termos-imv" title="Imóveis com termo obrigatório pendente">⚠ ${IMV.termos.length} termo(s) pendente(s)</button>` : ""}${gradeBarra("imoveis")}
+    ${barra(`<div class="chips">${chips.map(([k, t, cls]) => `<button class="chip ${cls}${f === k ? " on" : ""}" data-act="chip" data-k="imv" data-v="${k}">${t}<span class="c">${cont[k] || 0}</span></button>`).join("")}</div>
+      <input type="search" class="busca-larga" placeholder="Buscar endereço, locador, locatário…" value="${esc(busca)}" data-busca="imvBusca">`,
+      `${gradeBarra("imoveis")}${(IMV.termos || []).length ? `<button class="btn sm aviso danger" data-act="termos-imv" title="Imóveis com termo obrigatório pendente">⚠ ${IMV.termos.length} termo(s) pendente(s)</button>` : ""}
       ${podeLib ? (lib ? `<button class="btn" data-act="imv-trava" title="${passado ? "Alterações mudam só o histórico deste mês" : "Alterações valem para o cadastro atual"}">🔓 Edição liberada · bloquear</button>` : `<button class="btn" data-act="imv-libera">🔒 Liberar edição deste mês</button>`) : ""}
-<button class="btn" data-act="imv-livres" title="Lista de imóveis livres para deixar na recepção (por tipo)">📄 Lista de livres</button>
-    </div>
-    <div class="filters acoes-dir">${pode.ed("imoveis") ? `<button class="btn" data-act="reaj-prox" title="Contratos que completam 12 meses neste mês e no próximo">📅 Reajustes a programar</button>` : ""}${pode.editar() ? `<button class="btn" data-act="imv-termos" title="Entrega de chaves, devolução de caução, declarações (também de contratos antigos que não estão no sistema)">📄 Termos</button>` : ""}
-      ${pode.editar() && !passado ? `<button class="btn pri" data-act="imv-novo">+ Imóvel</button>` : ""}
-    </div>
+      <button class="btn" data-act="imv-livres" title="Lista de imóveis livres para deixar na recepção (por tipo)">📄 Lista de livres</button>
+      ${pode.ed("imoveis") ? `<button class="btn" data-act="reaj-prox" title="Contratos que completam 12 meses neste mês e no próximo">📅 Reajustes a programar</button>` : ""}${pode.editar() ? `<button class="btn" data-act="imv-termos" title="Entrega de chaves, devolução de caução, renúncia ao direito de preferência, declarações (também de contratos antigos que não estão no sistema)">📄 Termos</button>` : ""}
+      ${pode.editar() && !passado ? `<button class="btn pri" data-act="imv-novo">+ Imóvel</button>` : ""}`)}
     ${gradeHTML("imoveis")}
   </div>`;
   ligarBusca(pg);
@@ -3536,8 +3531,8 @@ function desenharDepositos(pg) {
       `${ed ? `<button class="btn" data-act="dep-pagar-sel">Pagar marcados <span data-psel-n></span></button>` : ""}
       <button class="btn" data-act="dep-rel-mes">Relatório do mês</button><button class="btn" data-act="dep-rel-todos" title="Relatório de cada proprietário já pago (para imprimir ou salvar em PDF)">📄 Relatórios dos proprietários</button>${gradeBarra("depositos")}
       ${hj.length ? `<button class="btn sm aviso warn" data-act="chip" data-k="dep" data-v="hoje" title="${esc(hj.map(x => x.nome).join(" · "))}">📅 ${hj.length} para pagar hoje</button>` : ""}
-      ${ng.length ? `<button class="btn sm danger" data-act="dep-neg" title="Despesas maiores que o aluguel: a diferença é descontada no mês seguinte">⚠ ${ng.length} saldo(s) negativo(s)</button>` : ""}
-      ${DEP.semCad.length ? `<button class="btn sm danger" data-act="dep-semcad" title="Locadores com aluguel no mês sem favorecido de pagamento">⚠ ${DEP.semCad.length} sem favorecido</button>` : ""}`)}
+      ${ng.length ? `<button class="btn sm aviso danger" data-act="dep-neg" title="Despesas maiores que o aluguel: a diferença é descontada no mês seguinte">⚠ ${ng.length} saldo(s) negativo(s)</button>` : ""}
+      ${DEP.semCad.length ? `<button class="btn sm aviso danger" data-act="dep-semcad" title="Locadores com aluguel no mês sem favorecido de pagamento">⚠ ${DEP.semCad.length} sem favorecido</button>` : ""}`)}
     ${gradeHTML("depositos")}
     <p class="hint">Uma linha por <b>favorecido</b> (quem recebe). Os imóveis de cada locador vão para o favorecido dele; um imóvel pode ir para outro favorecido (cadastro do imóvel › <b>Repasse para</b>). Forma e conta em <i class="fpad">roxo itálico</i> = padrão do cadastro (ainda não pago); depois de pago, aparece como foi de fato. Favorecidos: <b>Cadastros › Locadores › Favorecidos</b>.</p>
   </div>`;
@@ -4435,7 +4430,7 @@ function desenharContratos(pg) {
   if (verPend && pend) lista = lista.filter(c => pendAtiva(c, pend));
   if (busca) { const b = norm(busca); lista = lista.filter(c => norm([c.codigo, c.endereco, c.locador, c.locatario, c.fiador, fv(c, "lct1_cpf"), fv(c, "lct2_cpf")].join(" ")).includes(b)); }
   const cols = pode.editar() ? [COL_SEL_CTT].concat(COLS_CTT) : COLS_CTT;
-  const g = grade("contratos8", cols, lista, { attr: c => `data-act="ctt-ed" data-id="${esc(c.codigo)}" style="cursor:pointer"`, sort: { k: "codigo", dir: "desc" }, rodape: fl => `${fl.length} contratos <span class="leg-ct leg-cod" style="margin-left:18px">Cor do código: <b class="lc-ativo">Ativo</b><b class="lc-elab">Em preparo</b><b class="lc-enc">Encerrado</b><b class="lc-deb">Débito em aberto</b><b class="lc-canc">Cancelado</b></span>`,
+  const g = grade("contratos8", cols, lista, { attr: c => `data-act="ctt-ed" data-id="${esc(c.codigo)}" style="cursor:pointer"`, sort: { k: "codigo", dir: "desc" }, rodape: fl => `${fl.length} contratos`,
     divisor: { k: "codigo", g: c => c.codigo.slice(2, 4) }, cls: corCtt, tcls: "ctt", estica: ["tag_imv", "tag_lcd", "tag_lct", "tag_fdr"] });
   // v30: sem a linha "Colunas:" — o padrão passa a ser "Resumo + FDR" (uma vez; depois vale o que cada um escolher em ☰ Colunas)
   if (!lsGet("v30.cttR2")) { const vis = new Set(resumoKs("r2")); g.ocultas = g.ordem.filter(k => !vis.has(k) && !(gCol(g, k) || {}).fixo); S.f.cttResumo = "r2"; gradeSalvar("contratos8"); lsSet("v30.cttR2", "1"); }
@@ -4446,19 +4441,15 @@ function desenharContratos(pg) {
   const sabado = new Date().getDay() === 6, nPendAtivos = CTT.filter(c => pendsDe(c).length).length;
   const selN = [...CTT_SEL].filter(k => CTT.some(c => c.codigo === k)).length;
   pg.innerHTML = `<div class="grid">
-    <div class="filters">
-      ${prep ? "" : `<div class="fgrupo"><span>Situação</span>${chip("todos", "Todos", "", nG("todos"), f === "todos", "ctt")}${chip("ATIVO", "Ativos", "st-LVR", nG("ATIVO"), f === "ATIVO", "ctt")}${chip("preparo", "Em preparo", "st-OCP", nG("preparo"), f === "preparo", "ctt")}${chip("naoativos", "Não ativos", "st-ALG", nG("naoativos"), f === "naoativos", "ctt")}</div>`}
+    ${barra(`${prep ? "" : `<div class="fgrupo"><span>Situação</span>${chip("todos", "Todos", "", nG("todos"), f === "todos", "ctt")}${chip("ATIVO", "Ativos", "st-LVR", nG("ATIVO"), f === "ATIVO", "ctt")}${chip("preparo", "Em preparo", "st-OCP", nG("preparo"), f === "preparo", "ctt")}${chip("naoativos", "Não ativos", "st-ALG", nG("naoativos"), f === "naoativos", "ctt")}</div>`}
       <div class="fgrupo"><span>Garantia</span>${[["", "Todas"], ["fiador", "Fiador"], ["caucao", "Caução"], ["sem", "Sem garantia"]].map(([k, t]) => chip(k, t, "", (k ? CTT.filter(c => garDe(c) === k) : CTT).filter(grupo[f]).length, gar === k, "cttGar")).join("")}</div>
-      <input type="search" class="busca-larga" placeholder="Buscar código, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca">
-    </div>
-    <div class="filters">
       ${subs.length ? `<div class="chips sub">${subs.map(([k, t, cls]) => chip(k, t, cls, nS(k), subOk === k, "cttSub")).join("")}</div>` : ""}
-      <span class="spacer"></span>
-      <button class="btn" data-act="ctt-rel-pend" title="Relatório de pendências para imprimir ou salvar em PDF (sábados)">📋 Pendências</button><button class="btn" data-act="ctt-conf-pes" title="Compara as pessoas de todos os contratos (CPF, nome, RG…) para achar erros de um contrato para outro">🔍 Conferir pessoas</button>${gradeBarra("contratos8")}
-      <button class="btn" data-act="ctt-termo">🔑 Termos</button>
-      ${pode.editar() ? `<button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha</button><button class="btn pri" data-act="ctt-gerar">📄 Novo contrato</button>` : ""}
-      ${prep ? "" : avisosPrep()}${avisosContratos(semFicha, sabado, nPendAtivos)}
-    </div>
+      <input type="search" class="busca-larga" placeholder="Buscar código, nomes, CPF…" value="${esc(busca)}" data-busca="cttBusca">`,
+      `${gradeBarra("contratos8")}${prep ? "" : avisosPrep()}${avisosContratos(semFicha, sabado, nPendAtivos)}
+      ${pode.editar() ? `<button class="btn pri" data-act="ctt-gerar">📄 + Contrato</button>` : ""}<button class="btn" data-act="ctt-termo">🔑 Termos</button>
+      <button class="btn" data-act="ctt-rel-pend" title="Relatório de pendências para imprimir ou salvar em PDF (sábados)">📋 Pendências</button><button class="btn" data-act="ctt-conf-pes" title="Compara as pessoas de todos os contratos (CPF, nome, RG…) para achar erros de um contrato para outro">🔍 Conferir pessoas</button>
+      ${pode.editar() ? `<button class="btn" data-act="ctt-novo" title="Só a ficha, sem gerar o Word">+ Ficha</button>` : ""}`)}
+    <div class="leg-ct leg-cod leg-l3">Cor do código: <b class="lc-ativo">Ativo</b><b class="lc-elab">Em preparo</b><b class="lc-enc">Encerrado</b><b class="lc-deb">Débito em aberto</b><b class="lc-canc">Cancelado</b></div>
     ${verPend ? `<div class="filters"><div class="chips sub">${chip("", "Todas as pendências", "", listaP.length, !pend, "cttPend")}${PEND_CTT.map(([k, t]) => chip(k, t, "", nP(k), pend === k, "cttPend")).join("")}</div></div>` : ""}
     ${selN ? `<div class="filters lote-bar"><b>${selN} selecionado(s)</b> · alterar <select data-lote-k>${PEND_CTT.filter(([k]) => k !== "redcor").map(([k], i) => opt(k, CPK[k].t, !i)).join("")}${opt("redacao", "Redação", false)}${opt("correcao", "Correção", false)}</select>
       para <input data-lote-v list="dl-lote" placeholder="valor (vazio = limpar)" style="width:200px"><datalist id="dl-lote">${OPC.st.concat(OPC.quem).map(o => `<option value="${esc(o)}">`).join("")}</datalist>
@@ -4475,15 +4466,15 @@ function desenharContratos(pg) {
 // v28: avisos pequenos (canto direito) de contratos em preparo e cadastros novos
 function avisosPrep() {
   const np = CTT.filter(c => PREPARO.includes(c.situacao)).length;
-  return (np && S.f.ctt !== "preparo" ? `<button class="btn sm aviso warn" data-act="chip" data-k="ctt" data-v="preparo" title="Rascunhos, a corrigir e prontos (falta ligar)">📝 ${np} em preparo</button>` : "")
-    + (S.cadNovos ? `<a class="btn sm aviso" href="#cadastros" title="Cadastros recebidos em análise">📥 ${S.cadNovos} cadastro(s) em análise</a>` : "");
+  return (S.cadNovos ? `<a class="btn sm aviso warn" href="#cadastros" title="Formulários de cadastro recebidos em análise">📥 ${S.cadNovos} cadastro(s) em análise</a>` : "")
+    + (np && S.f.ctt !== "preparo" ? `<button class="btn sm aviso warn" data-act="chip" data-k="ctt" data-v="preparo" title="Rascunhos, a corrigir e prontos (falta ligar)">📝 ${np} em preparo</button>` : "");
 }
 function avisosContratos(semFicha, sabado, nPend) {
   let h = "";
   const tp = CTT.filter(c => termoEst(c, "entrega") === "pendente").map(c => Object.assign({ tipo: "entrega" }, c)).concat(CTT.filter(c => termoEst(c, "caucao") === "pendente").map(c => Object.assign({ tipo: "caucao" }, c)));
   if (tp.length) h += avisoBtn("ctt-termos", `⚠ ${tp.length} termo(s)`, "danger", "Termos obrigatórios pendentes", `<p class="hint">🔑 entrega de chaves · 💰 devolução de caução. O termo fica feito quando o PDF é baixado.</p>${listaBtns(tp.map(termoBtn))}`);
   const sc = CAUC.contas.length ? caucSemConta() : [];
-  if (sc.length) h += avisoBtn("ctt-cauc", `⚠ ${sc.length} caução sem conta`, "warn", "Contratos com caução sem conta caução vinculada", `<p class="hint">Obrigatório: escolha uma conta livre, somada a outra conta, ou "paga direto ao proprietário".</p>${listaBtns(sc.map(c => `<button class="btn sm" data-act="cauc-vinc-ctt" data-id="${esc(c.codigo)}">${esc(c.codigo)} · ${esc(curtoTxt(c.locatario, 40))}</button>`))}`);
+  if (sc.length) h += avisoBtn("ctt-cauc", `⚠ ${sc.length} caução sem conta`, "danger", "Contratos com caução sem conta caução vinculada", `<p class="hint">Obrigatório: escolha uma conta livre, somada a outra conta, ou "paga direto ao proprietário".</p>${listaBtns(sc.map(c => `<button class="btn sm" data-act="cauc-vinc-ctt" data-id="${esc(c.codigo)}">${esc(c.codigo)} · ${esc(curtoTxt(c.locatario, 40))}</button>`))}`);
   if (sabado && nPend) h += `<button class="btn sm aviso warn" data-act="ctt-rel-pend" title="Hoje é sábado: dia do relatório de pendências">📋 Sábado: pendências (${nPend})</button>`;
   if (semFicha && pode.editar()) h += avisoBtn("ctt-ficha", `${semFicha} sem ficha`, "", "Contratos sem a ficha completa", `<p>${semFicha} contratos ainda sem a ficha completa (RG, CPF, UC, matrícula…). Use <b>Importar planilha</b> com o arquivo "Gerador de Contratos" para trazer todos os dados do Excel.</p>`);
   return h;
@@ -4524,19 +4515,29 @@ ACT["aud-limpar"] = () => { S.f.aud = { dia: "", user: "", sec: "" }; render(); 
 ACT["ctt-rel-pend"] = () => {
   const ls = CTT.filter(c => pendsDe(c).length).sort((a, b) => COLL.compare(a.codigo, b.codigo));
   const PCOLS = PEND_CTT.filter(([k]) => k !== "redcor");
-  modal({ titulo: "Relatório de pendências", semOk: true, corpo: `<p class="hint">Contratos ativos com pendência: <b>${ls.length}</b>. Escolha o relatório:</p>
-    <div class="pend-ops"><button type="button" class="btn pri" data-rp="">📋 Todas as pendências (tabela completa)</button>
-    ${PCOLS.map(([k, t]) => { const n = ls.filter(c => pendAtiva(c, k)).length; return `<button type="button" class="btn" data-rp="${k}"${n ? "" : " disabled"}>${esc(t)} <b>(${n})</b></button>`; }).join("")}</div>
-    <p class="hint">Cada lista sai com locador, locatário e telefones, e uma coluna "Feito" para marcar à mão.</p>`,
-    aoAbrir: (f, d) => $$("[data-rp]", d).forEach(b => b.addEventListener("click", () => { fecharDlg(); setTimeout(() => relPendencias(b.dataset.rp), 30); })) });
+  // v31: marcar várias listas e sair tudo num PDF só (lembra a última escolha neste computador)
+  let mem = []; try { mem = JSON.parse(lsGet("v31.pendSel", "") || "[]"); } catch (e) { mem = []; }
+  if (!mem.length) mem = ["st_ass_lcd", "st_ass_lct", "st_cpfl"];
+  modal({ titulo: "Relatório de pendências", ok: "📄 Gerar as listas marcadas", corpo: `<p class="hint">Contratos ativos com pendência: <b>${ls.length}</b>.</p>
+    <div class="pend-ops"><button type="button" class="btn" data-rp-todas>📋 Todas as pendências (tabela completa)</button></div>
+    <p style="margin:10px 0 4px"><b>Ou marque as listas</b> (uma lista por pendência, cada uma com os dados dela — saem todas num PDF só):</p>
+    <div class="pend-chk">${PCOLS.map(([k, t]) => { const n = ls.filter(c => pendAtiva(c, k)).length; return `<label class="chk${n ? "" : " muted"}"><input type="checkbox" name="pl" value="${k}"${n && mem.includes(k) ? " checked" : ""}${n ? "" : " disabled"}> ${esc(t)} <b>(${n})</b></label>`; }).join("")}</div>
+    <p class="hint">Se duas listas couberem inteiras na mesma folha, ficam juntas; se não, cada uma começa numa folha nova.</p>`,
+    aoAbrir: (f, d) => $("[data-rp-todas]", d).addEventListener("click", () => { fecharDlg(); setTimeout(() => relPendencias([]), 30); }),
+    salvar: f => { const ks = $$("input[name=pl]:checked", $("#dlg")).map(x => x.value); if (!ks.length) throw new Error("Marque pelo menos uma lista.");
+      lsSet("v31.pendSel", JSON.stringify(ks)); setTimeout(() => relPendencias(ks), 30); } });
 };
 const telLoc = n => { const l = locResolve(n); return l ? fmtTel(l.tel || (l.ficha || {}).lcd1_tel || "") : ""; };
-function relPendencias(k) {
+// pessoas do contrato (1 e 2) — nome, telefone e e-mail, uma embaixo da outra na mesma célula
+const pesCtt = (c, g) => [1, 2].map(i => ({ nome: String(fv(c, g + i + "_nome") || "").trim(), tel: fv(c, g + i + "_tel") ? fmtTel(fv(c, g + i + "_tel")) : "", email: String(fv(c, g + i + "_email") || "").trim() }))
+  .filter((x, i) => x.nome && x.nome !== "---" && !(i && /PJ/i.test(fv(c, g + "_qtd") || "")));
+const empilha = xs => xs.filter(Boolean).map(esc).join("<br>");
+function relPendencias(ks) {
   const ls = CTT.filter(c => pendsDe(c).length).sort((a, b) => COLL.compare(a.codigo, b.codigo));
   const PCOLS = PEND_CTT.filter(([x]) => x !== "redcor");
   const lcd = c => locadoresDoCtt(c).join(" · "), lct = c => nomesCtt(c, "lct").join(" e ") || c.locatario || "";
   const emitido = `<p class="rel-rod">Emitido em ${new Date().toLocaleString("pt-BR")} por ${esc(S.membro.nome || S.membro.email)}</p>`;
-  if (!k) {
+  if (!ks || !ks.length) {
     const porTipo = PCOLS.map(([x, t]) => [t, ls.filter(c => pendAtiva(c, x)).length]).filter(x => x[1]);
     const html = `<div class="rel-tit"><b>Contratos ativos com pendências</b><span>${new Date().toLocaleDateString("pt-BR")} · ${ls.length} contratos</span></div>
       <p style="font-size:11px">${porTipo.map(([t, n]) => `${esc(t)}: <b>${n}</b>`).join(" · ")}</p>
@@ -4545,13 +4546,54 @@ function relPendencias(k) {
       </tbody></table>${emitido}`;
     return abrirRelatorio("Pendências contratos", html, { paisagem: true });
   }
-  const t = (PEND_CTT.find(x => x[0] === k) || [k, k])[1], sel = ls.filter(c => pendAtiva(c, k));
-  const telLct = c => [fv(c, "lct1_tel"), fv(c, "lct2_tel")].filter(Boolean).map(fmtTel).join(" / ");
-  const html = `<div class="rel-tit"><b>${esc(t)}</b><span>${new Date().toLocaleDateString("pt-BR")} · ${sel.length} contrato(s)</span></div>
-    <table class="rel-t"><thead><tr><th>Contrato</th><th>Imóvel</th><th>Locador</th><th>Tel. locador</th><th>Locatário</th><th>Tel. locatário</th><th>Anotação</th><th style="width:60px">Feito</th></tr></thead><tbody>
-    ${sel.map(c => { const v = String(fv(c, k) || "").trim(); return `<tr><td><b>${esc(c.codigo)}</b></td><td>${esc(curtoTxt(c.endereco || fv(c, "end_rua"), 40))}</td><td>${esc(curtoTxt(lcd(c), 30))}</td><td>${esc(locadoresDoCtt(c).map(telLoc).filter(Boolean).join(" / "))}</td><td>${esc(curtoTxt(lct(c), 30))}</td><td>${esc(telLct(c))}</td><td>${esc(curtoTxt(["NÃO", "NAO", "---"].includes(v.toUpperCase()) ? "" : v, 30))}</td><td style="border:1px solid #999"></td></tr>`; }).join("")}
-    </tbody></table>${emitido}`;
-  abrirRelatorio(t, html, { paisagem: true });
+  const secs = ks.map(k => listaPend(k, ls.filter(c => pendAtiva(c, k))));
+  const tit = ks.length === 1 ? (PEND_CTT.find(x => x[0] === ks[0]) || [, "Pendências"])[1] : "Pendências contratos";
+  const paginas = agruparPaginas(secs, true).map((pg, i, a) => pg.join('<div style="height:14px"></div>') + (i === a.length - 1 ? emitido : ""));
+  abrirRelatorio(tit, paginas, { paisagem: true });
+}
+// uma lista de pendência, só com os dados que servem para resolver aquela pendência
+function listaPend(k, sel) {
+  const t = (PEND_CTT.find(x => x[0] === k) || [k, k])[1];
+  const end = c => esc(curtoTxt(c.endereco || fv(c, "end_rua"), 42));
+  const anot = c => { const v = String(fv(c, k) || "").trim(); return esc(curtoTxt(["NÃO", "NAO", "---", "FALTA"].includes(v.toUpperCase()) ? "" : v, 34)); };
+  const lcdN = c => locadoresDoCtt(c);
+  const nomes = (c, g) => empilha(pesCtt(c, g).map(p => p.nome)), tels = (c, g) => empilha(pesCtt(c, g).map(p => p.tel || "—"));
+  const ass = (c, x) => pendAtiva(c, x) ? `<b style="color:#b42318">falta</b>` : "ok";
+  let cab, lin, ord = sel;
+  if (k === "st_ass_lcd") { cab = ["Contrato", "Imóvel", "Locador", "Telefone do locador", "Anotação"];
+    lin = c => [`<b>${esc(c.codigo)}</b>`, end(c), empilha(lcdN(c)), empilha(lcdN(c).map(n => telLoc(n) || "—")), anot(c)]; }
+  else if (k === "st_ass_lct") { cab = ["Contrato", "Imóvel", "Locatário(s)", "Telefone", "Fiador(es)", "Telefone", "Anotação"];
+    lin = c => [`<b>${esc(c.codigo)}</b>`, end(c), nomes(c, "lct") || esc(c.locatario || ""), tels(c, "lct"), nomes(c, "fdr") || "—", tels(c, "fdr"), anot(c)]; }
+  else if (k === "st_scan") { cab = ["Contrato", "Imóvel", "Locador", "Locatário", "Ass. LCD", "Ass. LCT/FDR", "Situação"];
+    const lib = c => !pendAtiva(c, "st_ass_lcd") && !pendAtiva(c, "st_ass_lct");
+    ord = sel.slice().sort((a, b) => lib(b) - lib(a) || COLL.compare(a.codigo, b.codigo));
+    lin = c => [`<b>${esc(c.codigo)}</b>`, end(c), esc(curtoTxt(lcdN(c).join(" · "), 34)), esc(curtoTxt(nomesCtt(c, "lct").join(" e ") || c.locatario || "", 34)), ass(c, "st_ass_lcd"), ass(c, "st_ass_lct"),
+      lib(c) ? `<b style="color:#1e7a34">✔ Assinado: liberado para scan</b>` : `aguardando assinatura`]; }
+  else if (k === "st_condominio") { cab = ["Contrato", "Imóvel", "Locatário(s)", "Telefone", "E-mail"];
+    lin = c => [`<b>${esc(c.codigo)}</b>`, end(c), nomes(c, "lct") || esc(c.locatario || ""), tels(c, "lct"), empilha(pesCtt(c, "lct").map(p => p.email || "—"))]; }
+  else if (k === "st_brimob") { cab = ["Contrato", "Locador(es)", "Locatário(s)", "Valor locação", "Início", "Término"];
+    const dtx = (c, kk) => c[kk] ? dt(c[kk]) : dt(dataDeTexto(fv(c, kk)) || "");
+    lin = c => { return [`<b>${esc(c.codigo)}</b>`, empilha(pesCtt(c, "lcd").map(p => p.nome).concat(pesCtt(c, "lcd").length ? [] : lcdN(c))), nomes(c, "lct") || esc(c.locatario || ""),
+      `<span class="num">${c.valor != null ? brl(c.valor) : esc(fv(c, "valor"))}</span>`, dtx(c, "inicio"), dtx(c, "termino")]; }; }
+  else if (k === "st_cpfl") { cab = ["Contrato", "UC", "CEP", "Endereço", "Locatário(s)", "Telefone", "Fiador(es)", "Telefone"];
+    lin = c => [`<b>${esc(c.codigo)}</b>`, `<b>${esc(fv(c, "uc"))}</b>`, esc(fv(c, "end_cep")), esc(curtoTxt(fv(c, "end_rua") || c.endereco, 40)), nomes(c, "lct") || esc(c.locatario || ""), tels(c, "lct"), nomes(c, "fdr") || "—", tels(c, "fdr")]; }
+  else { cab = ["Contrato", "Imóvel", "Locador", "Locatário", "Anotação"]; lin = c => [`<b>${esc(c.codigo)}</b>`, end(c), esc(lcdN(c).join(" · ")), esc(nomesCtt(c, "lct").join(" e ")), anot(c)]; }
+  return `<div class="pend-sec"><div class="rel-tit"><b>${esc(t)}</b><span>${new Date().toLocaleDateString("pt-BR")} · ${sel.length} contrato(s)</span></div>
+    <table class="rel-t rel-pend"><thead><tr>${cab.map(x => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${ord.map(c => `<tr>${lin(c).map(x => `<td>${x}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+// v31: junta seções na mesma folha quando cabem inteiras; senão, cada uma começa numa folha nova
+function agruparPaginas(secs, paisagem) {
+  const mm = 96 / 25.4, larg = ((paisagem ? 297 : 210) - 18) * mm, alt = ((paisagem ? 210 : 297) - 21) * mm;
+  const box = document.createElement("div"); box.style.cssText = `position:absolute;left:-10000px;top:0;width:${larg}px;visibility:hidden`; document.body.appendChild(box);
+  box.innerHTML = timbrado('<div data-c></div>');
+  const c = $("[data-c]", box), base = $(".tb-pg", box).offsetHeight;
+  const disp = Math.max(200, (alt - Math.max(base, 150)) * 0.92);
+  const hs = secs.map(s => { c.innerHTML = s; return c.offsetHeight + 14; });
+  box.remove();
+  const pgs = []; let cur = [], h = 0;
+  secs.forEach((s, i) => { if (cur.length && h + hs[i] > disp) { pgs.push(cur); cur = []; h = 0; } cur.push(s); h += hs[i]; });
+  if (cur.length) pgs.push(cur);
+  return pgs;
 }
 ACT["ctt-resumo"] = el => {
   const g = G.contratos8, vis = new Set(resumoKs(el.dataset.r));
@@ -5131,7 +5173,7 @@ function proximoRascunho() {
 }
 async function abrirTermo(tipo, codigo, novoCodigo, opts) {
   opts = opts || {};
-  if (["entrega", "caucao", "moradia", "quitacao"].includes(tipo)) return abrirTermoNativo(tipo, codigo, opts);
+  if (["entrega", "caucao", "moradia", "quitacao", "renuncia"].includes(tipo)) return abrirTermoNativo(tipo, codigo, opts);
   if (!opts.aoBaixar && tipo === "entrega" && codigo && termoEst(CTT.find(c => c.codigo === codigo) || {}, "entrega") === "pendente") opts.aoBaixar = () => marcarEntregaFeita(codigo);
   try {
     const [titulo, arq] = TERMOS[tipo];
@@ -6545,6 +6587,7 @@ async function escolherVenda(titulo) {
   return r ? r.v : null;
 }
 ACT["ven-termos-menu"] = el => menuTermos(el, "Termos de vendas", TERMOS_VEN.map(x => ({ ic: x.ic, t: x.t, d: x.d, fn: async () => {
+  if (x.k === "renuncia") return abrirTermoNativo("renuncia", "", { filtro: FILTRO_TERMO.renuncia });
   const v = await escolherVenda(x.t + " · qual venda?"); if (!v) return;
   if (!VIT || !Object.keys(VIT).length) { const its = await q(sb.from("venda_itens").select("*")).catch(() => []); VIT = {}; its.forEach(i => (VIT[i.venda_id] = VIT[i.venda_id] || []).push(i)); }
   setTimeout(() => ACT["ven-termo"]({ dataset: { id: v.id, tipo: x.k } }), 0);
@@ -6609,6 +6652,31 @@ function termoVenda(v, tipo, item, ctt) {
       <p style="margin-top:24px"><b>Testemunhas:</b></p>${ass([f.test1_nome || "", f.test2_nome || ""])}`;
   }
   abrirDocEditavel(titulo + " · " + v.codigo, html, { semTimbre: !timbre, clientes: tipo === "recibo_com" ? vend : [], papelCliente: "Vendedor(a)", pasta: v.codigo });
+}
+// v31: renúncia ao direito de preferência a partir do CONTRATO DE LOCAÇÃO (o imóvel locado pode ser vendido antes de estar em Vendas)
+async function termoRenunciaLoc(c, opts) {
+  if (!VEN || !VEN.length) VEN = await q(sb.from("vendas").select("*").order("codigo", { ascending: false })).catch(() => []);
+  const f = fichaDe(c), k0 = chaveEnd(c.endereco || f.end_rua || "");
+  const vs = (VEN || []).filter(v => v.endereco), sug = vs.find(v => k0 && chaveEnd(v.endereco) === k0);
+  const prm = await pedirParams("Renúncia ao direito de preferência · " + (c.codigo || rotuloImv(c.endereco || "")),
+    `<p class="hint">Locatário(s): <b>${esc(nomesLct(f).join(" e ") || c.locatario || "")}</b> · imóvel ${esc(endImovelFicha(f, c) || c.endereco || "")}</p>
+    <label class="fl"><span>Venda cadastrada (opcional — puxa vendedores, preço e forma)</span><select name="venda">${opt("", "— ainda não cadastrada: usar os locadores do contrato —", !sug)}${vs.map(v => opt(v.id, `${v.codigo} · ${curtoTxt(v.endereco, 40)} · ${curtoTxt(v.vendedores, 30)}`, sug && sug.id === v.id)).join("")}</select></label>
+    <div class="row"><label class="fl"><span>Preço da venda (opcional)</span><input name="valor" inputmode="numeric"></label><label class="fl"><span>Forma de pagamento (opcional)</span><input name="forma" placeholder="ex.: à vista / financiamento"></label></div>`,
+    fm => ({ v: (VEN || []).find(v => v.id === fm.venda.value) || null, valor: parseMoney(fm.valor.value) || 0, forma: fm.forma.value.trim() }),
+    fm => { mascaraMoeda(fm.valor); const pre = () => { const v = (VEN || []).find(x => x.id === fm.venda.value); if (v && +v.valor > 0 && !fm.valor.value) fm.valor.value = moedaFmt(v.valor); if (v && v.forma && !fm.forma.value) fm.forma.value = v.forma; }; fm.venda.addEventListener("change", pre); pre(); });
+  if (!prm) return;
+  const lct = nomesLct(f).length ? nomesLct(f) : [c.locatario || "Locatário(a)"], pl = lct.length > 1 && !/PJ/i.test(f.lct_qtd || "");
+  const quemLct = f.lct1_nome ? qualifGrupo(f, "lct").replace(/, (residentes?|com sede) na .*$/, "") : `<b>${esc(String(c.locatario || "").toUpperCase())}</b>, ${lin_(60)}`;
+  const prop = prm.v ? qualParte(prm.v, "vnd") : f.lcd1_nome ? qualifGrupo(f, "lcd") : `<b>${esc(String(locadoresDoCtt(c).join(" e ") || c.locador || "").toUpperCase())}</b>, ${lin_(60)}`;
+  const val = prm.valor, forma = prm.forma;
+  const html = `<h2 class="doc-tit">DECLARAÇÃO DE RENÚNCIA AO DIREITO DE PREFERÊNCIA</h2>
+    <p class="doc-rec">${pl ? "Nós, infra-assinados" : "Eu, infra-assinado(a)"}, ${quemLct}, locatário${pl ? "s" : "(a)"} do imóvel situado na ${esc(endImovelFicha(f, c) || c.endereco || "")}, ${cttDataTxt(f)}, ${pl ? "declaramos" : "declaro"}, para os devidos fins, que:</p>
+    <p class="doc-rec">${pl ? "Fomos procurados" : "Fui procurado(a)"} por ${prop}, proprietário(s) do imóvel locado, que ${pl ? "nos" : "me"} informou(aram) a intenção de vender o referido imóvel${val > 0 ? ` pelo preço de ${brl(val)} (${esc(extensoReais(val).toLowerCase())})${forma ? `, com pagamento ${esc(forma.toLowerCase())}` : ""}` : ""}.</p>
+    <p class="doc-rec">Em atenção ao direito de preferência previsto no art. 27 da Lei nº 8.245/91 (Lei do Inquilinato), ${pl ? "declaramos que não temos" : "declaro que não tenho"} interesse na aquisição do imóvel, motivo pelo qual ${pl ? "renunciamos" : "renuncio"} expressamente a qualquer direito de preferência, autorizando o proprietário a vendê-lo a terceiros, pelo preço e nas condições que entender convenientes, sem prejuízo da locação em vigor.</p>
+    <p class="doc-rec">Por ser expressão da verdade e para que produza os efeitos legais, ${pl ? "firmamos" : "firmo"} a presente declaração na presença de duas testemunhas.</p>
+    <p class="doc-data">${esc(TIMBRE.cidade)}/SP, ${dataExt(hoje())}.</p>${assinaturas(lct)}
+    <p style="margin-top:24px"><b>Testemunhas:</b></p>${assinaturas([f.test1_nome || "", f.test2_nome || ""])}`;
+  return abrirDocEditavel("Declaração de renúncia ao direito de preferência · " + (c.codigo || rotuloImv(c.endereco || "")), html, Object.assign({}, opts, { semTimbre: false, clientes: lct, papelCliente: pl ? "Locatário" : "Locatário(a)", pasta: c.codigo && !ehRascunho(c.codigo) ? c.codigo : "" }));
 }
 // importação da aba "Contratos Vendas" do Mapa de Vendas (.xlsm)
 ACT["ven-importar"] = () => {
@@ -6706,9 +6774,8 @@ function desenharLocadores(pg) {
     if (agr) g.sort = { k: "grupo", dir: "asc" }; else if (g.sort && g.sort.k === "grupo") g.sort = { k: "nome", dir: "asc" };
     g.redesenhar = () => desenharLocadores();
     html = `<div class="filters"><div class="fgrupo"><span>Mostrar</span>${[["ativos", "Ativos"], ["incompletos", "Ficha incompleta"], ["semimovel", "Sem imóvel"], ["parados", "Só imóveis inativos/ocupados"], ["inativos", "Inativos"], ["todos", "Todos"]].map(([k, t]) => `<button class="chip${f === k ? " on" : ""}" data-act="chip" data-k="loc" data-v="${k}">${t}<span class="c">${(S.locadores || []).filter(teste[k]).length}</span></button>`).join("")}</div>
-      <button class="btn" data-act="loc-conferir" title="Mostra nomes de locador usados em imóveis e contratos que não batem com o título de nenhum locador">🏷 Conferir etiquetas</button>
       <button class="chip${S.f.locAgr === "1" ? " on" : ""}" data-act="chip" data-k="locAgr" data-v="${S.f.locAgr === "1" ? "" : "1"}" title="Mostra os locadores separados por grupo (família/empresa)">🗂 Agrupar por grupo</button>
-      <input type="search" placeholder="Buscar nome, CPF, telefone…" value="${esc(busca)}" data-busca="locBusca"><span class="spacer"></span>${gradeBarra("locadores")}
+      <input type="search" placeholder="Buscar nome, CPF, telefone…" value="${esc(busca)}" data-busca="locBusca"><span class="spacer"></span>${gradeBarra("locadores")}<button class="btn" data-act="loc-conferir" title="Mostra nomes de locador usados em imóveis e contratos que não batem com o título de nenhum locador">🏷 Conferir etiquetas</button>
       ${pode.ed("locadores") ? `<button class="btn" data-act="loc-puxar" title="Copia os dados dos locadores (nomes, CPF, RG, endereço, casamento) dos contratos dos imóveis de cada um">⇣ Completar com os contratos</button><button class="btn pri" data-act="loc-ed">+ Locador</button>` : ""}</div>
       ${gradeHTML("locadores")}
       <p class="hint">O <b>título</b> é o nome curto usado no mapa e nos relatórios (ex.: “Breno, Murilo e Renan Quitzau”). Dentro da ficha ficam os dados completos de cada pessoa, iguais aos do contrato. Recibos e documentos usam os nomes completos.</p>`;
@@ -7891,7 +7958,7 @@ async function escolherContrato(titulo, filtro) {
   return r ? r.v : null;
 }
 /* ---------- v20: termos de contratos antigos, encerrados ou sem cadastro (dados à mão ou importados do contrato) ---------- */
-const NOME_TERMO = { entrega: "Entrega de chaves", caucao: "Devolução de caução", moradia: "Declaração de moradia", quitacao: "Declaração de quitação", cond_ficha: "Ficha cadastral do condomínio", cond_mudanca: "Mudança (condomínio)" };
+const NOME_TERMO = { entrega: "Entrega de chaves", caucao: "Devolução de caução", moradia: "Declaração de moradia", quitacao: "Declaração de quitação", cond_ficha: "Ficha cadastral do condomínio", cond_mudanca: "Mudança (condomínio)", renuncia: "Renúncia ao direito de preferência" };
 const itemCttTermo = c => { const im = imvDoCtt(c);
   return { v: { c }, busca: [c.codigo, c.locatario, c.endereco, im && im.endereco, im && (im.ficha || {}).etiqueta, im && im.locador].join(" "), html: `<span class="mono esc-cod">${esc(c.codigo)}</span><span class="tag ${SIT_CTT[c.situacao] || "idle"}">${esc(sitTxt(c.situacao))}</span>${im ? tagImv(im.endereco) : c.endereco ? `<span class="etq etq-imv">🏠 ${esc(rotuloImv(c.endereco))}</span>` : ""}${im && im.locador ? tagLoc(im.locador) : ""}${tagPes(nomesCtt(c, "lct").length ? nomesCtt(c, "lct") : separaNomes(c.locatario), "etq-lct", "", 2)}` }; };
 const itemImvTermo = i => ({ v: { i }, busca: [i.endereco, i.locatario, i.locador, (i.ficha || {}).etiqueta, "sem contrato"].join(" "),
@@ -8013,6 +8080,7 @@ async function abrirTermoNativo(tipo, codigo, opts) {
     else if (!c) c = await contratoParaTermo(tipo, await escolherParaTermo(tipo, opts.filtro));
     if (!c) return;
     if (/^cond_/.test(tipo)) return abrirTermoCond(tipo, c);
+    if (tipo === "renuncia") return termoRenunciaLoc(c, opts);
     const ref = c.codigo || rotuloImv(c.endereco || "") || "contrato fora do sistema";
     const f = fichaDe(c), end = esc(endImovelFicha(f, c) || c.endereco || ""), lct = nomesLct(f).length ? nomesLct(f) : [c.locatario || ""];
     const pl = lct.length > 1 && !/PJ/i.test(f.lct_qtd || "");
@@ -8349,25 +8417,52 @@ function cardER(titulo, esp, real, sub, main) {
 const cardsER = cs => kWrap(`<div class="kcards">${cs.join("")}</div>`);
 // v30: resumo de valores (cards) — some na conta da recepção; os outros podem ocultar (fica guardado neste computador)
 const kOff = () => lsGet("kOff", "") === "1";
-const kWrap = h => S.papel === "recepcao" ? "" : kOff() ? `<button type="button" class="btn sm k-mostrar" data-act="k-tog" title="Mostrar os cards com os valores">▾ Mostrar resumo</button>` : `<div class="kwrap">${h}<button type="button" class="k-tog" data-act="k-tog" title="Ocultar os cards com os valores (a tabela fica maior)">▴ ocultar</button></div>`;
+const kWrap = h => S.papel === "recepcao" ? "" : kOff() ? `<button type="button" class="btn sm k-mostrar" data-act="k-tog" title="Mostrar os cards com os valores">▾ Mostrar resumo</button>` : `<div class="kwrap">${h}<button type="button" class="k-tog" data-act="k-tog" title="Ocultar os cards com os valores em todas as abas de pagamento (a tabela fica maior)">▴ Ocultar resumo</button></div>`;
 ACT["k-tog"] = () => { lsSet("kOff", kOff() ? "" : "1"); if (S.redesenhar) { S.redesenhar(); requestAnimationFrame(ajustarAlturas); } else render(); };
-// v30: padrão das barras: linha 1 = filtros + busca (a busca estica até o fim); linha 2 = funções e depois os avisos (resumidos).
-// Se tudo couber numa linha só, fica tudo junto: filtros, busca e funções no canto direito.
-const barra = (l1, l2) => `<div class="barra" data-barra><div class="filters b-l1">${l1}</div><div class="filters b-l2"><span class="spacer"></span>${l2 || ""}</div></div>`;
+// v31: padrão das barras (todas as telas):
+//   linha 1 = filtros + busca (a busca estica até o fim)
+//   linha 2 = à esquerda ☰ Colunas, depois os avisos (resumidos); à direita os botões de função
+// Os itens da linha 2 se separam sozinhos: Colunas / Limpar filtros / Mostrar resumo / avisos (.aviso ou data-esq) vão para a esquerda.
+const ehEsqBarra = n => n.nodeType === 1 && (n.matches('[data-act="g-cols"],[data-act="g-limpar"]') ? 1 : n.matches(".k-mostrar") ? 2 : n.matches(".aviso,[data-esq]") ? 3 : 0);
+const barra = (l1, l2) => {
+  const t = document.createElement("template"); t.innerHTML = l2 || "";
+  const h = a => a.map(n => n.nodeType === 1 ? n.outerHTML : esc(n.textContent)).join("");
+  const ns = [...t.content.childNodes].filter(n => n.nodeType === 1 || n.textContent.trim());
+  const de = k => ns.filter(n => ehEsqBarra(n) === k);
+  return `<div class="barra" data-barra><div class="filters b-l1">${l1}</div><div class="filters b-l2"><div class="b-esq">${h(de(1))}${h(de(2))}${h(de(3))}</div><span class="spacer"></span><div class="b-dir">${h(de(0))}</div></div></div>`;
+};
+// v31: telas que ainda usam a barra antiga (filtros · busca · espaço · botões numa linha só) viram o padrão novo sozinhas:
+// o que vem antes do espaço fica na linha 1; o que vem depois vai para a linha 2 (Colunas e avisos à esquerda, funções à direita)
+function converterBarras() {
+  $$("#page .filters").forEach(fx => {
+    if (fx.closest("[data-barra],dialog,.dois") || fx.parentElement !== fx.closest(".grid")) return;
+    const sp = $(":scope > .spacer", fx); if (!sp || !$(":scope > input[type=search]", fx)) return;
+    const ns = [...fx.childNodes].filter(n => n.nodeType === 1 || n.textContent.trim()), i = ns.indexOf(sp);
+    const antes = ns.slice(0, i), depois = ns.slice(i + 1);
+    const w = document.createElement("div"); w.className = "barra"; w.setAttribute("data-barra", "");
+    w.innerHTML = `<div class="filters b-l1"></div><div class="filters b-l2"><div class="b-esq"></div><span class="spacer"></span><div class="b-dir"></div></div>`;
+    const l1 = $(".b-l1", w), esq = $(".b-esq", w), dir = $(".b-dir", w);
+    antes.forEach(n => l1.appendChild(n));
+    const bu = $(":scope > input[type=search]", l1); if (bu) { l1.appendChild(bu); bu.classList.add("busca-larga"); bu.style.minWidth = ""; bu.style.width = ""; bu.style.flex = ""; }
+    [1, 2, 3].forEach(k => depois.filter(n => ehEsqBarra(n) === k).forEach(n => esq.appendChild(n)));
+    depois.filter(n => !ehEsqBarra(n)).forEach(n => dir.appendChild(n));
+    fx.replaceWith(w);
+  });
+}
 function arrumarBarras() {
+  converterBarras();
   $$("[data-barra]").forEach(b => {
-    const l1 = $(".b-l1", b), l2 = $(".b-l2", b);
-    // "Mostrar resumo" (cards ocultos) vai para a linha das funções
-    const km = b.parentElement && $(":scope > .k-mostrar", b.parentElement); if (km) l2.insertBefore(km, l2.children[1] || null);
-    b.classList.remove("uma");
-    const itens = el => [...el.children].filter(x => !x.classList.contains("spacer") && x.offsetParent !== null);
-    const larg = el => itens(el).reduce((a, x) => a + (x.matches("input.busca-larga") ? 230 : x.offsetWidth) + 8, 0);
-    // a busca fica na linha 1; se não sobrar espaço nela (mín. 200px), vai para o começo da linha 2 (em vez de ocupar uma linha sozinha)
-    const bu = $("input.busca-larga", b);
-    if (bu) { if (bu.parentElement !== l1) l1.appendChild(bu); const semB = larg(l1) - 238; bu.classList.toggle("na-l2", false);
-      if (semB + 200 > b.clientWidth && itens(l2).length) { l2.insertBefore(bu, l2.firstChild); bu.classList.add("na-l2"); } }
-    if (!itens(l2).length) { l2.hidden = true; return; } l2.hidden = false;
-    if (!(bu && bu.classList.contains("na-l2")) && larg(l1) + larg(l2) + 12 <= b.clientWidth) b.classList.add("uma");
+    const l2 = $(".b-l2", b), esq = $(".b-esq", b);
+    // "Mostrar resumo" (cards ocultos) vai para a linha 2, logo depois de ☰ Colunas
+    const km = b.parentElement && $(":scope > .k-mostrar", b.parentElement);
+    if (km && esq) { const ult = [...esq.children].filter(x => x.matches('[data-act^="g-"]')).pop(); esq.insertBefore(km, ult ? ult.nextSibling : esq.firstChild); }
+    // a busca fica na linha 1; se não couber lá (mín. 200px, iria para uma linha sozinha), vai para o meio da linha 2 (entre os avisos e os botões)
+    const l1 = $(".b-l1", b), bu = $("input.busca-larga", b), sp = $(":scope > .spacer", l2);
+    if (bu && l1) { if (bu.parentElement !== l1) l1.appendChild(bu); bu.classList.remove("na-l2"); if (sp) sp.hidden = false;
+      const prim = [...l1.children].find(x => x !== bu && x.offsetParent !== null);
+      if (prim && bu.offsetTop > prim.offsetTop + prim.offsetHeight / 2) { l2.insertBefore(bu, sp || null); bu.classList.add("na-l2"); if (sp) sp.hidden = true; } }
+    const vis = el => [...el.querySelectorAll(":scope > *, :scope > div > *")].some(x => !x.classList.contains("spacer") && !x.matches(".b-esq,.b-dir") && x.offsetParent !== null);
+    l2.hidden = false; l2.hidden = !vis(l2);
   });
 }
 // v28: cards estreitos à esquerda; avisos e botões no espaço da direita
@@ -8492,7 +8587,7 @@ const TIPOS_CUSTA = ["IPTU", "Água", "Energia", "Taxa / tarifa", "Imposto", "Ou
 const custaDe = l => { const m = /^Custa · ([^:]+):/.exec(l.descricao || ""); return m ? m[1] : l.natureza === "custa" ? "Custa" : /^Condom/i.test(l.descricao || "") ? "Condomínio" : "Despesa"; };
 const COLS_PDL = [
   colSel(l => !l.pago), colVencL(), colImvL(),
-  { k: "locador", t: "Locador", w: 150, cls: "tags", v: l => (S.imovelPor[l.imovel_id] || {}).locador || "", html: l => { const i = S.imovelPor[l.imovel_id]; return i && i.locador ? tagLoc(i.locador) : `<span class="muted">—</span>`; } },
+  { k: "locador", t: "Locador", w: 200, cls: "tags", v: l => (S.imovelPor[l.imovel_id] || {}).locador || "", html: l => { const i = S.imovelPor[l.imovel_id]; return i && i.locador ? tagLoc(i.locador) : `<span class="muted">—</span>`; } },
   colRamo("Ramo / despesa", custaDe), colPrest(),
   { k: "descricao", t: "O que foi feito", cls: "trunc", w: 230, v: l => (l.descricao || "").replace(/^(Serviço|Material|Custa · [^:]+): /, "").replace(/ — [^—]+$/, "") },
   colContaL(), { k: "valor", t: "Valor", tipo: "num", w: 96 }, colSitL(),
@@ -8517,7 +8612,7 @@ function desenharPDL(pg) {
   // v29: um card para prestadores e outro para lojas (até 4 linhas cada)
   const cardF = (tit, ls) => ls.length ? `<div class="kcard k-prest"><div class="l">${tit}${per === "mes" ? " no mês" : ""} <small class="muted">(clique para filtrar)</small></div><div class="prest-g">${ls.slice(0, 12).map(([k, x]) => `<span><button type="button" class="lnk-ctt" data-act="chip" data-k="pdlForn" data-v="${fo === k ? "" : esc(k)}" style="${fo === k ? "font-weight:800" : ""}">${esc(curtoTxt(x.nome, 22))}</button><b>${n2(x.v)}</b> <small class="muted">(${x.n})</small></span>`).join("")}</div></div>` : "";
   const esp = r2(PDL.reduce((a, l) => a + +l.valor, 0)), real = r2(PDL.filter(l => l.pago).reduce((a, l) => a + +l.valor, 0));
-  const g = grade("pdl", COLS_PDL, ls, { sort: { k: "data", dir: "asc" }, divisor: "data", cls: l => teste.hoje(l) ? "lin-hoje" : "", attr: l => `data-act="lanc-ed" data-id="${l.id}" style="cursor:pointer"`, rodape: fl => `${fl.length} despesas · ${brl(fl.reduce((a, l) => a + +l.valor, 0))}` });
+  const g = grade("pdl", COLS_PDL, ls, { sort: { k: "data", dir: "asc" }, divisor: "data", estica: ["imovel", "locador", "descricao"], cls: l => teste.hoje(l) ? "lin-hoje" : "", attr: l => `data-act="lanc-ed" data-id="${l.id}" style="cursor:pointer"`, rodape: fl => `${fl.length} despesas · ${brl(fl.reduce((a, l) => a + +l.valor, 0))}` });
   g.redesenhar = () => desenharPDL();
   pg.innerHTML = `<div class="grid">
     ${cardsER([cardER("Despesas dos locadores", esp, real, `${PDL.length} lançamento(s) · descontadas do repasse`, true), cardF("Prestadores", top.filter(([, x]) => x.tipo !== "loja" && x.nome !== "custas e outras")), cardF("Lojas", top.filter(([, x]) => x.tipo === "loja"))].filter(Boolean))}
@@ -8937,7 +9032,8 @@ const TERMOS_CTT = [
   { ic: "🏠", k: "moradia", t: "Declaração de moradia", d: "comprova que o locatário reside no imóvel" },
   { ic: "✅", k: "quitacao", t: "Declaração de quitação", d: "aluguéis pagos, para o locatário comprovar" },
   { ic: "🏢", k: "cond_ficha", t: "Ficha cadastral do condomínio", d: "apartamentos: ficha no modelo da administradora do condomínio" },
-  { ic: "🚚", k: "cond_mudanca", t: "Aviso / termo de mudança (condomínio)", d: "autorização de mudança, no modelo da administradora" }
+  { ic: "🚚", k: "cond_mudanca", t: "Aviso / termo de mudança (condomínio)", d: "autorização de mudança, no modelo da administradora" },
+  { ic: "✍️", k: "renuncia", t: "Renúncia ao direito de preferência", d: "imóvel locado que vai ser vendido: o locatário abre mão de comprar · art. 27 Lei 8.245/91" }
 ];
 ACT["ctt-termo"] = el => menuTermos(el, "Termos", TERMOS_CTT.map(x => ({ ic: x.ic, t: x.t, d: x.d, fn: () => abrirTermoNativo(x.k, "", { filtro: FILTRO_TERMO[x.k] }) })));
 // cobrança: termos com escolha do locatário/devedor
@@ -9549,7 +9645,7 @@ function desenharIV(pg) {
   const n = k => k === "todos" ? IV.length : IV.filter(x => x.status === k).length;
   pg.innerHTML = `<div class="grid"><div class="filters">
     <div class="chips">${[["DISP", "Disponíveis", "st-LVR"], ["VEND", "Vendidos", "st-ALG"], ["INAT", "Inativos", "st-INTV"], ["todos", "Todos", ""]].map(([k, t, c]) => `<button class="chip ${c}${f === k ? " on" : ""}" data-act="chip" data-k="iv" data-v="${k}">${t}<span class="c">${n(k)}</span></button>`).join("")}</div>
-    <input type="search" placeholder="Buscar endereço, bairro, vendedor, código…" value="${esc(busca)}" data-busca="ivBusca"><span class="spacer"></span>${(() => { const cf = conflitosIV(), nj = cf.filter(x => !x.just).length; return cf.length ? `<button class="btn${nj ? " danger" : ""}" data-act="iv-conflitos" title="Endereços que estão à venda e também na locação">🔁 Conflitos locação × venda <span class="c">${nj ? nj + " sem justificativa" : cf.length}</span></button>` : ""; })()}${gradeBarra("imoveis_venda")}
+    <input type="search" placeholder="Buscar endereço, bairro, vendedor, código…" value="${esc(busca)}" data-busca="ivBusca"><span class="spacer"></span>${(() => { const cf = conflitosIV(), nj = cf.filter(x => !x.just).length; return cf.length ? `<button class="btn sm aviso${nj ? " danger" : ""}" data-act="iv-conflitos" title="Endereços que estão à venda e também na locação">🔁 Conflitos locação × venda <span class="c">${nj ? nj + " sem justificativa" : cf.length}</span></button>` : ""; })()}${gradeBarra("imoveis_venda")}
     ${pode.ed("vendas") ? `<button class="btn pri" data-act="iv-ed">+ Imóvel à venda</button>` : ""}</div>${gradeHTML("imoveis_venda")}
     <p class="hint"><b>Disponível</b>: à venda. <b>Inativo</b>: retirado (vendido por terceiros ou outro motivo). <b>Vendido</b>: venda feita pela imobiliária (ligada ao contrato de venda).</p></div>`;
   ligarBusca(pg);
@@ -10797,7 +10893,7 @@ PAGES.termos = async pg => {
     ${pode.ver("atrasados") || pode.ver("devedores") ? grupo("Cobrança", TERMOS_COB_IC.map(x => Object.assign({}, x, { k: "cob:" + x.k }))) : ""}
     ${pode.ver("vendas") ? grupo("Vendas", TERMOS_VEN.map(x => Object.assign({}, x, { k: "ven:" + x.k }))) : ""}</div>`;
 };
-const FILTRO_TERMO = { entrega: c => c.situacao === "ATIVO", moradia: c => c.situacao === "ATIVO", caucao: c => garDe(c) === "caucao" && c.situacao !== "RASCUNHO", quitacao: c => ["ATIVO", "ENCERRADO", "DÉBITO EM ABERTO"].includes(c.situacao),
+const FILTRO_TERMO = { entrega: c => c.situacao === "ATIVO", moradia: c => c.situacao === "ATIVO", renuncia: c => c.situacao === "ATIVO", caucao: c => garDe(c) === "caucao" && c.situacao !== "RASCUNHO", quitacao: c => ["ATIVO", "ENCERRADO", "DÉBITO EM ABERTO"].includes(c.situacao),
   cond_ficha: c => SIT_COND.includes(c.situacao) && cttTemCond(c), cond_mudanca: c => SIT_COND.includes(c.situacao) && cttTemCond(c) };
 ACT["termo-pg"] = async el => {
   const [g, k] = el.dataset.k.split(":");

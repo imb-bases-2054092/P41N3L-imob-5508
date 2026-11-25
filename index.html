@@ -941,8 +941,14 @@ table.cad-dtab{table-layout:fixed;width:100%}table.cad-dtab td{padding:3px 6px;v
 .k-mostrar{align-self:flex-start}
 .pend-ops{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 tfoot .leg-cod{display:inline-flex;font-weight:400}
-.filters input.busca-larga{flex:1 1 220px;min-width:180px;width:auto}.filters input.busca-larga.na-l2{flex:1 1 240px;max-width:520px}
+.filters input.busca-larga{flex:1 1 220px;min-width:180px;width:auto}.filters input.busca-larga.na-l2{flex:1 1 240px;max-width:none}
 table.grade .sel-col{padding:0 !important;text-align:center}table.grade .sel-col input{margin:0}
+/* v31 */
+.barra .b-l2 .b-esq,.barra .b-l2 .b-dir{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}.barra .b-l2 .b-dir{justify-content:flex-end}.barra .b-l2 .b-esq:empty,.barra .b-l2 .b-dir:empty{display:none}
+.leg-l3{font-size:11.5px;margin:-4px 0 0;gap:12px}
+.pend-chk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin:6px 0 10px}.pend-chk .chk{font-size:14px}
+.rel-t.rel-pend td{white-space:normal;vertical-align:top;line-height:1.35}.rel-t.rel-pend td:first-child{white-space:nowrap}
+.k-tog{font-weight:600;color:var(--c1,#2563c9)!important}
 </style>
 </head>
 <body>
@@ -1012,7 +1018,7 @@ table.grade .sel-col{padding:0 !important;text-align:center}table.grade .sel-col
     <nav class="nav" id="nav">
       <div class="nav-h">Gestão <span class="nav-bts"><button type="button" class="nav-inv" data-act="nav-cfg" title="Escolher os números do menu">⚙</button><button type="button" class="nav-inv" data-act="nav-inv" title="Trocar entre a exibição A e B">⇄</button></span></div>
       <a href="#tarefas" data-p="tarefas"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="nav-t">Tarefas</span><span class="nav-c" data-c="tarefas"></span></a>
-      <a href="#interessados" data-p="interessados"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M16 3a4 4 0 0 1 0 8M22 21v-1a7 7 0 0 0-4-6.3"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span><span class="nav-c" data-c="interessados_ven"></span></a>
+      <a href="#interessados" data-p="interessados"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1M16 3a4 4 0 0 1 0 8M22 21v-1a7 7 0 0 0-4-6.3"/></svg><span class="nav-t">Interessados</span><span class="nav-c" data-c="interessados_loc"></span><span class="nav-c" data-c="interessados_ven"></span><span class="nav-c" data-c="interessados_vde"></span></a>
       <a href="#painel" data-p="painel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="nav-t">Dashboard</span></a>
       <a href="#caixa" data-p="caixa"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg><span class="nav-t">Caixa e lançamentos</span></a>
       <div class="nav-h">Pagamentos</div>
